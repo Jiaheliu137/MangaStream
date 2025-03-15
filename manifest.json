@@ -1,0 +1,15 @@
+{
+    "id": "c96edc90-b8cb-423e-8bab-52951bbe2ed2",
+    "version": "1.0.0",
+    "platform": "all",
+    "arch": "all",
+    "name": "滚动浏览",
+    "logo": "/logo.png",
+    "keywords": [],
+    "devTools": false,
+    "main": {
+        "url": "index.html",
+        "width": 640,
+        "height": 480
+    }
+}
