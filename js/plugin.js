@@ -33,8 +33,25 @@ function initZoomFeature() {
 			
 			// 应用缩放
 			applyZoom(currentZoom);
+			
+			// 显示缩放比例
+			showZoomLevel(currentZoom);
 		}
 	}, { passive: false });
+	
+	// 添加键盘事件监听，用于Ctrl+0重置缩放
+	document.addEventListener('keydown', (event) => {
+		// 检测Ctrl+0组合键
+		if (event.ctrlKey && (event.key === '0' || event.keyCode === 48)) {
+			event.preventDefault();
+			// 重置缩放比例为1
+			currentZoom = 1;
+			// 应用缩放
+			applyZoom(currentZoom);
+			// 显示缩放比例
+			showZoomLevel(currentZoom);
+		}
+	});
 }
 
 // 应用缩放到整个容器
@@ -166,3 +183,26 @@ eagle.onPluginHide(() => {
 eagle.onPluginBeforeExit((event) => {
 	console.log('eagle.onPluginBeforeExit');
 });
+
+// 显示缩放比例的函数
+function showZoomLevel(zoom) {
+	// 检查是否已存在缩放指示器
+	let zoomIndicator = document.getElementById('zoom-indicator');
+	
+	// 如果不存在，创建一个
+	if (!zoomIndicator) {
+		zoomIndicator = document.createElement('div');
+		zoomIndicator.id = 'zoom-indicator';
+		document.body.appendChild(zoomIndicator);
+	}
+	
+	// 更新缩放指示器内容和样式
+	zoomIndicator.textContent = `${Math.round(zoom * 100)}%`;
+	zoomIndicator.style.display = 'block';
+	
+	// 2秒后隐藏
+	clearTimeout(window.zoomIndicatorTimeout);
+	window.zoomIndicatorTimeout = setTimeout(() => {
+		zoomIndicator.style.display = 'none';
+	}, 2000);
+}

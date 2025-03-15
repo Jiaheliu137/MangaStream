@@ -60,6 +60,21 @@
             color: #999;
         }
         
+        /* 缩放指示器样式 */
+        #zoom-indicator {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 16px;
+            z-index: 1000;
+            display: none;
+            transition: opacity 0.3s ease;
+        }
+        
         /* 禁用默认的浏览器缩放行为 */
         /* html {
             overscroll-behavior: none;
