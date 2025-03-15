@@ -20,12 +20,22 @@
             align-items: center;
         }
         
+        .image-wrapper {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 0;
+            padding: 0;
+        }
+        
         .seamless-image {
             max-width: 100%;
             height: auto;
             display: block;
             margin: 0;
             padding: 0;
+            transition: transform 0.2s ease;
         }
         
         .image-placeholder {
@@ -43,6 +53,11 @@
             padding: 20px;
             text-align: center;
             color: #999;
+        }
+        
+        /* 禁用默认的浏览器缩放行为 */
+        html {
+            overscroll-behavior: none;
         }
     </style>
     <script type="text/javascript" src="js/plugin.js"></script>

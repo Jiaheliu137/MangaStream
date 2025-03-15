@@ -1,18 +1,14 @@
+// 全局变量，用于存储当前缩放比例
+let currentZoom = 1;
+
 eagle.onPluginCreate((plugin) => {
 	console.log('eagle.onPluginCreate');
-	console.log(plugin);
-	document.querySelector('#message').innerHTML = `
-	<ul>
-		<li>id: ${plugin.manifest.id}</li>
-		<li>version: ${plugin.manifest.version}</li>
-		<li>name: ${plugin.manifest.name}</li>
-		<li>logo: ${plugin.manifest.logo}</li>
-		<li>path: ${plugin.path}</li>
-	</ul>
-	`;
 	
 	// 在插件创建后立即获取选中的项目
 	loadSelectedItems();
+	
+	// 添加缩放功能
+	initZoomFeature();
 });
 
 eagle.onPluginRun(() => {
@@ -20,6 +16,35 @@ eagle.onPluginRun(() => {
 	// 在插件运行时也获取选中的项目
 	loadSelectedItems();
 });
+
+// 初始化缩放功能
+function initZoomFeature() {
+	// 监听滚轮事件
+	document.addEventListener('wheel', (event) => {
+		// 只有按住Ctrl键时才进行缩放
+		if (event.ctrlKey) {
+			event.preventDefault();
+			
+			// 根据滚轮方向确定缩放方向
+			const delta = event.deltaY > 0 ? -0.1 : 0.1;
+			
+			// 计算新的缩放比例，限制在0.1到5之间
+			currentZoom = Math.max(0.1, Math.min(5, currentZoom + delta));
+			
+			// 应用缩放
+			applyZoom(currentZoom);
+		}
+	}, { passive: false });
+}
+
+// 应用缩放到所有图片
+function applyZoom(zoomLevel) {
+	const images = document.querySelectorAll('.seamless-image');
+	images.forEach(img => {
+		img.style.transform = `scale(${zoomLevel})`;
+		img.style.transformOrigin = 'center center';
+	});
+}
 
 // 加载选中项目的函数
 function loadSelectedItems() {
@@ -57,6 +82,10 @@ function displaySelectedItems(items) {
 			imagePath = item.url.replace('file://', '');
 		}
 		
+		// 创建图片容器元素（用于居中）
+		const imgContainer = document.createElement('div');
+		imgContainer.className = 'image-wrapper';
+		
 		// 创建图片元素
 		const img = document.createElement('img');
 		img.className = 'seamless-image';
@@ -90,7 +119,8 @@ function displaySelectedItems(items) {
 		}
 		
 		// 添加图片到容器
-		container.appendChild(img);
+		imgContainer.appendChild(img);
+		container.appendChild(imgContainer);
 	});
 }
 
