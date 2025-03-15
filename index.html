@@ -11,6 +11,9 @@
             color: #fff;
             font-family: Arial, sans-serif;
             overflow-x: hidden;
+            height: 100vh; /* 确保body占满整个视口高度 */
+            display: flex; /* 使用flex布局 */
+            flex-direction: column; /* 垂直方向排列 */
         }
         
         #image-container {
@@ -19,6 +22,7 @@
             flex-direction: column;
             align-items: center;
             transition: transform 0.2s ease;
+            flex-grow: 1; /* 允许容器填充可用空间 */
         }
         
         .image-wrapper {
@@ -57,9 +61,9 @@
         }
         
         /* 禁用默认的浏览器缩放行为 */
-        html {
+        /* html {
             overscroll-behavior: none;
-        }
+        } */
     </style>
     <script type="text/javascript" src="js/plugin.js"></script>
 </head>

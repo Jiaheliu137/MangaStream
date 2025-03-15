@@ -44,7 +44,36 @@ function applyZoom(zoomLevel) {
 	// 使用transform对整个容器进行缩放
 	container.style.transform = `scale(${zoomLevel})`;
 	container.style.transformOrigin = 'top center';
+	
+	// 添加调整容器高度的代码，确保缩放后内容填满窗口
+	adjustContainerHeight(container, zoomLevel);
 }
+
+// 新增函数：调整容器高度以填满窗口
+function adjustContainerHeight(container, zoomLevel) {
+	// 获取容器的实际内容高度（缩放前）
+	const contentHeight = container.scrollHeight;
+	
+	// 计算缩放后的内容高度
+	const scaledHeight = contentHeight * zoomLevel;
+	
+	// 获取窗口可视区域高度
+	const windowHeight = window.innerHeight;
+	
+	// 如果缩放后高度小于窗口高度，设置容器的最小高度为窗口高度
+	if (scaledHeight < windowHeight) {
+		container.style.minHeight = `${windowHeight / zoomLevel}px`;
+	} else {
+		// 否则重置最小高度
+		container.style.minHeight = 'auto';
+	}
+}
+
+// 添加窗口大小变化监听，以便在窗口大小变化时重新调整
+window.addEventListener('resize', () => {
+	// 重新应用当前缩放比例，这会触发高度调整
+	applyZoom(currentZoom);
+});
 
 // 加载选中项目的函数
 function loadSelectedItems() {
