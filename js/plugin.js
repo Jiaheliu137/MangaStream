@@ -37,13 +37,13 @@ function initZoomFeature() {
 	}, { passive: false });
 }
 
-// 应用缩放到所有图片
+// 应用缩放到整个容器
 function applyZoom(zoomLevel) {
-	const images = document.querySelectorAll('.seamless-image');
-	images.forEach(img => {
-		img.style.transform = `scale(${zoomLevel})`;
-		img.style.transformOrigin = 'center center';
-	});
+	const container = document.querySelector('#image-container');
+	
+	// 使用transform对整个容器进行缩放
+	container.style.transform = `scale(${zoomLevel})`;
+	container.style.transformOrigin = 'top center';
 }
 
 // 加载选中项目的函数
