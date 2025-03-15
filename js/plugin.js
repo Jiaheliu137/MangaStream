@@ -52,6 +52,54 @@ function initZoomFeature() {
 			showZoomLevel(currentZoom);
 		}
 	});
+	
+	// 初始化拖动功能
+	initDragFeature();
+}
+
+// 初始化拖动功能
+function initDragFeature() {
+	const container = document.querySelector('#image-container');
+	let isDragging = false;
+	let startX, startY, scrollLeft, scrollTop;
+	
+	// 鼠标按下事件
+	container.addEventListener('mousedown', (e) => {
+		isDragging = true;
+		container.style.cursor = 'grabbing';
+		startX = e.pageX - container.offsetLeft;
+		startY = e.pageY - container.offsetTop;
+		scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
+		scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+	});
+	
+	// 鼠标移动事件
+	document.addEventListener('mousemove', (e) => {
+		if (!isDragging) return;
+		e.preventDefault();
+		
+		const x = e.pageX - container.offsetLeft;
+		const y = e.pageY - container.offsetTop;
+		const moveX = x - startX;
+		const moveY = y - startY;
+		
+		// 设置滚动位置
+		window.scrollTo(scrollLeft - moveX, scrollTop - moveY);
+	});
+	
+	// 鼠标释放事件
+	document.addEventListener('mouseup', () => {
+		isDragging = false;
+		container.style.cursor = 'default';
+	});
+	
+	// 鼠标离开窗口事件
+	document.addEventListener('mouseleave', () => {
+		if (isDragging) {
+			isDragging = false;
+			container.style.cursor = 'default';
+		}
+	});
 }
 
 // 应用缩放到整个容器
@@ -64,6 +112,9 @@ function applyZoom(zoomLevel) {
 	
 	// 添加调整容器高度的代码，确保缩放后内容填满窗口
 	adjustContainerHeight(container, zoomLevel);
+	
+	// 调整容器宽度，确保水平方向也能正确显示
+	adjustContainerWidth(container, zoomLevel);
 }
 
 // 新增函数：调整容器高度以填满窗口
@@ -83,6 +134,35 @@ function adjustContainerHeight(container, zoomLevel) {
 	} else {
 		// 否则重置最小高度
 		container.style.minHeight = 'auto';
+	}
+}
+
+// 新增函数：调整容器宽度
+function adjustContainerWidth(container, zoomLevel) {
+	// 获取容器的实际内容宽度（缩放前）
+	const contentWidth = container.scrollWidth;
+	
+	// 计算缩放后的内容宽度
+	const scaledWidth = contentWidth * zoomLevel;
+	
+	// 获取窗口可视区域宽度
+	const windowWidth = window.innerWidth;
+	
+	// 如果缩放后宽度大于窗口宽度，确保有足够的空间进行水平滚动
+	if (scaledWidth > windowWidth) {
+		// 设置body的overflow-x为auto以显示水平滚动条
+		document.body.style.overflowX = 'auto';
+		
+		// 设置容器的最小宽度，确保有足够的空间
+		container.style.minWidth = `${contentWidth}px`;
+		
+		// 设置容器的margin，确保缩放后内容居中
+		container.style.marginLeft = 'auto';
+		container.style.marginRight = 'auto';
+	} else {
+		// 如果缩放后宽度小于窗口宽度，则不需要水平滚动
+		document.body.style.overflowX = 'hidden';
+		container.style.minWidth = 'auto';
 	}
 }
 

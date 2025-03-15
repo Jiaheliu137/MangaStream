@@ -10,7 +10,8 @@
             background-color: #1e1e1e;
             color: #fff;
             font-family: Arial, sans-serif;
-            overflow-x: hidden;
+            overflow-x: auto; /* 允许水平滚动 */
+            overflow-y: auto; /* 允许垂直滚动 */
             height: 100vh; /* 确保body占满整个视口高度 */
             display: flex; /* 使用flex布局 */
             flex-direction: column; /* 垂直方向排列 */
@@ -23,6 +24,8 @@
             align-items: center;
             transition: transform 0.2s ease;
             flex-grow: 1; /* 允许容器填充可用空间 */
+            user-select: none; /* 防止拖动时选中文本 */
+            cursor: default; /* 默认光标 */
         }
         
         .image-wrapper {
