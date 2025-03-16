@@ -4,8 +4,8 @@ let currentZoom = 1;
 eagle.onPluginCreate((plugin) => {
 	console.log('eagle.onPluginCreate');
 	
-	// 在插件创建后立即获取选中的项目
-	loadSelectedItems();
+	// 不要在这里立即调用loadSelectedItems()
+	// 而是在插件初始化完成后调用
 	
 	// 添加缩放功能
 	initZoomFeature();
@@ -13,7 +13,7 @@ eagle.onPluginCreate((plugin) => {
 
 eagle.onPluginRun(() => {
 	console.log('eagle.onPluginRun');
-	// 在插件运行时也获取选中的项目
+	// 在插件运行时获取选中的项目
 	loadSelectedItems();
 });
 
@@ -197,7 +197,7 @@ function displaySelectedItems(items) {
 	container.innerHTML = '';
 	
 	// 按照顺序加载图片
-	items.forEach(item => {
+	items.forEach((item, index) => {
 		// 尝试获取图片的本地路径
 		let imagePath = '';
 		if (item.filePath) {
@@ -247,6 +247,13 @@ function displaySelectedItems(items) {
 		// 添加图片到容器
 		imgContainer.appendChild(img);
 		container.appendChild(imgContainer);
+		
+		// 如果不是最后一张图片，添加分割线
+		if (index < items.length - 1) {
+			const divider = document.createElement('div');
+			divider.className = 'image-divider';
+			container.appendChild(divider);
+		}
 	});
 }
 
