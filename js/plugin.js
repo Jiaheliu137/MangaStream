@@ -28,11 +28,35 @@ function initZoomFeature() {
 			// 根据滚轮方向确定缩放方向
 			const delta = event.deltaY > 0 ? -0.1 : 0.1;
 			
-			// 计算新的缩放比例，限制在0.1到5之间
-			currentZoom = Math.max(0.1, Math.min(5, currentZoom + delta));
+			// 获取当前容器和窗口信息
+			const container = document.querySelector('#image-container');
+			const containerHeight = container.scrollHeight;
+			const windowHeight = window.innerHeight;
 			
-			// 应用缩放
-			applyZoom(currentZoom);
+			// 计算新的缩放比例
+			const oldZoom = currentZoom;
+			let newZoom = currentZoom + delta;
+			
+			// 限制缩放范围：上限为5，下限动态计算
+			const minZoom = Math.max(0.1, windowHeight / containerHeight);
+			
+			// 如果是缩小操作且新缩放比例会导致容器高度小于窗口高度，则限制缩放
+			if (delta < 0) { // 缩小操作
+				if (newZoom < minZoom) {
+					newZoom = minZoom;
+				}
+			}
+			
+			// 限制在计算出的最小值到5之间
+			currentZoom = Math.max(minZoom, Math.min(5, newZoom));
+			
+			// 如果缩放比例没有变化，则不执行缩放操作
+			if (currentZoom === oldZoom) {
+				return;
+			}
+			
+			// 应用缩放，传入鼠标位置和新旧缩放比例
+			applyZoomWithMouseCenter(currentZoom, oldZoom, event.clientX, event.clientY);
 			
 			// 显示缩放比例
 			showZoomLevel(currentZoom);
@@ -44,10 +68,12 @@ function initZoomFeature() {
 		// 检测Ctrl+0组合键
 		if (event.ctrlKey && (event.key === '0' || event.keyCode === 48)) {
 			event.preventDefault();
+			// 记录旧的缩放比例
+			const oldZoom = currentZoom;
 			// 重置缩放比例为1
 			currentZoom = 1;
-			// 应用缩放
-			applyZoom(currentZoom);
+			// 应用缩放，使用视口中心作为缩放中心
+			applyZoomWithMouseCenter(currentZoom, oldZoom, window.innerWidth / 2, window.innerHeight / 2);
 			// 显示缩放比例
 			showZoomLevel(currentZoom);
 		}
@@ -69,8 +95,8 @@ function initDragFeature() {
 		container.style.cursor = 'grabbing';
 		startX = e.pageX - container.offsetLeft;
 		startY = e.pageY - container.offsetTop;
-		scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
-		scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+		scrollLeft = window.scrollX || window.pageXOffset || document.documentElement.scrollLeft;
+		scrollTop = window.scrollY || window.pageYOffset || document.documentElement.scrollTop;
 	});
 	
 	// 鼠标移动事件
@@ -102,22 +128,73 @@ function initDragFeature() {
 	});
 }
 
-// 应用缩放到整个容器
-function applyZoom(zoomLevel) {
+// 以鼠标位置为中心应用缩放
+function applyZoomWithMouseCenter(newZoom, oldZoom, mouseX, mouseY) {
 	const container = document.querySelector('#image-container');
 	
-	// 使用transform对整个容器进行缩放
-	container.style.transform = `scale(${zoomLevel})`;
-	container.style.transformOrigin = 'top center';
+	// 获取当前滚动位置
+	const scrollX = window.scrollX || window.pageXOffset;
+	const scrollY = window.scrollY || window.pageYOffset;
 	
-	// 添加调整容器高度的代码，确保缩放后内容填满窗口
-	adjustContainerHeight(container, zoomLevel);
+	// 计算鼠标相对于文档的位置
+	const mouseDocX = mouseX + scrollX;
+	const mouseDocY = mouseY + scrollY;
 	
-	// 调整容器宽度，确保水平方向也能正确显示
-	adjustContainerWidth(container, zoomLevel);
+	// 计算鼠标相对于容器的位置比例
+	// 这里需要考虑当前的缩放比例
+	const containerRect = container.getBoundingClientRect();
+	const containerLeft = containerRect.left + scrollX;
+	const containerTop = containerRect.top + scrollY;
+	
+	// 计算鼠标在容器中的相对位置
+	const relativeX = (mouseDocX - containerLeft) / (containerRect.width);
+	const relativeY = (mouseDocY - containerTop) / (containerRect.height);
+	
+	// 应用新的缩放比例
+	container.style.transform = `scale(${newZoom})`;
+	container.style.transformOrigin = 'top center'; // 保持居中缩放基准点
+	
+	// 调整容器高度和宽度
+	adjustContainerHeight(container, newZoom);
+	adjustContainerWidth(container, newZoom);
+	
+	// 等待DOM更新后计算新的滚动位置
+	setTimeout(() => {
+		// 获取缩放后的容器尺寸
+		const newContainerRect = container.getBoundingClientRect();
+		const newContainerLeft = newContainerRect.left + scrollX;
+		const newContainerTop = newContainerRect.top + scrollY;
+		
+		// 计算缩放后鼠标应该在的位置
+		const newMouseX = newContainerLeft + relativeX * newContainerRect.width;
+		const newMouseY = newContainerTop + relativeY * newContainerRect.height;
+		
+		// 计算需要滚动的距离，使鼠标指向的内容点保持在相同位置
+		const newScrollX = newMouseX - mouseX;
+		const newScrollY = newMouseY - mouseY;
+		
+		// 设置新的滚动位置
+		window.scrollTo(newScrollX, newScrollY);
+	}, 10);
 }
 
-// 新增函数：调整容器高度以填满窗口
+// 保留原来的applyZoom函数，但修改为调用新函数
+function applyZoom(zoomLevel) {
+	// 使用视口中心作为缩放中心点
+	applyZoomWithMouseCenter(zoomLevel, currentZoom, window.innerWidth / 2, window.innerHeight / 2);
+}
+
+// 新增函数：计算最小缩放比例
+function calculateMinZoom() {
+	const container = document.querySelector('#image-container');
+	const containerHeight = container.scrollHeight;
+	const windowHeight = window.innerHeight;
+	
+	// 确保容器至少填满窗口高度
+	return Math.max(0.1, windowHeight / containerHeight);
+}
+
+// 修改调整容器高度的函数
 function adjustContainerHeight(container, zoomLevel) {
 	// 获取容器的实际内容高度（缩放前）
 	const contentHeight = container.scrollHeight;
