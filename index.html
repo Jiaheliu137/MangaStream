@@ -33,12 +33,13 @@
             flex-grow: 1;
             user-select: none;
             cursor: default;
-            will-change: transform; /* 告知浏览器该元素会变换 */
-            -webkit-backface-visibility: hidden; /* 防止闪烁 */
+            
+            /* 确保变换原点一致 */
+            transform-origin: top center !important;
+            
+            /* 避免布局变化引起的闪烁 */
+            will-change: transform;
             backface-visibility: hidden;
-            -webkit-font-smoothing: antialiased; /* 提高文本渲染 */
-            transform-style: preserve-3d; /* 提高渲染性能 */
-            touch-action: pan-y; /* 在触摸设备上支持垂直滑动 */
         }
         
         .image-wrapper {
