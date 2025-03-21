@@ -14,11 +14,10 @@
             overflow-y: auto;
             height: 100vh;
             width: 100vw;
+            /* 使用flexbox实现居中 */
             display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: flex-start;
-            scroll-behavior: auto; /* 确保滚动没有平滑效果，立即响应 */
+            justify-content: center; /* 水平居中 */
+            align-items: flex-start; /* 垂直从顶部开始 */
         }
         
         /* 添加缩放操作时的样式 */
@@ -27,39 +26,36 @@
         }
         
         #image-container {
-            width: auto; /* 设置为auto而不是100% */
+            /* 使用固定宽度而非百分比宽度 */
+            width: auto;
+            /* 确保内容居中显示 */
             display: flex;
             flex-direction: column;
-            align-items: center;
+            align-items: center; /* 子元素水平居中 */
+            /* 关键: 使用margin:auto让浏览器原生机制居中 */
             margin: 0 auto;
-            flex-grow: 1;
-            user-select: none;
-            cursor: default;
-            
-            /* 确保变换原点一致 */
             transform-origin: top center !important;
-            
-            /* 避免布局变化引起的闪烁 */
             will-change: transform;
             backface-visibility: hidden;
+            /* 移除flex-grow，避免影响居中 */
         }
         
         .image-wrapper {
-            width: auto; /* 修改为auto而不是100% */
+            /* 使用固定宽度，不再使用百分比 */
+            width: auto; 
             display: flex;
-            justify-content: center;
+            justify-content: center; /* 确保图片水平居中 */
             align-items: flex-start;
             margin: 0;
             padding: 0;
-            will-change: transform; /* 优化渲染性能 */
         }
         
         .seamless-image {
-            width: auto; /* 设置为auto而不是max-width: 100% */
+            width: auto; /* 使用固定尺寸 */
             max-width: none; /* 取消最大宽度限制 */
             height: auto;
             display: block;
-            margin: 0 auto;
+            margin: 0 auto; /* 利用margin:auto居中 */
             padding: 0;
         }
         

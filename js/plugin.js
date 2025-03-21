@@ -494,7 +494,7 @@ function setImageFixedSize() {
 	});
 }
 
-// 设置图片固定宽度
+// 设置图片固定宽度并确保居中
 function setImageWidth(img) {
 	// 获取图片的原始宽度
 	const naturalWidth = img.naturalWidth;
@@ -507,6 +507,8 @@ function setImageWidth(img) {
 	if (wrapper) {
 		wrapper.style.width = `${naturalWidth}px`;
 	}
+	
+	// 利用CSS原生居中功能，不需要JavaScript干预
 }
 
 // 加载图片时设置固定尺寸
@@ -522,14 +524,14 @@ function loadImages(imageUrls) {
 	// ... 现有代码 ...
 }
 
-// 修改initializePlugin函数
+// 简化initializePlugin函数
 function initializePlugin() {
-	// 重置容器样式
+	// 获取容器
 	const container = document.querySelector('#image-container');
 	if (container) {
-		// 使用固定宽度而非百分比
+		// 使用简单的样式设置
 		container.style.width = 'auto';
-		container.style.margin = '0 auto';
+		container.style.margin = '0 auto'; // 使用margin:auto居中
 		container.style.display = 'flex';
 		container.style.flexDirection = 'column';
 		container.style.alignItems = 'center';
@@ -545,23 +547,11 @@ function initializePlugin() {
 		container.style.transformOrigin = 'top center';
 	}
 	
-	// 设置所有图片包装器为固定宽度
-	const imageWrappers = document.querySelectorAll('.image-wrapper');
-	imageWrappers.forEach(wrapper => {
-		wrapper.style.width = 'auto'; // 使用固定宽度
-		wrapper.style.display = 'flex';
-		wrapper.style.justifyContent = 'center';
-		wrapper.style.alignItems = 'flex-start';
-	});
-	
-	// 设置所有图片为固定尺寸
-	setImageFixedSize();
-	
-	// 设置CSS变量
+	// 更新CSS变量
 	document.documentElement.style.setProperty('--current-zoom', currentZoom);
 }
 
-// 修改resize事件处理函数，确保不会重新计算图片尺寸
+// 简化resize事件处理器
 window.addEventListener('resize', () => {
 	// 获取容器
 	const container = document.querySelector('#image-container');
@@ -576,30 +566,15 @@ window.addEventListener('resize', () => {
 	// 更新横向滚动条状态
 	updateHorizontalScroll(currentZoom);
 	
-	// 如果窗口变化后滚动位置需要调整
-	if (window.scrollX !== 0) {
-		// 计算正确的水平滚动位置 - 确保内容居中
-		const containerRect = container.getBoundingClientRect();
-		const windowWidth = window.innerWidth;
+	// 使用requestAnimationFrame确保平滑处理
+	requestAnimationFrame(() => {
+		// 使用浏览器原生居中机制，无需手动设置
 		
-		if (containerRect.width <= windowWidth) {
-			// 如果内容宽度小于窗口宽度，居中显示
-			window.scrollTo({
-				left: 0,
-				top: window.scrollY,
-				behavior: 'auto'
-			});
-		}
-		// 如果内容宽度大于窗口宽度，保持当前滚动位置
-	}
-
-	// 延迟移除正在调整大小的标记
-	setTimeout(() => {
-		document.body.classList.remove('resizing');
-		
-		// 确保所有图片尺寸保持固定
-		setImageFixedSize();
-	}, 200);
+		// 延迟移除正在调整大小的标记
+		setTimeout(() => {
+			document.body.classList.remove('resizing');
+		}, 100);
+	});
 }, { passive: true });
 
 // 确保在文档加载完成后调用
