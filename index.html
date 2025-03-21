@@ -16,6 +16,12 @@
             display: flex;
             flex-direction: column;
             align-items: center;
+            scroll-behavior: auto; /* 确保滚动没有平滑效果，立即响应 */
+        }
+        
+        /* 添加缩放操作时的样式 */
+        body.scaling {
+            pointer-events: none; /* 缩放时禁用点击 */
         }
         
         #image-container {
@@ -27,24 +33,29 @@
             flex-grow: 1;
             user-select: none;
             cursor: default;
-            will-change: transform;
-            transform-origin: top center;
+            will-change: transform; /* 告知浏览器该元素会变换 */
+            -webkit-backface-visibility: hidden; /* 防止闪烁 */
+            backface-visibility: hidden;
+            -webkit-font-smoothing: antialiased; /* 提高文本渲染 */
+            transform-style: preserve-3d; /* 提高渲染性能 */
+            touch-action: pan-y; /* 在触摸设备上支持垂直滑动 */
         }
         
         .image-wrapper {
             width: 100%;
             display: flex;
-            justify-content: center;
+            justify-content: center; /* 确保图片水平居中 */
             align-items: flex-start;
             margin: 0;
             padding: 0;
+            will-change: transform; /* 优化渲染性能 */
         }
         
         .seamless-image {
             max-width: 100%;
             height: auto;
             display: block;
-            margin: 0 auto;
+            margin: 0 auto; /* 确保图片居中 */
             padding: 0;
         }
         
@@ -74,7 +85,7 @@
             color: #999;
         }
         
-        /* 修改缩放提示样式，确保它不影响布局 */
+        /* 优化缩放显示 */
         #zoom-level {
             position: fixed;
             top: 10px;
@@ -84,14 +95,59 @@
             padding: 5px 10px;
             border-radius: 4px;
             z-index: 1000;
-            transition: opacity 0.5s ease; /* 添加淡出过渡效果 */
-            pointer-events: none; /* 避免干扰用户交互 */
+            transition: opacity 0.5s ease;
+            pointer-events: none;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        
+        /* 当内容宽度大于窗口宽度时，显示小手图标 */
+        #image-container.draggable {
+            cursor: grab !important; /* 可拖动时显示小手 */
+        }
+        
+        /* 拖动状态的光标 */
+        body.dragging #image-container {
+            cursor: grabbing !important; /* 抓取中 */
+        }
+        
+        /* 拖动状态下的全局光标 */
+        body.dragging {
+            cursor: grabbing !important; /* 全局抓取中 */
+            user-select: none; /* 防止文本选择 */
+        }
+        
+        /* 当内容小于或等于窗口宽度时禁用拖动 */
+        .no-horizontal-drag {
+            cursor: default !important;
         }
         
         /* 禁用默认的浏览器缩放行为 */
         /* html {
             overscroll-behavior: none;
         } */
+        
+        /* 拖动状态下禁用文本选择和指针事件 */
+        body.dragging {
+            user-select: none !important;
+            -webkit-user-select: none !important;
+            cursor: grabbing !important;
+        }
+        
+        body.dragging * {
+            user-select: none !important;
+            -webkit-user-select: none !important;
+        }
+        
+        /* 可拖动时的光标样式 */
+        #image-container:not(.non-draggable) {
+            cursor: grab;
+        }
+        
+        /* 拖动状态下的光标样式 */
+        body.dragging #image-container {
+            cursor: grabbing !important;
+        }
     </style>
     <script type="text/javascript" src="js/plugin.js"></script>
 </head>
