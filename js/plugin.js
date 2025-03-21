@@ -27,6 +27,20 @@ function debounce(func, wait) {
 	};
 }
 
+// 添加/恢复检查横向滚动条的函数
+function updateHorizontalScroll(zoomLevel) {
+	const container = document.querySelector('#image-container');
+	const windowWidth = window.innerWidth;
+	const contentWidth = container.scrollWidth * zoomLevel;
+	
+	// 如果内容宽度超过窗口宽度，启用横向滚动
+	if (contentWidth > windowWidth) {
+		document.body.style.overflowX = 'auto';
+	} else {
+		document.body.style.overflowX = 'hidden';
+	}
+}
+
 // 保持居中的同时实现平滑缩放
 function applyZoomWithMouseCenter(newZoom, oldZoom, mouseX, mouseY) {
 	const container = document.querySelector('#image-container');
@@ -52,14 +66,16 @@ function applyZoomWithMouseCenter(newZoom, oldZoom, mouseX, mouseY) {
 	container.style.transform = `scale(${newZoom})`;
 	
 	// 计算缩放后应该滚动到的新位置
-	// 我们只关心垂直位置，水平位置由CSS居中处理
 	const newTopPosition = containerTop + (relativeTopPosition * newZoom);
 	
-	// 只设置垂直滚动，保持水平居中
+	// 更新横向滚动条状态
+	updateHorizontalScroll(newZoom);
+	
+	// 设置滚动位置，保持水平居中
 	window.scrollTo({
-		left: 0, // 强制水平居中
+		left: 0, // 初始时强制水平居中
 		top: newTopPosition,
-		behavior: 'auto' // 使用即时滚动，避免延迟
+		behavior: 'auto'
 	});
 	
 	// 确保应用了正确的居中样式
@@ -363,27 +379,28 @@ eagle.onPluginBeforeExit((event) => {
 	console.log('eagle.onPluginBeforeExit');
 });
 
-// 显示缩放比例的函数
-function showZoomLevel(zoom) {
-	// 检查是否已存在缩放指示器
-	let zoomIndicator = document.getElementById('zoom-indicator');
+// 恢复显示缩放级别的函数
+function showZoomLevel(zoomLevel) {
+	// 获取或创建显示缩放级别的元素
+	let zoomLevelElement = document.getElementById('zoom-level');
 	
-	// 如果不存在，创建一个
-	if (!zoomIndicator) {
-		zoomIndicator = document.createElement('div');
-		zoomIndicator.id = 'zoom-indicator';
-		document.body.appendChild(zoomIndicator);
+	if (!zoomLevelElement) {
+		zoomLevelElement = document.createElement('div');
+		zoomLevelElement.id = 'zoom-level';
+		document.body.appendChild(zoomLevelElement);
 	}
 	
-	// 更新缩放指示器内容和样式
-	zoomIndicator.textContent = `${Math.round(zoom * 100)}%`;
-	zoomIndicator.style.display = 'block';
+	// 设置缩放百分比文本
+	zoomLevelElement.textContent = `${Math.round(zoomLevel * 100)}%`;
 	
-	// 2秒后隐藏
-	clearTimeout(window.zoomIndicatorTimeout);
-	window.zoomIndicatorTimeout = setTimeout(() => {
-		zoomIndicator.style.display = 'none';
-	}, 2000);
+	// 显示元素
+	zoomLevelElement.style.opacity = '1';
+	
+	// 设置自动隐藏
+	clearTimeout(window.zoomLevelTimeout);
+	window.zoomLevelTimeout = setTimeout(() => {
+		zoomLevelElement.style.opacity = '0';
+	}, 1500);
 }
 
 // 初始化插件时重置布局和样式
@@ -410,5 +427,23 @@ function initializePlugin() {
 	});
 }
 
-// 确保在页面加载后初始化
-document.addEventListener('DOMContentLoaded', initializePlugin);
+// 页面加载时初始化所有功能
+document.addEventListener('DOMContentLoaded', () => {
+	// 初始化缩放功能
+	initZoomFeature();
+	
+	// 确保居中
+	ensureCenteredContent();
+	
+	// 检查是否需要显示横向滚动条
+	updateHorizontalScroll(currentZoom || 1.0);
+	
+	// 显示初始缩放级别
+	showZoomLevel(currentZoom || 1.0);
+});
+
+// 确保窗口大小变化时重新检查
+window.addEventListener('resize', () => {
+	ensureCenteredContent();
+	updateHorizontalScroll(currentZoom || 1.0);
+});
