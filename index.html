@@ -4,88 +4,55 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
     <style>
+        /* 基础样式 */
         body {
             margin: 0;
             padding: 0;
             background-color: #1e1e1e;
             color: #fff;
             font-family: Arial, sans-serif;
-            overflow-x: auto; /* 允许横向滚动 */
             overflow-y: auto;
             height: 100vh;
             width: 100vw;
-            /* 使用flexbox实现居中 */
-            display: flex;
-            justify-content: center; /* 水平居中 */
-            align-items: flex-start; /* 垂直从顶部开始 */
-        }
-        
-        /* 添加缩放操作时的样式 */
-        body.scaling {
-            pointer-events: none; /* 缩放时禁用点击 */
-        }
-        
-        #image-container {
-            /* 使用固定宽度而非百分比宽度 */
-            width: auto;
-            /* 确保内容居中显示 */
             display: flex;
             flex-direction: column;
-            align-items: center; /* 子元素水平居中 */
-            /* 关键: 使用margin:auto让浏览器原生机制居中 */
+            align-items: center;
+        }
+        
+        /* 容器样式 */
+        #image-container {
+            width: auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
             margin: 0 auto;
+            flex-grow: 1;
+            user-select: none;
             transform-origin: top center !important;
             will-change: transform;
             backface-visibility: hidden;
-            /* 移除flex-grow，避免影响居中 */
         }
         
+        /* 图片和包装器样式 */
         .image-wrapper {
-            /* 使用固定宽度，不再使用百分比 */
-            width: auto; 
+            width: auto;
             display: flex;
-            justify-content: center; /* 确保图片水平居中 */
+            justify-content: center;
             align-items: flex-start;
             margin: 0;
             padding: 0;
         }
         
         .seamless-image {
-            width: auto; /* 使用固定尺寸 */
-            max-width: none; /* 取消最大宽度限制 */
+            width: auto;
+            max-width: none;
             height: auto;
             display: block;
-            margin: 0 auto; /* 利用margin:auto居中 */
+            margin: 0 auto;
             padding: 0;
         }
         
-        /* 添加图片分割线样式 */
-        .image-divider {
-            width: 100%;
-            height: 1px;
-            background-color: rgba(0, 0, 0, 0.7);
-            margin: 0;
-            padding: 0;
-        }
-        
-        .image-placeholder {
-            width: 100%;
-            height: 200px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            background-color: #333;
-            color: #999;
-            margin: 5px 0;
-        }
-        
-        .no-images {
-            padding: 20px;
-            text-align: center;
-            color: #999;
-        }
-        
-        /* 优化缩放显示 */
+        /* 缩放级别显示 */
         #zoom-level {
             position: fixed;
             top: 10px;
@@ -97,77 +64,35 @@
             z-index: 1000;
             transition: opacity 0.5s ease;
             pointer-events: none;
-            font-size: 14px;
-            font-weight: bold;
         }
         
-        /* 当内容宽度大于窗口宽度时，显示小手图标 */
+        /* 拖动相关样式 */
         #image-container.draggable {
-            cursor: grab !important; /* 可拖动时显示小手 */
-        }
-        
-        /* 拖动状态的光标 */
-        body.dragging #image-container {
-            cursor: grabbing !important; /* 抓取中 */
-        }
-        
-        /* 拖动状态下的全局光标 */
-        body.dragging {
-            cursor: grabbing !important; /* 全局抓取中 */
-            user-select: none; /* 防止文本选择 */
-        }
-        
-        /* 当内容小于或等于窗口宽度时禁用拖动 */
-        .no-horizontal-drag {
-            cursor: default !important;
-        }
-        
-        /* 禁用默认的浏览器缩放行为 */
-        /* html {
-            overscroll-behavior: none;
-        } */
-        
-        /* 拖动状态下禁用文本选择和指针事件 */
-        body.dragging {
-            user-select: none !important;
-            -webkit-user-select: none !important;
-            cursor: grabbing !important;
-        }
-        
-        body.dragging * {
-            user-select: none !important;
-            -webkit-user-select: none !important;
-        }
-        
-        /* 可拖动时的光标样式 */
-        #image-container:not(.non-draggable) {
             cursor: grab;
         }
         
-        /* 拖动状态下的光标样式 */
+        body.dragging {
+            cursor: grabbing !important;
+            user-select: none !important;
+            -webkit-user-select: none !important;
+        }
+        
         body.dragging #image-container {
             cursor: grabbing !important;
         }
         
-        /* 在窗口大小调整过程中临时锁定变换，防止浏览器自动调整 */
-        body.resizing #image-container {
-            width: auto !important; /* 强制使用固定宽度 */
-            transition: none !important; /* 防止在调整大小时有过渡动画 */
-            transform: scale(var(--current-zoom, 1)) !important; /* 强制保持缩放 */
-        }
-        
-        /* 确保变换不会被意外覆盖 */
-        #image-container {
-            /* ... 现有样式 ... */
-            transform-origin: top center !important;
-        }
-        
-        /* 强制在调整窗口大小时禁用自动布局调整 */
+        /* 窗口调整大小时的样式 */
         body.resizing {
-            overflow: hidden !important; /* 临时禁用滚动 */
+            overflow: hidden !important;
         }
         
-        /* 添加全局CSS自定义属性存储当前缩放值 */
+        body.resizing #image-container {
+            width: auto !important;
+            transition: none !important;
+            transform: scale(var(--current-zoom, 1)) !important;
+        }
+        
+        /* 全局CSS变量 */
         :root {
             --current-zoom: 1;
         }
