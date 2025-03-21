@@ -1,5 +1,5 @@
 // 全局变量，用于存储当前缩放比例
-let currentZoom = 1;
+let currentZoom = 1.0; // 默认缩放为100%
 
 eagle.onPluginCreate((plugin) => {
 	console.log('eagle.onPluginCreate');
@@ -80,6 +80,9 @@ function applyZoomWithMouseCenter(newZoom, oldZoom, mouseX, mouseY) {
 	
 	// 显示缩放级别
 	showZoomLevel(newZoom);
+	
+	// 确保全局currentZoom变量被正确更新
+	currentZoom = newZoom;
 }
 
 // 确保内容居中的辅助函数
@@ -169,14 +172,8 @@ function initZoomFeature() {
 				return;
 			}
 			
-			// 更新当前缩放值
-			currentZoom = newZoom;
-			
 			// 应用缩放（使用视口顶部中心）
-			applyZoomWithMouseCenter(currentZoom, oldZoom, window.innerWidth / 2, 0);
-			
-			// 显示缩放比例
-			showZoomLevel(currentZoom);
+			applyZoomWithMouseCenter(newZoom, oldZoom, window.innerWidth / 2, 0);
 		}
 	}, { passive: false });
 	
@@ -509,26 +506,35 @@ document.addEventListener('DOMContentLoaded', () => {
 	// 初始化缩放功能
 	initZoomFeature();
 	
-	// 初始化拖动功能
-	initDragFeature();
-	
-	// 初始化窗口调整大小处理
-	initWindowResizeHandler();
-	
-	// 设置初始缩放
-	if (typeof currentZoom === 'undefined') {
-		currentZoom = 1.0;
+	// 获取容器
+	const container = document.querySelector('#image-container');
+	if (container) {
+		// 确保应用初始缩放
+		container.style.transform = `scale(${currentZoom})`;
+		container.style.transformOrigin = 'top center';
 	}
 	
 	// 显示初始缩放级别
 	showZoomLevel(currentZoom);
 });
 
-// 确保窗口大小变化时重新检查
+// 修复窗口大小调整时缩放重置问题
 window.addEventListener('resize', () => {
 	// 获取容器
 	const container = document.querySelector('#image-container');
 	if (!container) return;
+	
+	// 关键修复：确保窗口调整大小时不会重置transform缩放
+	// 1. 获取当前应用的变换样式
+	const currentTransform = container.style.transform;
+	
+	// 2. 如果已经有设置缩放且currentZoom存在，确保保持现有缩放
+	if (currentTransform && currentTransform.includes('scale') && currentZoom) {
+		// 3. 重新应用当前缩放，防止浏览器重置
+		requestAnimationFrame(() => {
+			container.style.transform = `scale(${currentZoom})`;
+		});
+	}
 	
 	// 更新横向滚动条状态
 	updateHorizontalScroll(currentZoom || 1.0);
