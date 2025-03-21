@@ -10,12 +10,14 @@
             background-color: #1e1e1e;
             color: #fff;
             font-family: Arial, sans-serif;
+            overflow-x: auto; /* 允许横向滚动 */
             overflow-y: auto;
             height: 100vh;
             width: 100vw;
             display: flex;
             flex-direction: column;
             align-items: center;
+            justify-content: flex-start;
             scroll-behavior: auto; /* 确保滚动没有平滑效果，立即响应 */
         }
         
@@ -25,7 +27,7 @@
         }
         
         #image-container {
-            width: 100%;
+            width: auto; /* 设置为auto而不是100% */
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -43,9 +45,9 @@
         }
         
         .image-wrapper {
-            width: 100%;
+            width: auto; /* 修改为auto而不是100% */
             display: flex;
-            justify-content: center; /* 确保图片水平居中 */
+            justify-content: center;
             align-items: flex-start;
             margin: 0;
             padding: 0;
@@ -53,10 +55,11 @@
         }
         
         .seamless-image {
-            max-width: 100%;
+            width: auto; /* 设置为auto而不是max-width: 100% */
+            max-width: none; /* 取消最大宽度限制 */
             height: auto;
             display: block;
-            margin: 0 auto; /* 确保图片居中 */
+            margin: 0 auto;
             padding: 0;
         }
         
@@ -148,6 +151,29 @@
         /* 拖动状态下的光标样式 */
         body.dragging #image-container {
             cursor: grabbing !important;
+        }
+        
+        /* 在窗口大小调整过程中临时锁定变换，防止浏览器自动调整 */
+        body.resizing #image-container {
+            width: auto !important; /* 强制使用固定宽度 */
+            transition: none !important; /* 防止在调整大小时有过渡动画 */
+            transform: scale(var(--current-zoom, 1)) !important; /* 强制保持缩放 */
+        }
+        
+        /* 确保变换不会被意外覆盖 */
+        #image-container {
+            /* ... 现有样式 ... */
+            transform-origin: top center !important;
+        }
+        
+        /* 强制在调整窗口大小时禁用自动布局调整 */
+        body.resizing {
+            overflow: hidden !important; /* 临时禁用滚动 */
+        }
+        
+        /* 添加全局CSS自定义属性存储当前缩放值 */
+        :root {
+            --current-zoom: 1;
         }
     </style>
     <script type="text/javascript" src="js/plugin.js"></script>

@@ -64,6 +64,9 @@ function applyZoomWithMouseCenter(newZoom, oldZoom, mouseX, mouseY) {
 	// 应用新的缩放比例
 	container.style.transform = `scale(${newZoom})`;
 	
+	// ⚠️ 关键添加: 更新CSS变量，用于在resize期间维持缩放
+	document.documentElement.style.setProperty('--current-zoom', newZoom);
+	
 	// 简化计算，使用百分比位置恢复视图位置
 	const newContainerHeight = containerRect.height * newZoom;
 	const newScrollPosition = containerTop + (relativeTopPositionRatio * newContainerHeight);
@@ -477,185 +480,136 @@ function showZoomLevel(zoomLevel) {
 	}, 1500);
 }
 
-// 初始化插件时重置布局和样式
+// 添加函数来设置图片的固定尺寸
+function setImageFixedSize() {
+	const images = document.querySelectorAll('.seamless-image');
+	images.forEach(img => {
+		// 如果图片已加载，设置其固定宽度
+		if (img.complete) {
+			setImageWidth(img);
+		} else {
+			// 如果图片尚未加载，等待加载完成后设置
+			img.onload = () => setImageWidth(img);
+		}
+	});
+}
+
+// 设置图片固定宽度
+function setImageWidth(img) {
+	// 获取图片的原始宽度
+	const naturalWidth = img.naturalWidth;
+	
+	// 设置图片的固定宽度为原始宽度
+	img.style.width = `${naturalWidth}px`;
+	
+	// 确保包装器宽度也是固定的
+	const wrapper = img.closest('.image-wrapper');
+	if (wrapper) {
+		wrapper.style.width = `${naturalWidth}px`;
+	}
+}
+
+// 加载图片时设置固定尺寸
+function loadImages(imageUrls) {
+	// ... 现有代码 ...
+	
+	// 在创建图片元素后，添加以下代码：
+	img.onload = () => {
+		// 设置图片固定宽度
+		setImageWidth(img);
+	};
+	
+	// ... 现有代码 ...
+}
+
+// 修改initializePlugin函数
 function initializePlugin() {
-	// 重置容器样式，确保内容始终居中
+	// 重置容器样式
 	const container = document.querySelector('#image-container');
 	if (container) {
-		container.style.width = '100%';
+		// 使用固定宽度而非百分比
+		container.style.width = 'auto';
 		container.style.margin = '0 auto';
 		container.style.display = 'flex';
 		container.style.flexDirection = 'column';
 		container.style.alignItems = 'center';
-		container.style.transform = 'scale(1)';
+		
+		// 应用当前缩放比例
+		if (typeof currentZoom !== 'undefined') {
+			container.style.transform = `scale(${currentZoom})`;
+		} else {
+			container.style.transform = 'scale(1)';
+			currentZoom = 1;
+		}
+		
 		container.style.transformOrigin = 'top center';
 	}
 	
-	// 重置所有图片包装器
+	// 设置所有图片包装器为固定宽度
 	const imageWrappers = document.querySelectorAll('.image-wrapper');
 	imageWrappers.forEach(wrapper => {
-		wrapper.style.width = '100%';
+		wrapper.style.width = 'auto'; // 使用固定宽度
 		wrapper.style.display = 'flex';
 		wrapper.style.justifyContent = 'center';
 		wrapper.style.alignItems = 'flex-start';
 	});
+	
+	// 设置所有图片为固定尺寸
+	setImageFixedSize();
+	
+	// 设置CSS变量
+	document.documentElement.style.setProperty('--current-zoom', currentZoom);
 }
 
-// 在页面加载完成后初始化所有功能
-document.addEventListener('DOMContentLoaded', () => {
-	// 初始化缩放功能
-	initZoomFeature();
-	
-	// 获取容器
-	const container = document.querySelector('#image-container');
-	if (container) {
-		// 确保应用初始缩放
-		container.style.transform = `scale(${currentZoom})`;
-		container.style.transformOrigin = 'top center';
-	}
-	
-	// 显示初始缩放级别
-	showZoomLevel(currentZoom);
-});
-
-// 修复窗口大小调整时缩放重置问题
+// 修改resize事件处理函数，确保不会重新计算图片尺寸
 window.addEventListener('resize', () => {
 	// 获取容器
 	const container = document.querySelector('#image-container');
 	if (!container) return;
 	
-	// 关键修复：确保窗口调整大小时不会重置transform缩放
-	// 1. 获取当前应用的变换样式
-	const currentTransform = container.style.transform;
+	// 标记正在调整大小
+	document.body.classList.add('resizing');
 	
-	// 2. 如果已经有设置缩放且currentZoom存在，确保保持现有缩放
-	if (currentTransform && currentTransform.includes('scale') && currentZoom) {
-		// 3. 重新应用当前缩放，防止浏览器重置
-		requestAnimationFrame(() => {
-			container.style.transform = `scale(${currentZoom})`;
-		});
-	}
+	// 保持当前缩放比例不变
+	container.style.transform = `scale(${currentZoom})`;
 	
 	// 更新横向滚动条状态
-	updateHorizontalScroll(currentZoom || 1.0);
+	updateHorizontalScroll(currentZoom);
 	
-	// 如果内容宽度小于窗口宽度，确保水平居中
-	const containerWidth = container.getBoundingClientRect().width;
-	const windowWidth = window.innerWidth;
-	
-	if (containerWidth * (currentZoom || 1.0) <= windowWidth && window.scrollX !== 0) {
-		window.scrollTo({
-			left: 0,
-			top: window.scrollY,
-			behavior: 'auto'
-		});
-	}
-	
-	// 更新光标样式
-	if (window.updateAfterZoom) {
-		window.updateAfterZoom();
-	}
-});
-
-// 添加对容器类的管理
-function updateContainerClasses() {
-	const container = document.querySelector('#image-container');
-	const windowWidth = window.innerWidth;
-	const containerWidth = container.getBoundingClientRect().width;
-	
-	// 根据内容宽度与窗口宽度的关系设置类
-	if (containerWidth * currentZoom > windowWidth) {
-		container.classList.add('draggable');
-		container.classList.remove('non-draggable');
-	} else {
-		container.classList.remove('draggable');
-		container.classList.add('non-draggable');
-	}
-}
-
-// 初始更新类
-document.addEventListener('DOMContentLoaded', updateContainerClasses);
-
-// 将此函数绑定到窗口大小变化和缩放事件
-window.addEventListener('resize', updateContainerClasses);
-
-// 添加窗口大小变化处理函数，保持视图稳定
-function initWindowResizeHandler() {
-	// 保存上一次窗口尺寸和滚动位置
-	let lastWindowWidth = window.innerWidth;
-	let lastWindowHeight = window.innerHeight;
-	let lastScrollTop = window.scrollY;
-	let lastScrollRatio = 0; // 滚动位置占内容高度的比例
-	
-	// 当发生滚动时记录比例
-	window.addEventListener('scroll', () => {
-		const container = document.querySelector('#image-container');
-		if (!container) return;
-		
+	// 如果窗口变化后滚动位置需要调整
+	if (window.scrollX !== 0) {
+		// 计算正确的水平滚动位置 - 确保内容居中
 		const containerRect = container.getBoundingClientRect();
-		const containerHeight = container.scrollHeight;
+		const windowWidth = window.innerWidth;
 		
-		// 计算可见区域顶部相对于整个内容的比例
-		lastScrollTop = window.scrollY;
-		const totalScrollableHeight = Math.max(containerHeight * currentZoom - window.innerHeight, 0);
-		
-		if (totalScrollableHeight > 0) {
-			lastScrollRatio = lastScrollTop / totalScrollableHeight;
-		}
-	}, { passive: true });
-	
-	// 处理窗口大小变化
-	window.addEventListener('resize', () => {
-		// 获取容器
-		const container = document.querySelector('#image-container');
-		if (!container) return;
-		
-		// 获取当前窗口尺寸
-		const currentWindowWidth = window.innerWidth;
-		const currentWindowHeight = window.innerHeight;
-		
-		// 计算容器实际高度（考虑缩放）
-		const containerHeight = container.scrollHeight;
-		const scaledContainerHeight = containerHeight * currentZoom;
-		
-		// 计算窗口变化前后的比例
-		const widthRatio = currentWindowWidth / lastWindowWidth;
-		const heightRatio = currentWindowHeight / lastWindowHeight;
-		
-		// 计算新的滚动位置
-		const totalScrollableHeight = Math.max(scaledContainerHeight - currentWindowHeight, 0);
-		let newScrollTop;
-		
-		if (totalScrollableHeight > 0) {
-			// 使用之前记录的滚动比例计算新的滚动位置
-			newScrollTop = lastScrollRatio * totalScrollableHeight;
-		} else {
-			newScrollTop = 0;
-		}
-		
-		// 应用新的滚动位置
-		window.scrollTo({
-			left: 0, // 保持水平居中
-			top: newScrollTop,
-			behavior: 'auto' // 立即滚动，不使用平滑滚动
-		});
-		
-		// 确保宽度小于窗口时内容居中
-		if (container.scrollWidth * currentZoom <= currentWindowWidth) {
+		if (containerRect.width <= windowWidth) {
+			// 如果内容宽度小于窗口宽度，居中显示
 			window.scrollTo({
 				left: 0,
-				top: newScrollTop,
+				top: window.scrollY,
 				behavior: 'auto'
 			});
 		}
+		// 如果内容宽度大于窗口宽度，保持当前滚动位置
+	}
+
+	// 延迟移除正在调整大小的标记
+	setTimeout(() => {
+		document.body.classList.remove('resizing');
 		
-		// 更新状态
-		lastWindowWidth = currentWindowWidth;
-		lastWindowHeight = currentWindowHeight;
-		
-		// 更新光标样式
-		if (window.updateAfterZoom) {
-			window.updateAfterZoom();
-		}
-	});
-}
+		// 确保所有图片尺寸保持固定
+		setImageFixedSize();
+	}, 200);
+}, { passive: true });
+
+// 确保在文档加载完成后调用
+document.addEventListener('DOMContentLoaded', () => {
+	// 初始化缩放功能
+	initZoomFeature();
+	
+	// 设置图片固定尺寸
+	setImageFixedSize();
+	
+	// 显示初始缩放级别
+	showZoomLevel(currentZoom);
+});
