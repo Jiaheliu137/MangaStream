@@ -589,13 +589,18 @@ function applyZoom(zoomLevel) {
 
 // 加载选中项目的函数
 function loadSelectedItems() {
-	eagle.item.getSelected().then(items => {
-		console.log('选中的项目:', items.length);
-		displaySelectedItems(items);
-	}).catch(err => {
-		console.error('获取选中项目时出错:', err);
-		eagle.log.error('获取选中项目时出错: ' + err.message);
-		document.querySelector('#image-container').innerHTML = '<p class="no-images">获取选中项目时出错，请重试</p>';
+	// 返回Promise以便链式调用
+	return new Promise((resolve, reject) => {
+		eagle.item.getSelected().then(items => {
+			console.log('选中的项目:', items.length);
+			displaySelectedItems(items);
+			resolve(); // 完成后解析Promise
+		}).catch(err => {
+			console.error('获取选中项目时出错:', err);
+			eagle.log.error('获取选中项目时出错: ' + err.message);
+			document.querySelector('#image-container').innerHTML = '<p class="no-images">获取选中项目时出错，请重试</p>';
+			reject(err); // 出错时拒绝Promise
+		});
 	});
 }
 
@@ -802,6 +807,9 @@ document.addEventListener('DOMContentLoaded', () => {
 	
 	// 设置滚动条可见性
 	setupScrollbarVisibility();
+	
+	// 初始化刷新按钮
+	initRefreshButton();
 });
 
 // 初始化垂直滚动条函数
@@ -898,4 +906,22 @@ function setupScrollbarVisibility() {
 	
 	// 初始化时先显示一次滚动条，然后自动隐藏
 	showScrollbars();
+}
+
+// 初始化刷新按钮功能
+function initRefreshButton() {
+	const refreshButton = document.getElementById('refresh-button');
+	if (!refreshButton) return;
+	
+	// 添加点击事件
+	refreshButton.addEventListener('click', () => {
+		// 调用刷新函数
+		loadSelectedItems();
+		
+		// 仅显示动画效果
+		refreshButton.classList.add('refreshing');
+		setTimeout(() => {
+			refreshButton.classList.remove('refreshing');
+		}, 500);
+	});
 }

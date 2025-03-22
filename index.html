@@ -199,6 +199,74 @@
         #vertical-scrollbar-container.active {
             opacity: 1;
         }
+        
+        /* 刷新按钮样式 - 更新为默认半透明 */
+        #refresh-button {
+            position: fixed;
+            right: 20px;
+            bottom: 20px;
+            width: 40px;
+            height: 40px;
+            background-color: rgba(30, 30, 30, 0.3); /* 更低的不透明度 */
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            z-index: 1000;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            transition: all 0.2s ease;
+            opacity: 0.5; /* 默认半透明 */
+        }
+        
+        #refresh-button:hover {
+            background-color: rgba(50, 50, 50, 0.9);
+            transform: scale(1.05);
+            opacity: 1; /* 悬停时完全不透明 */
+        }
+        
+        #refresh-button:active {
+            transform: scale(0.95);
+        }
+        
+        #refresh-button img {
+            width: 24px;
+            height: 24px;
+        }
+        
+        /* 添加刷新动画 */
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        #refresh-button.refreshing img {
+            animation: spin 0.5s linear;
+        }
+        
+        /* 刷新通知样式 */
+        #refresh-notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 8px 15px;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            border-radius: 4px;
+            font-size: 14px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            z-index: 2000;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+        }
+        
+        #refresh-notification.success {
+            background-color: rgba(46, 125, 50, 0.8);
+        }
+        
+        #refresh-notification.info {
+            background-color: rgba(25, 118, 210, 0.8);
+        }
     </style>
 </head>
 <body>
@@ -215,6 +283,83 @@
             <div id="vertical-scrollbar-handle"></div>
         </div>
     </div>
+    
+    <!-- 添加刷新按钮 -->
+    <div id="refresh-button">
+        <img src="refresh.png" alt="刷新" title="刷新图片" />
+    </div>
+    
     <script src="js/plugin.js"></script>
+    <script>
+        // 修改函数，移除所有与普通鼠标移动相关的滚动条显示
+        function setupScrollbarVisibility() {
+            // 只在滚动时显示滚动条
+            const viewport = document.querySelector('#viewport');
+            if (viewport) {
+                viewport.addEventListener('scroll', showScrollbars);
+            }
+            
+            // 其他触发操作保留，但不再监听普通mousemove
+            document.addEventListener('mousedown', function(e) {
+                if (e.target.closest('#image-container') || 
+                    e.target.closest('#custom-scrollbar-container') ||
+                    e.target.closest('#vertical-scrollbar-container')) {
+                    showScrollbars();
+                }
+            });
+            
+            // 初始化时显示一次滚动条
+            showScrollbars();
+        }
+
+        // 确保在处理滚动条拖动时不重复调用showScrollbars
+        function handleScrollbarDrag(e) {
+            if (!isDraggingScrollbar) return;
+            
+            // 原有的拖动逻辑保持不变
+            // ...
+            
+            // 不要在这里调用showScrollbars()
+            // 只在拖动开始时调用一次
+        }
+
+        // 同样，在鼠标移动时不要显示滚动条
+        document.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            
+            // 原有的拖动逻辑保持不变
+            // ...
+            
+            // 不要在这里调用showScrollbars()
+            // 只在拖动开始时调用一次
+        });
+
+        // 确保所有已存在的mousemove事件处理器不会调用showScrollbars
+        // 这需要检查并修改所有现有代码中的mousemove事件处理
+
+        // 鼠标释放和拖动结束时重置隐藏计时器
+        function endDrag() {
+            if (!isDragging) return;
+            isDragging = false;
+            
+            // 原有的结束拖动逻辑保持不变
+            // ...
+            
+            // 重置计时器，让滚动条可以在交互结束后隐藏
+            resetScrollbarHideTimer();
+        }
+
+        // 滚动条拖动结束
+        function endScrollbarDrag() {
+            if (!isDraggingScrollbar) return;
+            isDraggingScrollbar = false;
+            
+            // 原有的结束拖动逻辑保持不变
+            // ...
+            
+            // 重置计时器，让滚动条可以在交互结束后隐藏
+            resetScrollbarHideTimer();
+        }
+    </script>
 </body>
 </html>
