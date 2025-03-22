@@ -485,9 +485,27 @@ function initDragFeature() {
 		// 是否允许水平拖动
 		const horizontalEnabled = shouldEnableHorizontalDrag();
 		
-		// 更新水平偏移量
+		// 更新水平偏移量，并添加限制
 		if (horizontalEnabled) {
-			currentOffsetX += dx;
+			// 计算新的偏移量
+			const newOffsetX = currentOffsetX + dx;
+			
+			// 获取容器和窗口宽度
+			const container = document.querySelector('#image-container');
+			const containerRect = container.getBoundingClientRect();
+			const windowWidth = window.innerWidth;
+			const contentWidth = containerRect.width;
+			
+			// 计算总的可滚动距离
+			const totalScrollableWidth = contentWidth - windowWidth;
+			
+			// 限制偏移量在允许的范围内
+			// 与滚动条范围保持一致：[-totalScrollableWidth/2, totalScrollableWidth/2]
+			const minOffset = -totalScrollableWidth/2;
+			const maxOffset = totalScrollableWidth/2;
+			
+			// 应用限制
+			currentOffsetX = Math.max(minOffset, Math.min(maxOffset, newOffsetX));
 		}
 		
 		// 使用垂直滚动而不是偏移
