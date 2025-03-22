@@ -131,70 +131,92 @@
             position: fixed;
             bottom: 0;
             left: 0;
-            width: 100%;
+            right: 0;
             height: 16px;
             background-color: rgba(30, 30, 30, 0.7);
             z-index: 1000;
-            display: none;
-            overflow: hidden; /* 防止内容溢出 */
-            opacity: 0; /* 默认隐藏 */
-            transition: opacity 1.5s ease; /* 修改为1.5秒过渡效果 */
+            overflow: hidden;
+            opacity: 0;
+            transition: opacity 1.5s ease;
+            pointer-events: auto; /* 确保可以接收鼠标事件 */
         }
         
         #custom-scrollbar {
             position: absolute;
             height: 8px;
-            background-color: rgba(150, 150, 150, 0.7);
+            bottom: 4px;
+            left: 0;
+            background-color: gray;
             border-radius: 4px;
-            top: 4px;
             cursor: pointer;
-            transform-origin: center;
-            transition: height 0.1s ease-out;
+            pointer-events: auto; /* 确保可以接收鼠标事件 */
         }
         
-        /* 自定义滚动条拖动手柄 */
         #custom-scrollbar-handle {
+            position: absolute;
             width: 100%;
             height: 100%;
-            background-color: rgba(200, 200, 200, 0.9);
+            background-color: #666;
             border-radius: 4px;
-            position: absolute;
+            cursor: grab;
+            z-index: 1001;
+            pointer-events: auto; /* 确保可以接收鼠标事件 */
         }
         
-        /* 添加垂直滚动条容器和滚动条样式 */
         #vertical-scrollbar-container {
             position: fixed;
             top: 0;
             right: 0;
+            bottom: 0;
             width: 16px;
-            height: 100%;
             background-color: rgba(30, 30, 30, 0.7);
             z-index: 1000;
             overflow: hidden;
-            opacity: 0; /* 默认隐藏 */
-            transition: opacity 1.5s ease; /* 修改为1.5秒过渡效果 */
+            opacity: 0;
+            transition: opacity 1.5s ease;
+            pointer-events: auto; /* 确保可以接收鼠标事件 */
         }
         
         #vertical-scrollbar {
             position: absolute;
             width: 8px;
-            background-color: rgba(150, 150, 150, 0.7);
+            right: 4px;
+            top: 0;
+            background-color: gray;
             border-radius: 4px;
-            left: 4px;
             cursor: pointer;
-            transform-origin: center;
-            transition: width 0.1s ease-out;
+            pointer-events: auto; /* 确保可以接收鼠标事件 */
         }
         
         #vertical-scrollbar-handle {
+            position: absolute;
             width: 100%;
             height: 100%;
-            background-color: rgba(200, 200, 200, 0.9);
+            background-color: #666;
             border-radius: 4px;
-            position: absolute;
+            cursor: grab;
+            z-index: 1001;
+            pointer-events: auto; /* 确保可以接收鼠标事件 */
         }
         
-        /* 滚动条活动时的样式 */
+        /* 改进滚动条交互样式 */
+        #custom-scrollbar:hover, 
+        #vertical-scrollbar:hover {
+            background-color: #777;
+        }
+        
+        #custom-scrollbar-handle:hover, 
+        #vertical-scrollbar-handle:hover {
+            background-color: #999;
+        }
+        
+        #custom-scrollbar-handle:active, 
+        #vertical-scrollbar-handle:active {
+            cursor: grabbing;
+            background-color: #aaa;
+        }
+        
+        /* 滚动条显示状态 */
         #custom-scrollbar-container.active,
         #vertical-scrollbar-container.active {
             opacity: 1;
@@ -290,76 +312,5 @@
     </div>
     
     <script src="js/plugin.js"></script>
-    <script>
-        // 修改函数，移除所有与普通鼠标移动相关的滚动条显示
-        function setupScrollbarVisibility() {
-            // 只在滚动时显示滚动条
-            const viewport = document.querySelector('#viewport');
-            if (viewport) {
-                viewport.addEventListener('scroll', showScrollbars);
-            }
-            
-            // 其他触发操作保留，但不再监听普通mousemove
-            document.addEventListener('mousedown', function(e) {
-                if (e.target.closest('#image-container') || 
-                    e.target.closest('#custom-scrollbar-container') ||
-                    e.target.closest('#vertical-scrollbar-container')) {
-                    showScrollbars();
-                }
-            });
-            
-            // 初始化时显示一次滚动条
-            showScrollbars();
-        }
-
-        // 确保在处理滚动条拖动时不重复调用showScrollbars
-        function handleScrollbarDrag(e) {
-            if (!isDraggingScrollbar) return;
-            
-            // 原有的拖动逻辑保持不变
-            // ...
-            
-            // 不要在这里调用showScrollbars()
-            // 只在拖动开始时调用一次
-        }
-
-        // 同样，在鼠标移动时不要显示滚动条
-        document.addEventListener('mousemove', (e) => {
-            if (!isDragging) return;
-            
-            // 原有的拖动逻辑保持不变
-            // ...
-            
-            // 不要在这里调用showScrollbars()
-            // 只在拖动开始时调用一次
-        });
-
-        // 确保所有已存在的mousemove事件处理器不会调用showScrollbars
-        // 这需要检查并修改所有现有代码中的mousemove事件处理
-
-        // 鼠标释放和拖动结束时重置隐藏计时器
-        function endDrag() {
-            if (!isDragging) return;
-            isDragging = false;
-            
-            // 原有的结束拖动逻辑保持不变
-            // ...
-            
-            // 重置计时器，让滚动条可以在交互结束后隐藏
-            resetScrollbarHideTimer();
-        }
-
-        // 滚动条拖动结束
-        function endScrollbarDrag() {
-            if (!isDraggingScrollbar) return;
-            isDraggingScrollbar = false;
-            
-            // 原有的结束拖动逻辑保持不变
-            // ...
-            
-            // 重置计时器，让滚动条可以在交互结束后隐藏
-            resetScrollbarHideTimer();
-        }
-    </script>
 </body>
 </html>

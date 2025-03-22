@@ -1,5 +1,5 @@
 // 全局变量，用于存储当前缩放比例
-let currentZoom = 1.0; // 默认缩放为100%
+let currentZoom = 0.6; // 默认缩放为60%而不是100%
 let zoomLevelTimeout; // 用于控制缩放级别显示的定时器
 let isDraggingScrollbar = false; // 是否正在拖动自定义滚动条
 let scrollbarStartX = 0; // 拖动滚动条起始位置
@@ -102,6 +102,10 @@ function initCustomScrollbar() {
 		// 忽略手柄上的点击，这些由手柄自己处理
 		if (e.target === scrollbarHandle) return;
 		
+		// 阻止事件冒泡
+		e.stopPropagation();
+		e.preventDefault();
+		
 		const container = document.querySelector('#image-container');
 		if (!container) return;
 		
@@ -140,16 +144,28 @@ function initCustomScrollbar() {
 		
 		// 应用新位置
 		applyContentPosition();
+		
+		// 显示滚动条
+		showScrollbars();
 	});
 	
 	// 滚动条手柄拖动
 	scrollbarHandle.addEventListener('mousedown', (e) => {
+		// 阻止事件冒泡
+		e.stopPropagation();
 		e.preventDefault();
+		
 		isDraggingScrollbar = true;
 		scrollbarStartX = e.clientX;
 		
 		// 添加拖动状态类
 		document.body.classList.add('dragging');
+		
+		// 确保滚动条在拖动过程中保持可见
+		showScrollbars();
+		
+		// 在控制台输出调试信息
+		console.log('开始拖动水平滚动条');
 	});
 	
 	// 监听鼠标移动和释放事件
@@ -160,6 +176,9 @@ function initCustomScrollbar() {
 // 处理滚动条拖动
 function handleScrollbarDrag(e) {
 	if (!isDraggingScrollbar) return;
+	
+	// 确保滚动条在拖动期间保持可见
+	showScrollbars();
 	
 	const container = document.querySelector('#image-container');
 	const scrollbar = document.getElementById('custom-scrollbar');
@@ -216,6 +235,9 @@ function endScrollbarDrag() {
 	
 	// 移除拖动状态类
 	document.body.classList.remove('dragging');
+	
+	// 重置隐藏计时器，在拖动结束后开始计时
+	resetScrollbarHideTimer();
 }
 
 // 显示自定义滚动条
@@ -587,24 +609,36 @@ function applyZoom(zoomLevel) {
 	applyZoomWithMouseCenter(zoomLevel, currentZoom);
 }
 
-// 加载选中项目的函数
+// 简化后的loadSelectedItems函数
 function loadSelectedItems() {
 	// 返回Promise以便链式调用
 	return new Promise((resolve, reject) => {
-		eagle.item.getSelected().then(items => {
-			console.log('选中的项目:', items.length);
-			displaySelectedItems(items);
-			resolve(); // 完成后解析Promise
-		}).catch(err => {
-			console.error('获取选中项目时出错:', err);
-			eagle.log.error('获取选中项目时出错: ' + err.message);
-			document.querySelector('#image-container').innerHTML = '<p class="no-images">获取选中项目时出错，请重试</p>';
-			reject(err); // 出错时拒绝Promise
+	eagle.item.getSelected().then(items => {
+		console.log('选中的项目:', items.length);
+			
+			// 如果没有项目，直接显示提示
+			if (!items || items.length === 0) {
+				const container = document.querySelector('#image-container');
+				if (container) {
+					container.innerHTML = '<p class="no-images">请先在Eagle中选择一个或多个图片</p>';
+				}
+				resolve();
+				return;
+			}
+			
+			// 使用计算好的缩放比例显示图片
+		displaySelectedItems(items);
+			resolve();
+	}).catch(err => {
+		console.error('获取选中项目时出错:', err);
+		eagle.log.error('获取选中项目时出错: ' + err.message);
+		document.querySelector('#image-container').innerHTML = '<p class="no-images">获取选中项目时出错，请重试</p>';
+			reject(err);
 		});
 	});
 }
 
-// 显示选中的项目
+// 修改displaySelectedItems函数，删除自动计算缩放的部分
 function displaySelectedItems(items) {
 	const container = document.querySelector('#image-container');
 	
@@ -676,11 +710,12 @@ function displaySelectedItems(items) {
 		}
 	});
 	
-	// 在图片加载后初始化位置
+	// 在图片加载后初始化位置，直接应用60%的缩放
 	setTimeout(() => {
 		resetContentPosition();
 		applyContentPosition();
 		updateHorizontalScroll(currentZoom);
+		showZoomLevel(currentZoom);
 	}, 100);
 }
 
@@ -810,6 +845,9 @@ document.addEventListener('DOMContentLoaded', () => {
 	
 	// 初始化刷新按钮
 	initRefreshButton();
+	
+	// 初始化键盘快捷键
+	initKeyboardShortcuts();
 });
 
 // 初始化垂直滚动条函数
@@ -817,8 +855,9 @@ function initVerticalScrollbar() {
 	const viewport = document.querySelector('#viewport');
 	const verticalScrollbarContainer = document.getElementById('vertical-scrollbar-container');
 	const verticalScrollbar = document.getElementById('vertical-scrollbar');
+	const verticalScrollbarHandle = document.getElementById('vertical-scrollbar-handle');
 	
-	if (!viewport || !verticalScrollbarContainer || !verticalScrollbar) return;
+	if (!viewport || !verticalScrollbarContainer || !verticalScrollbar || !verticalScrollbarHandle) return;
 	
 	// 设置初始滚动条高度和位置
 	updateVerticalScrollbar();
@@ -828,6 +867,115 @@ function initVerticalScrollbar() {
 	
 	// 窗口大小改变时更新滚动条
 	window.addEventListener('resize', updateVerticalScrollbar);
+	
+	// 添加垂直滚动条拖动功能
+	let isDraggingVerticalScrollbar = false;
+	let scrollbarStartY = 0;
+	
+	// 点击滚动条背景时直接跳转到对应位置
+	verticalScrollbar.addEventListener('mousedown', (e) => {
+		// 忽略手柄上的点击，由手柄自己处理
+		if (e.target === verticalScrollbarHandle) return;
+		
+		// 阻止事件冒泡
+		e.stopPropagation();
+		e.preventDefault();
+		
+		const viewport = document.querySelector('#viewport');
+		if (!viewport) return;
+		
+		// 计算点击位置
+		const scrollbarRect = verticalScrollbar.getBoundingClientRect();
+		const clickY = e.clientY - scrollbarRect.top;
+		
+		// 计算滚动条高度和位置
+		const contentHeight = viewport.scrollHeight;
+		const viewportHeight = viewport.clientHeight;
+		const ratio = viewportHeight / contentHeight;
+		const scrollbarHeight = Math.max(30, viewportHeight * ratio);
+		
+		// 计算新的滚动位置
+		const maxScrollDistance = contentHeight - viewportHeight;
+		const newScrollRatio = clickY / viewportHeight;
+		const newScrollTop = newScrollRatio * maxScrollDistance;
+		
+		// 应用新的滚动位置
+		viewport.scrollTop = newScrollTop;
+		
+		// 显示滚动条
+		showScrollbars();
+	});
+	
+	// 垂直滚动条手柄拖动
+	verticalScrollbarHandle.addEventListener('mousedown', (e) => {
+		// 阻止事件冒泡
+		e.stopPropagation();
+		e.preventDefault();
+		
+		isDraggingVerticalScrollbar = true;
+		scrollbarStartY = e.clientY;
+		
+		// 添加拖动状态类
+		document.body.classList.add('dragging');
+		
+		// 确保滚动条在拖动过程中保持可见
+		showScrollbars();
+		
+		// 在控制台输出调试信息
+		console.log('开始拖动垂直滚动条');
+	});
+	
+	// 处理垂直滚动条拖动
+	function handleVerticalScrollbarDrag(e) {
+		if (!isDraggingVerticalScrollbar) return;
+		
+		// 确保滚动条在拖动期间保持可见
+		showScrollbars();
+		
+		const viewport = document.querySelector('#viewport');
+		if (!viewport) return;
+		
+		// 计算拖动距离
+		const dragDistance = e.clientY - scrollbarStartY;
+		
+		// 获取视口和内容的高度
+		const contentHeight = viewport.scrollHeight;
+		const viewportHeight = viewport.clientHeight;
+		
+		// 获取当前滚动位置
+		const currentScrollTop = viewport.scrollTop;
+		
+		// 计算拖动比例，并应用到滚动位置
+		const scrollRatio = dragDistance / viewportHeight;
+		const scrollDelta = scrollRatio * (contentHeight - viewportHeight);
+		const newScrollTop = currentScrollTop + scrollDelta;
+		
+		// 应用新的滚动位置
+		viewport.scrollTop = newScrollTop;
+		
+		// 更新起始位置
+		scrollbarStartY = e.clientY;
+	}
+	
+	// 结束垂直滚动条拖动
+	function endVerticalScrollbarDrag() {
+		if (!isDraggingVerticalScrollbar) return;
+		
+		isDraggingVerticalScrollbar = false;
+		
+		// 移除拖动状态类
+		document.body.classList.remove('dragging');
+		
+		// 重置隐藏计时器
+		resetScrollbarHideTimer();
+		
+		// 在控制台输出调试信息
+		console.log('结束拖动垂直滚动条');
+	}
+	
+	// 添加全局事件监听
+	document.addEventListener('mousemove', handleVerticalScrollbarDrag);
+	document.addEventListener('mouseup', endVerticalScrollbarDrag);
 }
 
 // 更新垂直滚动条位置和尺寸
@@ -897,10 +1045,52 @@ function setupScrollbarVisibility() {
 		viewport.addEventListener('scroll', showScrollbars);
 	}
 	
-	// 监听鼠标移动事件
-	document.addEventListener('mousemove', showScrollbars);
+	// 仅在特定元素上添加鼠标事件监听器
+	const scrollbarHandle = document.getElementById('custom-scrollbar-handle');
+	const verticalScrollbarHandle = document.getElementById('vertical-scrollbar-handle');
+	const imageContainer = document.querySelector('#image-container');
 	
-	// 监听触摸事件
+	// 确保滚动条手柄在鼠标悬停和点击时显示
+	if (scrollbarHandle) {
+		scrollbarHandle.addEventListener('mouseenter', showScrollbars);
+		scrollbarHandle.addEventListener('mousedown', showScrollbars);
+	}
+	
+	if (verticalScrollbarHandle) {
+		verticalScrollbarHandle.addEventListener('mouseenter', showScrollbars);
+		verticalScrollbarHandle.addEventListener('mousedown', showScrollbars);
+	}
+	
+	// 确保水平滚动条容器在鼠标悬停时显示
+	const horizontalContainer = document.getElementById('custom-scrollbar-container');
+	if (horizontalContainer) {
+		horizontalContainer.addEventListener('mouseenter', showScrollbars);
+		horizontalContainer.addEventListener('mousemove', showScrollbars);
+		horizontalContainer.addEventListener('mousedown', showScrollbars);
+	}
+	
+	// 确保垂直滚动条容器在鼠标悬停时显示
+	const verticalContainer = document.getElementById('vertical-scrollbar-container');
+	if (verticalContainer) {
+		verticalContainer.addEventListener('mouseenter', showScrollbars);
+		verticalContainer.addEventListener('mousemove', showScrollbars);
+		verticalContainer.addEventListener('mousedown', showScrollbars);
+	}
+	
+	// 添加滚动条交互事件
+	const customScrollbar = document.getElementById('custom-scrollbar');
+	if (customScrollbar) {
+		customScrollbar.addEventListener('mouseenter', showScrollbars);
+		customScrollbar.addEventListener('mousedown', showScrollbars);
+	}
+	
+	const verticalScrollbar = document.getElementById('vertical-scrollbar');
+	if (verticalScrollbar) {
+		verticalScrollbar.addEventListener('mouseenter', showScrollbars);
+		verticalScrollbar.addEventListener('mousedown', showScrollbars);
+	}
+	
+	// 触摸事件
 	document.addEventListener('touchstart', showScrollbars);
 	document.addEventListener('touchmove', showScrollbars);
 	
@@ -923,5 +1113,101 @@ function initRefreshButton() {
 		setTimeout(() => {
 			refreshButton.classList.remove('refreshing');
 		}, 500);
+	});
+}
+
+// 初始化键盘快捷键
+function initKeyboardShortcuts() {
+	document.addEventListener('keydown', (event) => {
+		// Ctrl+加号或等号(+/=)：放大
+		if (event.ctrlKey && (event.key === '+' || event.key === '=' || event.keyCode === 187)) {
+			event.preventDefault();
+			
+			// 计算新的缩放比例（增加5%）
+			const oldZoom = currentZoom;
+			let newZoom = oldZoom * 1.05;
+			
+			// 设置缩放限制
+			const maxZoom = 5.0;
+			newZoom = Math.min(maxZoom, newZoom);
+			
+			// 应用缩放
+			applyZoomWithMouseCenter(newZoom, oldZoom);
+		}
+		
+		// Ctrl+减号(-)：缩小
+		if (event.ctrlKey && (event.key === '-' || event.keyCode === 189)) {
+			event.preventDefault();
+			
+			// 计算新的缩放比例（减少5%）
+			const oldZoom = currentZoom;
+			let newZoom = oldZoom * 0.95;
+			
+			// 设置缩放限制
+			const minZoom = 0.2;
+			newZoom = Math.max(minZoom, newZoom);
+			
+			// 应用缩放
+			applyZoomWithMouseCenter(newZoom, oldZoom);
+		}
+		
+		// Ctrl+W：退出窗口
+		if (event.ctrlKey && (event.key === 'w' || event.keyCode === 87)) {
+			event.preventDefault();
+			console.log('触发Ctrl+W关闭窗口');
+			
+			// 使用hide方法关闭窗口，而不是尝试调用不存在的close方法
+			if (typeof eagle !== 'undefined' && eagle.window && typeof eagle.window.hide === 'function') {
+				// 记录日志以便调试
+				console.log('正在尝试使用eagle.window.hide()关闭窗口');
+				
+				eagle.window.hide().then(() => {
+					console.log('窗口已成功隐藏');
+				}).catch(err => {
+					console.error('隐藏窗口失败:', err);
+					
+					// 如果hide方法失败，尝试使用其他可能的方法
+					console.log('尝试使用其他方法关闭窗口');
+					
+					// 尝试minimize方法
+					if (typeof eagle.window.minimize === 'function') {
+						eagle.window.minimize().catch(e => 
+							console.error('最小化窗口失败:', e)
+						);
+					}
+				});
+			} else {
+				console.warn('eagle.window.hide API不可用');
+				
+				// 记录eagle对象的属性，帮助调试
+				console.log('eagle对象可用:', typeof eagle !== 'undefined');
+				if (typeof eagle !== 'undefined') {
+					console.log('eagle.window对象可用:', typeof eagle.window !== 'undefined');
+					if (typeof eagle.window !== 'undefined') {
+						console.log('eagle.window可用的方法:', 
+							Object.getOwnPropertyNames(eagle.window)
+							.filter(prop => typeof eagle.window[prop] === 'function')
+						);
+					}
+				}
+			}
+		}
+		
+		// Ctrl+R：刷新
+		if (event.ctrlKey && (event.key === 'r' || event.keyCode === 82)) {
+			event.preventDefault();
+			
+			// 显示刷新按钮动画
+			const refreshButton = document.getElementById('refresh-button');
+			if (refreshButton) {
+				refreshButton.classList.add('refreshing');
+				setTimeout(() => {
+					refreshButton.classList.remove('refreshing');
+				}, 500);
+			}
+			
+			// 刷新图片
+			loadSelectedItems();
+		}
 	});
 }
