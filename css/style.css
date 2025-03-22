@@ -1,0 +1,16 @@
+/* 添加拖动相关的CSS样式 */
+#image-container {
+    transition: none; /* 确保拖动时没有过渡效果 */
+}
+
+#image-container:not(.non-draggable) {
+    cursor: grab; /* 默认显示抓手 */
+}
+
+body.dragging #image-container:not(.non-draggable) {
+    cursor: grabbing !important; /* 拖动时显示抓取状态 */
+}
+
+#image-container.non-draggable {
+    cursor: default; /* 不可拖动时显示默认指针 */
+} 
