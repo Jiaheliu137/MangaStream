@@ -70,6 +70,18 @@
             user-select: none;
             will-change: transform;
             backface-visibility: hidden;
+            transition: opacity 0.2s ease; /* 添加淡入淡出过渡效果 */
+            opacity: 1; /* 默认完全可见 */
+        }
+        
+        /* 添加淡入淡出效果的类 */
+        #image-container.fading-out {
+            opacity: 0.2; /* 淡出时的不透明度 */
+        }
+        
+        #image-container.fading-in {
+            opacity: 1;
+            transition: opacity 0.3s ease-in; /* 淡入效果 */
         }
         
         #image-container.draggable {
@@ -266,34 +278,10 @@
             animation: spin 0.5s linear;
         }
         
-        /* 刷新通知样式 */
-        #refresh-notification {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 8px 15px;
-            background-color: rgba(0, 0, 0, 0.7);
-            color: white;
-            border-radius: 4px;
-            font-size: 14px;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-            z-index: 2000;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
-        }
-        
-        #refresh-notification.success {
-            background-color: rgba(46, 125, 50, 0.8);
-        }
-        
-        #refresh-notification.info {
-            background-color: rgba(25, 118, 210, 0.8);
-        }
-        
         /* 滚动条容器，确保可以接收鼠标事件 */
         #custom-scrollbar-container,
         #vertical-scrollbar-container {
-            transition: opacity 0.3s ease;
+            transition: opacity 1.5s ease;
             pointer-events: auto !important;
             transition-property: opacity !important;
         }
@@ -302,7 +290,7 @@
         #custom-scrollbar,
         #vertical-scrollbar {
             /* 移除left和top的过渡，只保留opacity的过渡 */
-            transition: opacity 0.3s ease;
+            transition: opacity 1.5s ease;
             will-change: transform, left, top;
             pointer-events: auto !important;
             /* 重要：确保没有其他transition属性会干扰动画 */

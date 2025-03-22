@@ -1,3 +1,5 @@
+const { addAbortSignal } = require('stream');
+
 // 全局变量，用于存储当前缩放比例
 let currentZoom = 0.6; // 默认缩放为60%而不是100%
 let zoomLevelTimeout; // 用于控制缩放级别显示的定时器
@@ -5,6 +7,9 @@ let isDraggingScrollbar = false; // 是否正在拖动自定义滚动条
 let scrollbarStartX = 0; // 拖动滚动条起始位置
 let currentOffsetX = 0; // 当前漫画的水平偏移量
 let currentOffsetY = 0; // 当前漫画的垂直偏移量
+
+// 用于存储当前加载项目的ID
+let currentLoadedItemIds = [];
 
 // 全局变量，用于存储滚动条隐藏计时器
 let scrollbarHideTimer;
@@ -769,29 +774,83 @@ function applyZoom(zoomLevel) {
 function loadSelectedItems() {
 	// 返回Promise以便链式调用
 	return new Promise((resolve, reject) => {
-	eagle.item.getSelected().then(items => {
-		console.log('选中的项目:', items.length);
-			
-			// 如果没有项目，直接显示提示
-			if (!items || items.length === 0) {
-				const container = document.querySelector('#image-container');
-				if (container) {
-					container.innerHTML = '<p class="no-images">请先在Eagle中选择一个或多个图片</p>';
+		// 在获取新内容前添加淡出效果
+		const container = document.querySelector('#image-container');
+		if (container) {
+			// 添加过渡类
+			container.classList.add('fading-out');
+		}
+		
+		// 短暂延迟后获取新内容，让淡出动画有时间执行
+		setTimeout(() => {
+			eagle.item.getSelected().then(items => {
+				console.log('选中的项目:', items.length);
+				
+				// 检查选中的项目是否与当前加载的项目相同
+				const newItemIds = items.map(item => item.id || '');
+				const isSameContent = arraysEqual(newItemIds, currentLoadedItemIds);
+				
+				// 如果内容相同，取消刷新操作
+				if (isSameContent && currentLoadedItemIds.length > 0) {
+					console.log('所选项目未发生变化，取消刷新');
+					// 移除淡出效果，恢复原样
+					if (container) {
+						container.classList.remove('fading-out');
+					}
+					resolve();
+					return;
 				}
+				
+				// 更新当前加载的项目ID列表
+				currentLoadedItemIds = newItemIds;
+				
+				// 如果没有项目，直接显示提示
+				if (!items || items.length === 0) {
+					if (container) {
+						container.innerHTML = '<p class="no-images">请先在Eagle中选择一个或多个图片</p>';
+						// 完成后移除过渡类并添加淡入类
+						container.classList.remove('fading-out');
+						container.classList.add('fading-in');
+						
+						// 动画完成后移除类
+						setTimeout(() => {
+							container.classList.remove('fading-in');
+						}, 300);
+					}
+					resolve();
+					return;
+				}
+				
+				// 使用计算好的缩放比例显示图片
+				displaySelectedItems(items);
 				resolve();
-				return;
-			}
-			
-			// 使用计算好的缩放比例显示图片
-		displaySelectedItems(items);
-			resolve();
-	}).catch(err => {
-		console.error('获取选中项目时出错:', err);
-		eagle.log.error('获取选中项目时出错: ' + err.message);
-		document.querySelector('#image-container').innerHTML = '<p class="no-images">获取选中项目时出错，请重试</p>';
-			reject(err);
-		});
+			}).catch(err => {
+				console.error('获取选中项目时出错:', err);
+				eagle.log.error('获取选中项目时出错: ' + err.message);
+				if (container) {
+					container.innerHTML = '<p class="no-images">获取选中项目时出错，请重试</p>';
+					// 完成后移除过渡类
+					container.classList.remove('fading-out');
+					container.classList.add('fading-in');
+					
+					// 动画完成后移除类
+					setTimeout(() => {
+						container.classList.remove('fading-in');
+					}, 300);
+				}
+				reject(err);
+			});
+		}, 200); // 200ms延迟，与CSS过渡时间匹配
 	});
+}
+
+// 检查两个数组是否相等的辅助函数
+function arraysEqual(arr1, arr2) {
+	if (arr1.length !== arr2.length) return false;
+	for (let i = 0; i < arr1.length; i++) {
+		if (arr1[i] !== arr2[i]) return false;
+	}
+	return true;
 }
 
 // 修改displaySelectedItems函数，删除自动计算缩放的部分
@@ -872,6 +931,15 @@ function displaySelectedItems(items) {
 		applyContentPosition();
 		updateHorizontalScroll(currentZoom);
 		showZoomLevel(currentZoom);
+		
+		// 完成后移除淡出类并添加淡入类
+		container.classList.remove('fading-out');
+		container.classList.add('fading-in');
+		
+		// 动画完成后移除类
+		setTimeout(() => {
+			container.classList.remove('fading-in');
+		}, 300);
 	}, 100);
 }
 
@@ -1245,8 +1313,8 @@ function resetScrollbarHideTimer() {
 	// 清除现有计时器
 	if (scrollbarHideTimer) clearTimeout(scrollbarHideTimer);
 	
-	// 设置新计时器，1秒后隐藏滚动条（修改为1000毫秒）
-	scrollbarHideTimer = setTimeout(hideScrollbars, 1000);
+	// 设置新计时器，0.5秒后隐藏滚动条（修改为500毫秒）
+	scrollbarHideTimer = setTimeout(hideScrollbars, 500);
 }
 
 // 修改监听事件，在滚动、鼠标移动和触摸时显示滚动条
@@ -1388,7 +1456,7 @@ function initKeyboardShortcuts() {
 						);
 					}
 				});
-	} else {
+			} else {
 				console.warn('eagle.window.hide API不可用');
 				
 				// 记录eagle对象的属性，帮助调试
