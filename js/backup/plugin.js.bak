@@ -435,13 +435,11 @@ function initDragFeature() {
 	
 	// 更新光标样式
 	function updateCursorStyle() {
-		// 即使可以拖动，也保持默认箭头光标
-		container.style.cursor = 'default';
-		
-		// 仍然添加draggable类，但不再设置grab光标样式
 		if (shouldEnableHorizontalDrag()) {
+			container.style.cursor = 'grab'; // 可拖动时显示小手
 			container.classList.add('draggable');
 		} else {
+			container.style.cursor = 'default'; // 不可拖动时显示默认光标
 			container.classList.remove('draggable');
 		}
 	}
@@ -466,9 +464,13 @@ function initDragFeature() {
 		lastMouseX = e.clientX;
 		lastMouseY = e.clientY;
 		
-		// 无条件设置为抓取状态的手型光标
-		document.body.style.cursor = 'grabbing';
-		container.style.cursor = 'grabbing';
+		// 更新光标样式为抓取状态
+		if (shouldEnableHorizontalDrag()) {
+			document.body.style.cursor = 'grabbing';
+			container.style.cursor = 'grabbing';
+		} else {
+			document.body.style.cursor = 'ns-resize'; // 只能垂直拖动
+		}
 		
 		// 添加拖动状态类
 		document.body.classList.add('dragging');
@@ -516,9 +518,9 @@ function initDragFeature() {
 		if (!isDragging) return;
 		isDragging = false;
 		
-		// 恢复为默认箭头光标
+		// 恢复光标样式
 		document.body.style.cursor = '';
-		container.style.cursor = 'default';
+		updateCursorStyle();
 		
 		// 移除拖动状态类
 		document.body.classList.remove('dragging');
