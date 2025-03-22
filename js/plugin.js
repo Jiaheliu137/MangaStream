@@ -34,14 +34,28 @@ const ZoomModule = {
 	// 其他缩放相关方法
 };
 
-const ScrollbarModule = {
-	isDraggingScrollbar: false,
-	scrollbarStartX: 0,
+const ScrollModule = {
+	isDragging: false,
+	startPosition: { x: 0, y: 0 },
 	
 	init() {
-		// 初始化滚动条
+		this.initHorizontalScrollbar();
+		this.initVerticalScrollbar();
+		this.setupEvents();
+	},
+	
+	initHorizontalScrollbar() {
+		// 水平滚动条初始化
+	},
+	
+	initVerticalScrollbar() {
+		// 垂直滚动条初始化
+	},
+	
+	// 通用处理函数
+	handleScrollbarDrag(e, direction) {
+		// 处理水平或垂直方向的拖动
 	}
-	// 滚动条相关方法
 };
 
 eagle.onPluginCreate((plugin) => {
@@ -359,7 +373,7 @@ function initCustomScrollbar() {
 		console.log('开始拖动水平滚动条');
 	});
 	
-	// 监听鼠标移动和释放事件
+	// 初始设置时绑定事件
 	document.addEventListener('mousemove', handleScrollbarDrag);
 	document.addEventListener('mouseup', endScrollbarDrag);
 }
@@ -1568,3 +1582,49 @@ function clearPreviousImages() {
 		img.remove();
 	});
 }
+
+function setupGlobalEvents() {
+	document.addEventListener('mousemove', (e) => {
+		// 根据当前状态调用相应处理函数
+		if (ScrollModule.isDraggingHorizontal) {
+			ScrollModule.handleHorizontalDrag(e);
+		}
+		if (ScrollModule.isDraggingVertical) {
+			ScrollModule.handleVerticalDrag(e);
+		}
+	});
+	
+	document.addEventListener('mouseup', () => {
+		// 统一处理结束拖动状态
+		ScrollModule.endDrag();
+	});
+}
+
+// 可以合并为枚举状态：
+const DragState = {
+	NONE: 'none',
+	HORIZONTAL: 'horizontal',
+	VERTICAL: 'vertical',
+	CONTENT: 'content'
+};
+
+let currentDragState = DragState.NONE;
+
+// 建议实现一个DOM缓存对象：
+const DOM = {
+	elements: {},
+	
+	get(selector) {
+		if (!this.elements[selector]) {
+			this.elements[selector] = document.querySelector(selector);
+		}
+		return this.elements[selector];
+	},
+	
+	invalidateCache() {
+		this.elements = {};
+	}
+};
+
+// 使用时：
+const container = DOM.get('#image-container');
