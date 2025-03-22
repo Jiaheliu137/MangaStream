@@ -289,6 +289,52 @@
         #refresh-notification.info {
             background-color: rgba(25, 118, 210, 0.8);
         }
+        
+        /* 滚动条容器，确保可以接收鼠标事件 */
+        #custom-scrollbar-container,
+        #vertical-scrollbar-container {
+            transition: opacity 0.3s ease;
+            pointer-events: auto !important;
+            transition-property: opacity !important;
+        }
+        
+        /* 滚动条，移除可能影响位置的CSS过渡效果 */
+        #custom-scrollbar,
+        #vertical-scrollbar {
+            /* 移除left和top的过渡，只保留opacity的过渡 */
+            transition: opacity 0.3s ease;
+            will-change: transform, left, top;
+            pointer-events: auto !important;
+            /* 重要：确保没有其他transition属性会干扰动画 */
+            transition-property: opacity !important;
+        }
+        
+        /* 滚动条手柄，确保可以接收鼠标事件，添加过渡效果 */
+        #custom-scrollbar-handle,
+        #vertical-scrollbar-handle {
+            background-color: rgba(150, 150, 150, 0.8);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+            pointer-events: auto !important;
+        }
+        
+        /* 滚动条手柄悬停效果 */
+        #custom-scrollbar-handle:hover,
+        #vertical-scrollbar-handle:hover {
+            background-color: rgba(180, 180, 180, 0.9);
+        }
+        
+        /* 拖动状态样式 */
+        body.dragging * {
+            cursor: grabbing !important;
+            user-select: none;
+        }
+        
+        body.dragging #custom-scrollbar-handle,
+        body.dragging #vertical-scrollbar-handle {
+            background-color: rgba(200, 200, 200, 1);
+        }
     </style>
 </head>
 <body>

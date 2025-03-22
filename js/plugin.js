@@ -89,20 +89,124 @@ function applyContentPosition() {
 	container.style.transform = `translateX(calc(-50% + ${currentOffsetX}px)) scale(${currentZoom})`;
 }
 
+// 处理滚动条点击事件时确保不会被CSS干扰的帮助函数
+function ensureNoTransitions(element) {
+	if (!element) return;
+	
+	// 保存原始transition属性
+	const originalTransition = element.style.transition;
+	
+	// 移除所有transition
+	element.style.transition = 'none';
+	
+	// 强制重新计算样式
+	void element.offsetWidth;
+	
+	return () => {
+		// 还原原始transition
+		setTimeout(() => {
+			element.style.transition = originalTransition;
+		}, 50);
+	};
+}
+
+// 改进的动画函数，使用更长时间的动画效果
+function animateScroll(startValue, endValue, duration, updateFunc, completeFunc) {
+	// 调试信息
+	console.log(`开始动画: 从 ${startValue} 到 ${endValue}, 持续 ${duration}ms`);
+	
+	// 防止任何正在进行的动画
+	if (window.currentScrollAnimation) {
+		console.log('中断之前的动画');
+		cancelAnimationFrame(window.currentScrollAnimation);
+		window.currentScrollAnimation = null;
+	}
+	
+	// 确保滚动条在整个动画过程中保持可见
+	showScrollbars();
+	
+	// 禁用所有可能干扰动画的CSS过渡
+	const horizontalScrollbar = document.getElementById('custom-scrollbar');
+	const verticalScrollbar = document.getElementById('vertical-scrollbar');
+	
+	if (horizontalScrollbar) horizontalScrollbar.style.transition = 'none';
+	if (verticalScrollbar) verticalScrollbar.style.transition = 'none';
+	
+	const startTime = performance.now();
+	const change = endValue - startValue;
+	let lastUpdateTime = startTime;
+	let lastValue = startValue;
+	
+	// 使用缓动函数使动画更自然 - easeInOutCubic效果比easeOutQuint更平滑
+	function easeInOutCubic(t) {
+		return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+	}
+	
+	// 动画帧函数
+	function animate(currentTime) {
+		const elapsedTime = currentTime - startTime;
+		const progress = Math.min(elapsedTime / duration, 1);
+		const easedProgress = easeInOutCubic(progress);
+		const currentValue = startValue + change * easedProgress;
+		
+		// 计算和显示每秒更新帧数
+		const fps = Math.round(1000 / (currentTime - lastUpdateTime));
+		if (elapsedTime % 1000 < 20) { // 每秒记录一次
+			console.log(`动画进度: ${Math.round(progress * 100)}%, 值: ${Math.round(currentValue)}, FPS: ${fps}`);
+		}
+		
+		// 调用更新函数，应用新的滚动位置
+		try {
+			updateFunc(currentValue);
+			lastValue = currentValue;
+		} catch (err) {
+			console.error('动画更新函数出错:', err);
+		}
+		
+		lastUpdateTime = currentTime;
+		
+		// 如果动画尚未完成，继续请求下一帧
+		if (progress < 1) {
+			window.currentScrollAnimation = requestAnimationFrame(animate);
+		} else {
+			console.log(`动画完成: 最终值 ${Math.round(currentValue)}`);
+			window.currentScrollAnimation = null;
+			
+			// 恢复CSS过渡效果
+			if (horizontalScrollbar) horizontalScrollbar.style.transition = '';
+			if (verticalScrollbar) verticalScrollbar.style.transition = '';
+			
+			if (completeFunc) completeFunc();
+		}
+	}
+	
+	// 开始动画
+	console.log('启动动画帧');
+	window.currentScrollAnimation = requestAnimationFrame(animate);
+}
+
 // 初始化自定义滚动条
 function initCustomScrollbar() {
 	const scrollbarContainer = document.getElementById('custom-scrollbar-container');
 	const scrollbar = document.getElementById('custom-scrollbar');
 	const scrollbarHandle = document.getElementById('custom-scrollbar-handle');
 	
-	if (!scrollbarContainer || !scrollbar || !scrollbarHandle) return;
+	if (!scrollbarContainer || !scrollbar || !scrollbarHandle) {
+		console.error('找不到水平滚动条元素');
+		return;
+	}
 	
-	// 滚动条点击事件，直接跳转到点击位置
+	// 确保滚动条容器总是可以接收点击事件
+	scrollbarContainer.style.pointerEvents = 'auto';
+	scrollbar.style.pointerEvents = 'auto';
+	scrollbarHandle.style.pointerEvents = 'auto';
+	
+	// 滚动条点击事件
 	scrollbar.addEventListener('mousedown', (e) => {
 		// 忽略手柄上的点击，这些由手柄自己处理
 		if (e.target === scrollbarHandle) return;
 		
-		// 阻止事件冒泡
+		// 阻止事件冒泡和默认行为
 		e.stopPropagation();
 		e.preventDefault();
 		
@@ -113,30 +217,32 @@ function initCustomScrollbar() {
 		const windowWidth = window.innerWidth;
 		const contentWidth = containerRect.width; // 已经包含缩放
 		
-		// 获取滚动条宽度和最大移动距离
-		const scrollbarWidth = parseInt(scrollbar.style.width);
+		// 获取滚动条的位置和尺寸
+		const scrollbarRect = scrollbar.getBoundingClientRect();
+		const scrollbarWidth = parseInt(scrollbar.style.width || '100');
 		const scrollbarMaxMove = windowWidth - scrollbarWidth;
 		
-		// 计算点击位置
-		const scrollbarRect = scrollbar.getBoundingClientRect();
-		const clickX = e.clientX - scrollbarRect.left;
+		// 获取点击位置相对于滚动条容器的X坐标
+		const clickX = e.clientX;
 		
-		// 计算点击位置应该对应的滚动条左侧位置
-		let newScrollbarLeft = clickX - (scrollbarWidth / 2);
+		// 目标位置：将滚动条的中心点对准点击位置
+		let targetScrollbarLeft = clickX - (scrollbarWidth / 2);
 		
 		// 确保滚动条在有效范围内
-		newScrollbarLeft = Math.max(0, Math.min(scrollbarMaxMove, newScrollbarLeft));
-		
-		// 更新滚动条位置
-		scrollbar.style.left = `${newScrollbarLeft}px`;
-		
-		// 计算滚动比例
-		const scrollRatio = newScrollbarLeft / scrollbarMaxMove;
+		targetScrollbarLeft = Math.max(0, Math.min(scrollbarMaxMove, targetScrollbarLeft));
 		
 		// 计算总的可滚动距离
 		const totalScrollableWidth = contentWidth - windowWidth;
 		
-		// 计算新的偏移量 - 与拖动逻辑保持一致，方向相反
+		console.log(`水平滚动条点击 - 直接移动到 ${targetScrollbarLeft}`);
+		
+		// 直接设置滚动条位置，取消动画效果
+		scrollbar.style.left = `${targetScrollbarLeft}px`;
+		
+		// 计算滚动比例
+		const scrollRatio = targetScrollbarLeft / scrollbarMaxMove;
+		
+		// 计算新的偏移量
 		const newOffsetX = (0.5 - scrollRatio) * totalScrollableWidth;
 		
 		// 更新全局偏移量
@@ -145,13 +251,63 @@ function initCustomScrollbar() {
 		// 应用新位置
 		applyContentPosition();
 		
-		// 显示滚动条
+		// 确保滚动条保持可见
+		showScrollbars();
+	});
+	
+	// 滚动条容器点击事件
+	scrollbarContainer.addEventListener('mousedown', (e) => {
+		// 只处理直接点击容器的情况，忽略点击滚动条或手柄的情况
+		if (e.target !== scrollbarContainer) return;
+		
+		// 阻止事件冒泡和默认行为
+		e.stopPropagation();
+		e.preventDefault();
+		
+		const container = document.querySelector('#image-container');
+		if (!container) return;
+		
+		const containerRect = container.getBoundingClientRect();
+		const windowWidth = window.innerWidth;
+		const contentWidth = containerRect.width; // 已经包含缩放
+		
+		// 获取滚动条尺寸和最大移动距离
+		const scrollbarWidth = parseInt(scrollbar.style.width || '100');
+		const scrollbarMaxMove = windowWidth - scrollbarWidth;
+		
+		// 直接将点击位置作为目标位置（滚动条中心对准鼠标）
+		let targetScrollbarLeft = e.clientX - (scrollbarWidth / 2);
+		
+		// 确保滚动条在有效范围内
+		targetScrollbarLeft = Math.max(0, Math.min(scrollbarMaxMove, targetScrollbarLeft));
+		
+		// 计算总的可滚动距离
+		const totalScrollableWidth = contentWidth - windowWidth;
+		
+		console.log(`水平滚动条容器点击 - 直接移动到 ${targetScrollbarLeft}`);
+		
+		// 直接设置滚动条位置，取消动画效果
+		scrollbar.style.left = `${targetScrollbarLeft}px`;
+		
+		// 计算滚动比例
+		const scrollRatio = targetScrollbarLeft / scrollbarMaxMove;
+		
+		// 计算新的偏移量
+		const newOffsetX = (0.5 - scrollRatio) * totalScrollableWidth;
+		
+		// 更新全局偏移量
+		currentOffsetX = newOffsetX;
+		
+		// 应用新位置
+		applyContentPosition();
+		
+		// 确保滚动条保持可见
 		showScrollbars();
 	});
 	
 	// 滚动条手柄拖动
 	scrollbarHandle.addEventListener('mousedown', (e) => {
-		// 阻止事件冒泡
+		// 阻止事件冒泡和默认行为
 		e.stopPropagation();
 		e.preventDefault();
 		
@@ -857,7 +1013,10 @@ function initVerticalScrollbar() {
 	const verticalScrollbar = document.getElementById('vertical-scrollbar');
 	const verticalScrollbarHandle = document.getElementById('vertical-scrollbar-handle');
 	
-	if (!viewport || !verticalScrollbarContainer || !verticalScrollbar || !verticalScrollbarHandle) return;
+	if (!viewport || !verticalScrollbarContainer || !verticalScrollbar || !verticalScrollbarHandle) {
+		console.error('找不到垂直滚动条元素');
+		return;
+	}
 	
 	// 设置初始滚动条高度和位置
 	updateVerticalScrollbar();
@@ -868,47 +1027,103 @@ function initVerticalScrollbar() {
 	// 窗口大小改变时更新滚动条
 	window.addEventListener('resize', updateVerticalScrollbar);
 	
+	// 确保滚动条容器总是可以接收点击事件
+	verticalScrollbarContainer.style.pointerEvents = 'auto';
+	verticalScrollbar.style.pointerEvents = 'auto';
+	verticalScrollbarHandle.style.pointerEvents = 'auto';
+	
 	// 添加垂直滚动条拖动功能
 	let isDraggingVerticalScrollbar = false;
 	let scrollbarStartY = 0;
 	
-	// 点击滚动条背景时直接跳转到对应位置
+	// 点击滚动条背景时平滑滚动到对应位置
 	verticalScrollbar.addEventListener('mousedown', (e) => {
 		// 忽略手柄上的点击，由手柄自己处理
 		if (e.target === verticalScrollbarHandle) return;
 		
-		// 阻止事件冒泡
+		// 阻止事件冒泡和默认行为
 		e.stopPropagation();
 		e.preventDefault();
 		
 		const viewport = document.querySelector('#viewport');
 		if (!viewport) return;
 		
-		// 计算点击位置
+		// 获取点击位置
+		const clickY = e.clientY;
 		const scrollbarRect = verticalScrollbar.getBoundingClientRect();
-		const clickY = e.clientY - scrollbarRect.top;
+		
+		// 获取视口和内容的高度
+		const contentHeight = viewport.scrollHeight;
+		const viewportHeight = viewport.clientHeight;
+		
+		// 计算滚动条高度和位置
+		const scrollbarHeight = parseInt(verticalScrollbar.style.height || '100');
+		const maxScrollbarOffset = viewportHeight - scrollbarHeight;
+		
+		// 目标位置：将滚动条的中心点对准点击位置
+		let targetScrollbarTop = clickY - (scrollbarHeight / 2);
+		
+		// 确保滚动条在有效范围内
+		targetScrollbarTop = Math.max(0, Math.min(maxScrollbarOffset, targetScrollbarTop));
+		
+		// 计算对应的滚动位置
+		const scrollRatio = targetScrollbarTop / maxScrollbarOffset;
+		const targetScrollTop = scrollRatio * (contentHeight - viewportHeight);
+		
+		// 直接设置滚动位置
+		viewport.scrollTop = targetScrollTop;
+		
+		// 更新垂直滚动条位置
+		verticalScrollbar.style.top = `${targetScrollbarTop}px`;
+		
+		// 确保滚动条保持可见
+		showScrollbars();
+	});
+	
+	// 滚动条容器点击事件，平滑滚动到点击位置
+	verticalScrollbarContainer.addEventListener('mousedown', (e) => {
+		// 只处理直接点击容器的情况，忽略点击滚动条或手柄的情况
+		if (e.target !== verticalScrollbarContainer) return;
+		
+		// 阻止事件冒泡和默认行为
+		e.stopPropagation();
+		e.preventDefault();
+		
+		const viewport = document.querySelector('#viewport');
+		if (!viewport) return;
+		
+		// 获取点击位置
+		const clickY = e.clientY;
 		
 		// 计算滚动条高度和位置
 		const contentHeight = viewport.scrollHeight;
 		const viewportHeight = viewport.clientHeight;
-		const ratio = viewportHeight / contentHeight;
-		const scrollbarHeight = Math.max(30, viewportHeight * ratio);
+		const scrollbarHeight = parseInt(verticalScrollbar.style.height || '100');
 		
-		// 计算新的滚动位置
-		const maxScrollDistance = contentHeight - viewportHeight;
-		const newScrollRatio = clickY / viewportHeight;
-		const newScrollTop = newScrollRatio * maxScrollDistance;
+		// 目标位置：将滚动条的中心点对准点击位置
+		let targetScrollbarTop = clickY - (scrollbarHeight / 2);
 		
-		// 应用新的滚动位置
-		viewport.scrollTop = newScrollTop;
+		// 确保滚动条在有效范围内
+		const maxScrollbarOffset = viewportHeight - scrollbarHeight;
+		targetScrollbarTop = Math.max(0, Math.min(maxScrollbarOffset, targetScrollbarTop));
 		
-		// 显示滚动条
+		// 计算对应的滚动位置
+		const scrollRatio = targetScrollbarTop / maxScrollbarOffset;
+		const targetScrollTop = scrollRatio * (contentHeight - viewportHeight);
+		
+		// 直接设置滚动位置
+		viewport.scrollTop = targetScrollTop;
+		
+		// 更新垂直滚动条位置
+		verticalScrollbar.style.top = `${targetScrollbarTop}px`;
+		
+		// 确保滚动条保持可见
 		showScrollbars();
 	});
 	
 	// 垂直滚动条手柄拖动
 	verticalScrollbarHandle.addEventListener('mousedown', (e) => {
-		// 阻止事件冒泡
+		// 阻止事件冒泡和默认行为
 		e.stopPropagation();
 		e.preventDefault();
 		
@@ -968,9 +1183,6 @@ function initVerticalScrollbar() {
 		
 		// 重置隐藏计时器
 		resetScrollbarHideTimer();
-		
-		// 在控制台输出调试信息
-		console.log('结束拖动垂直滚动条');
 	}
 	
 	// 添加全局事件监听
@@ -1176,7 +1388,7 @@ function initKeyboardShortcuts() {
 						);
 					}
 				});
-			} else {
+	} else {
 				console.warn('eagle.window.hide API不可用');
 				
 				// 记录eagle对象的属性，帮助调试
