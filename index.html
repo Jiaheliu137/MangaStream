@@ -10,7 +10,7 @@
             background-color: #1e1e1e;
             color: #fff;
             font-family: Arial, sans-serif;
-            overflow: hidden; /* 禁用全局滚动 */
+            overflow: hidden; /* 禁用全局滚动以防止双重滚动条 */
             height: 100vh;
             width: 100vw;
             display: flex;
@@ -19,30 +19,30 @@
             justify-content: flex-start;
         }
         
-        /* 创建视口容器 */
+        /* 创建可滚动视口容器 */
         #viewport {
             position: relative;
-            width: calc(100vw - 16px); /* 减去垂直滚动条宽度 */
+            width: calc(100vw - 16px); /* 减去原生垂直滚动条宽度 */
             height: 100vh;
             overflow-x: hidden;
-            overflow-y: scroll; /* 保留滚动功能 */
-            scrollbar-width: none; /* Firefox */
-            -ms-overflow-style: none; /* IE and Edge */
+            overflow-y: scroll; /* 仅启用垂直方向滚动 */
+            scrollbar-width: none; /* Firefox隐藏滚动条 */
+            -ms-overflow-style: none; /* IE和Edge隐藏滚动条 */
         }
         
-        /* 隐藏WebKit浏览器的原生滚动条 */
+        /* 隐藏WebKit浏览器(Chrome/Safari)的原生滚动条 */
         #viewport::-webkit-scrollbar {
             display: none;
         }
         
-        /* 当水平滚动条显示时的视口样式 */
+        /* 当水平滚动条显示时的视口尺寸调整 */
         #viewport.has-scrollbar {
             height: calc(100vh - 16px);
         }
         
-        /* 缩放和拖动状态样式 */
+        /* 缩放和拖动状态的特殊样式 */
         body.scaling {
-            pointer-events: none; /* 缩放时禁用点击 */
+            pointer-events: none; /* 缩放过程中禁用所有鼠标事件 */
         }
         
         body.dragging {
@@ -55,7 +55,7 @@
         }
         
         body.resizing #image-container {
-            transition: none !important; /* 禁用过渡效果 */
+            transition: none !important; /* 调整大小时禁用过渡效果 */
         }
         
         #image-container {
@@ -63,33 +63,33 @@
             left: 50%;
             top: 0;
             transform-origin: top center !important;
-            transform: translateX(-50%); /* 默认居中 */
+            transform: translateX(-50%); /* 水平居中定位 */
             display: flex;
             flex-direction: column;
             align-items: center;
             user-select: none;
             will-change: transform;
             backface-visibility: hidden;
-            transition: opacity 0.2s ease; /* 添加淡入淡出过渡效果 */
-            opacity: 1; /* 默认完全可见 */
+            transition: opacity 0.2s ease; /* 淡入淡出过渡效果 */
+            opacity: 1; /* 默认完全不透明 */
         }
         
-        /* 添加淡入淡出效果的类 */
+        /* 淡入淡出效果状态类 */
         #image-container.fading-out {
-            opacity: 0.2; /* 淡出时的不透明度 */
+            opacity: 0.2; /* 淡出状态的不透明度 */
         }
         
         #image-container.fading-in {
             opacity: 1;
-            transition: opacity 0.3s ease-in; /* 淡入效果 */
+            transition: opacity 0.3s ease-in; /* 平滑淡入效果 */
         }
         
         #image-container.draggable {
-            cursor: default; /* 改为默认箭头，而不是grab */
+            cursor: default; /* 可拖动状态使用默认箭头光标 */
         }
         
         .image-wrapper {
-            width: auto; /* 固定宽度而非百分比 */
+            width: auto; /* 适应内容宽度 */
             display: flex;
             justify-content: center;
             align-items: flex-start;

@@ -1,25 +1,25 @@
 const { addAbortSignal } = require('stream');
 
-// 全局变量，用于存储当前缩放比例
-let currentZoom = 0.6; // 默认缩放为60%而不是100%
-let zoomLevelTimeout; // 用于控制缩放级别显示的定时器
-let isDraggingScrollbar = false; // 是否正在拖动自定义滚动条
-let scrollbarStartX = 0; // 拖动滚动条起始位置
-let currentOffsetX = 0; // 当前漫画的水平偏移量
-let currentOffsetY = 0; // 当前漫画的垂直偏移量
+// 全局变量定义区
+let currentZoom = 0.6; // 初始默认缩放比例为60%
+let zoomLevelTimeout; // 控制缩放级别指示器显示的定时器
+let isDraggingScrollbar = false; // 标记是否正在拖动自定义滚动条
+let scrollbarStartX = 0; // 记录滚动条拖动的初始X坐标
+let currentOffsetX = 0; // 漫画内容的当前水平偏移量
+let currentOffsetY = 0; // 漫画内容的当前垂直偏移量
 
-// 用于存储当前加载项目的ID
+// 记录当前已加载漫画项目的ID数组
 let currentLoadedItemIds = [];
 
-// 全局变量，用于存储滚动条隐藏计时器
+// 滚动条自动隐藏定时器
 let scrollbarHideTimer;
 
-// 缓存常用DOM元素引用
+// 缓存关键DOM元素引用以提高性能
 const imageContainer = document.querySelector('#image-container');
 const viewport = document.querySelector('#viewport');
 const customScrollbarContainer = document.getElementById('custom-scrollbar-container');
 
-// 使用模块模式组织相关功能
+// 使用模块模式组织缩放功能相关代码
 const ZoomModule = {
 	currentZoom: 0.6,
 	zoomLevelTimeout: null,
@@ -29,11 +29,12 @@ const ZoomModule = {
 	},
 	
 	applyZoom(newZoom) {
-		// 应用缩放
+		// 应用新的缩放比例
 	}
 	// 其他缩放相关方法
 };
 
+// 使用模块模式组织滚动功能相关代码
 const ScrollModule = {
 	isDragging: false,
 	startPosition: { x: 0, y: 0 },
@@ -45,39 +46,41 @@ const ScrollModule = {
 	},
 	
 	initHorizontalScrollbar() {
-		// 水平滚动条初始化
+		// 初始化水平滚动条
 	},
 	
 	initVerticalScrollbar() {
-		// 垂直滚动条初始化
+		// 初始化垂直滚动条
 	},
 	
-	// 通用处理函数
+	// 通用滚动条拖动处理函数
 	handleScrollbarDrag(e, direction) {
-		// 处理水平或垂直方向的拖动
+		// 处理水平或垂直方向的拖动逻辑
 	}
 };
 
+// 插件创建时的入口点
 eagle.onPluginCreate((plugin) => {
 	console.log('eagle.onPluginCreate');
 	
-	// 不要在这里立即调用loadSelectedItems()
-	// 而是在插件初始化完成后调用
+	// 注意：不在此处立即加载选中项目
+	// 而是等待插件完全初始化后再加载
 	
-	// 添加缩放功能
+	// 初始化缩放功能
 	initZoomFeature();
 	
 	// 初始化自定义滚动条
 	initCustomScrollbar();
 });
 
+// 插件运行时的入口点
 eagle.onPluginRun(() => {
 	console.log('eagle.onPluginRun');
-	// 在插件运行时获取选中的项目
+	// 获取并加载当前选中的漫画项目
 	loadSelectedItems();
 });
 
-// 添加防抖函数
+// 防抖函数：限制高频率事件的触发频次
 function debounce(func, wait) {
 	let timeout;
 	return function(...args) {
@@ -87,22 +90,22 @@ function debounce(func, wait) {
 	};
 }
 
-// 添加/恢复检查横向滚动条的函数
+// 更新水平滚动条状态和显示
 function updateHorizontalScroll(zoomLevel) {
 	if (!imageContainer) return;
 	
 	const windowWidth = window.innerWidth;
 	const contentWidth = imageContainer.scrollWidth * zoomLevel;
 	
-	// 如果内容宽度超过窗口宽度，准备显示自定义滚动条（但不立即显示）
+	// 当内容宽度超过视窗宽度时，准备显示自定义滚动条
 	if (contentWidth > windowWidth) {
-		// 准备滚动条，但不立即显示
+		// 结构上显示滚动条容器，但保持透明状态
 		const scrollbarContainer = document.getElementById('custom-scrollbar-container');
 		if (scrollbarContainer) {
-			scrollbarContainer.style.display = 'block'; // 结构显示但透明度为0
+			scrollbarContainer.style.display = 'block'; 
 		}
 		
-		// 添加has-scrollbar类来调整视口大小
+		// 添加has-scrollbar类调整视口尺寸以适应滚动条
 		const viewport = document.querySelector('#viewport');
 		if (viewport) {
 			viewport.classList.add('has-scrollbar');
@@ -111,59 +114,60 @@ function updateHorizontalScroll(zoomLevel) {
 		// 更新滚动条尺寸和位置
 		showCustomScrollbar(imageContainer, contentWidth, windowWidth);
 	} else {
-		// 完全隐藏滚动条
+		// 内容宽度小于视窗时，隐藏滚动条
 		hideCustomScrollbar();
 	}
 }
 
-// 重置内容位置为居中
+// 重置内容位置到水平居中状态
 function resetContentPosition() {
 	const container = document.querySelector('#image-container');
 	if (!container) return;
 	
-	// 重置水平偏移为0（居中）
+	// 重置水平偏移为0（即居中位置）
 	currentOffsetX = 0;
 	
-	// 应用位置
+	// 应用重置后的位置
 	applyContentPosition();
 }
 
-// 应用内容位置
+// 应用内容的位置和缩放变换
 function applyContentPosition() {
 	const container = document.querySelector('#image-container');
 	if (!container) return;
 	
-	// 应用位置变换，只使用水平偏移和缩放，垂直方向使用原生滚动
+	// 使用CSS变换应用水平偏移和缩放，垂直方向使用原生滚动
 	container.style.transform = `translateX(calc(-50% + ${currentOffsetX}px)) scale(${currentZoom})`;
 }
 
-// 处理滚动条点击事件时确保不会被CSS干扰的帮助函数
+// 确保DOM元素在操作期间不受CSS过渡效果影响
 function ensureNoTransitions(element) {
 	if (!element) return;
 	
-	// 保存原始transition属性
+	// 保存原始过渡属性
 	const originalTransition = element.style.transition;
 	
-	// 移除所有transition
+	// 临时禁用所有过渡效果
 	element.style.transition = 'none';
 	
-	// 强制重新计算样式
+	// 强制浏览器重新计算样式
 	void element.offsetWidth;
 	
+	// 返回一个函数用于还原原始过渡效果
 	return () => {
-		// 还原原始transition
+		// 延迟恢复过渡效果以确保不干扰当前操作
 		setTimeout(() => {
 			element.style.transition = originalTransition;
 		}, 50);
 	};
 }
 
-// 改进的动画函数，使用更长时间的动画效果
+// 平滑滚动动画实现
 function animateScroll(startValue, endValue, duration, updateFunc, completeFunc) {
-	// 删除或优化调试日志
+	// 避免调试日志干扰性能
 	// console.log(`开始动画: 从 ${startValue} 到 ${endValue}, 持续 ${duration}ms`);
 	
-	// 防止任何正在进行的动画
+	// 取消可能正在进行的动画
 	if (window.currentScrollAnimation) {
 		console.log('中断之前的动画');
 		cancelAnimationFrame(window.currentScrollAnimation);
@@ -173,7 +177,7 @@ function animateScroll(startValue, endValue, duration, updateFunc, completeFunc)
 	// 确保滚动条在整个动画过程中保持可见
 	showScrollbars();
 	
-	// 禁用所有可能干扰动画的CSS过渡
+	// 禁用可能干扰动画的CSS过渡效果
 	const horizontalScrollbar = document.getElementById('custom-scrollbar');
 	const verticalScrollbar = document.getElementById('vertical-scrollbar');
 	
@@ -185,26 +189,26 @@ function animateScroll(startValue, endValue, duration, updateFunc, completeFunc)
 	let lastUpdateTime = startTime;
 	let lastValue = startValue;
 	
-	// 使用缓动函数使动画更自然 - easeInOutCubic效果比easeOutQuint更平滑
+	// 缓动函数：easeInOutCubic提供更平滑的动画效果
 	function easeInOutCubic(t) {
 		return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 	}
 	
-	// 动画帧函数
+	// 动画帧处理函数
 	function animate(currentTime) {
 		const elapsedTime = currentTime - startTime;
 		const progress = Math.min(elapsedTime / duration, 1);
 		const easedProgress = easeInOutCubic(progress);
 		const currentValue = startValue + change * easedProgress;
 		
-		// 计算和显示每秒更新帧数
+		// 计算并记录每秒帧数（用于性能监控）
 		const fps = Math.round(1000 / (currentTime - lastUpdateTime));
-		// 移除或使用条件判断仅在调试模式下显示
+		// 仅在调试模式下显示帧率信息
 		// if (elapsedTime % 1000 < 20) {
 		//    console.log(`动画进度: ${Math.round(progress * 100)}%, 值: ${Math.round(currentValue)}, FPS: ${fps}`);
 		// }
 		
-		// 调用更新函数，应用新的滚动位置
+		// 应用当前计算的滚动位置值
 		try {
 			updateFunc(currentValue);
 			lastValue = currentValue;
@@ -214,22 +218,23 @@ function animateScroll(startValue, endValue, duration, updateFunc, completeFunc)
 		
 		lastUpdateTime = currentTime;
 		
-		// 如果动画尚未完成，继续请求下一帧
+		// 继续请求下一动画帧或完成动画
 		if (progress < 1) {
 			window.currentScrollAnimation = requestAnimationFrame(animate);
 		} else {
 			console.log(`动画完成: 最终值 ${Math.round(currentValue)}`);
 			window.currentScrollAnimation = null;
 			
-			// 恢复CSS过渡效果
+			// 恢复滚动条的CSS过渡效果
 			if (horizontalScrollbar) horizontalScrollbar.style.transition = '';
 			if (verticalScrollbar) verticalScrollbar.style.transition = '';
 			
+			// 执行动画完成回调函数（如果有）
 			if (completeFunc) completeFunc();
 		}
 	}
 	
-	// 开始动画
+	// 启动第一帧动画
 	console.log('启动动画帧');
 	window.currentScrollAnimation = requestAnimationFrame(animate);
 }
@@ -245,17 +250,17 @@ function initCustomScrollbar() {
 		return;
 	}
 	
-	// 确保滚动条容器总是可以接收点击事件
+	// 确保滚动条相关元素可以接收鼠标事件
 	scrollbarContainer.style.pointerEvents = 'auto';
 	scrollbar.style.pointerEvents = 'auto';
 	scrollbarHandle.style.pointerEvents = 'auto';
 	
-	// 滚动条点击事件
+	// 滚动条轨道点击事件处理
 	scrollbar.addEventListener('mousedown', (e) => {
-		// 忽略手柄上的点击，这些由手柄自己处理
+		// 忽略手柄元素上的点击事件，由手柄自己的事件处理器处理
 		if (e.target === scrollbarHandle) return;
 		
-		// 阻止事件冒泡和默认行为
+		// 阻止事件冒泡和默认行为以避免干扰
 		e.stopPropagation();
 		e.preventDefault();
 		
@@ -264,49 +269,49 @@ function initCustomScrollbar() {
 		
 		const containerRect = container.getBoundingClientRect();
 		const windowWidth = window.innerWidth;
-		const contentWidth = containerRect.width; // 已经包含缩放
+		const contentWidth = containerRect.width; // 包含缩放后的内容宽度
 		
-		// 获取滚动条的位置和尺寸
+		// 获取滚动条的尺寸和位置信息
 		const scrollbarRect = scrollbar.getBoundingClientRect();
 		const scrollbarWidth = parseInt(scrollbar.style.width || '100');
 		const scrollbarMaxMove = windowWidth - scrollbarWidth;
 		
-		// 获取点击位置相对于滚动条容器的X坐标
+		// 获取鼠标点击位置相对于视窗的X坐标
 		const clickX = e.clientX;
 		
-		// 目标位置：将滚动条的中心点对准点击位置
+		// 计算目标位置：将滚动条中心对准点击位置
 		let targetScrollbarLeft = clickX - (scrollbarWidth / 2);
 		
-		// 确保滚动条在有效范围内
+		// 约束滚动条位置在可移动范围内
 		targetScrollbarLeft = Math.max(0, Math.min(scrollbarMaxMove, targetScrollbarLeft));
 		
-		// 计算总的可滚动距离
+		// 计算内容总的可滚动宽度
 		const totalScrollableWidth = contentWidth - windowWidth;
 		
 		console.log(`水平滚动条点击 - 直接移动到 ${targetScrollbarLeft}`);
 		
-		// 直接设置滚动条位置，取消动画效果
+		// 立即更新滚动条位置
 		scrollbar.style.left = `${targetScrollbarLeft}px`;
 		
-		// 计算滚动比例
+		// 根据滚动条位置计算内容的滚动比例
 		const scrollRatio = targetScrollbarLeft / scrollbarMaxMove;
 		
-		// 计算新的偏移量
+		// 计算内容的新偏移量（中心点偏移逻辑）
 		const newOffsetX = (0.5 - scrollRatio) * totalScrollableWidth;
 		
-		// 更新全局偏移量
+		// 更新全局偏移量状态
 		currentOffsetX = newOffsetX;
 		
-		// 应用新位置
+		// 应用内容的新位置
 		applyContentPosition();
 		
-		// 确保滚动条保持可见
+		// 重置滚动条自动隐藏计时器
 		showScrollbars();
 	});
 	
-	// 滚动条容器点击事件
+	// 滚动条容器背景点击事件处理
 	scrollbarContainer.addEventListener('mousedown', (e) => {
-		// 只处理直接点击容器的情况，忽略点击滚动条或手柄的情况
+		// 仅处理直接点击容器背景的情况
 		if (e.target !== scrollbarContainer) return;
 		
 		// 阻止事件冒泡和默认行为
@@ -318,32 +323,33 @@ function initCustomScrollbar() {
 		
 		const containerRect = container.getBoundingClientRect();
 		const windowWidth = window.innerWidth;
-		const contentWidth = containerRect.width; // 已经包含缩放
+		const contentWidth = containerRect.width; // 包含缩放后的内容宽度
 		
-		// 获取滚动条尺寸和最大移动距离
+		// 获取滚动条相关尺寸信息
 		const scrollbarWidth = parseInt(scrollbar.style.width || '100');
 		const scrollbarMaxMove = windowWidth - scrollbarWidth;
 		
-		// 直接将点击位置作为目标位置（滚动条中心对准鼠标）
+		// 滚动条中心对准鼠标点击位置
 		let targetScrollbarLeft = e.clientX - (scrollbarWidth / 2);
 		
-		// 确保滚动条在有效范围内
+		// 约束滚动条位置在有效范围内
 		targetScrollbarLeft = Math.max(0, Math.min(scrollbarMaxMove, targetScrollbarLeft));
 		
-		// 计算总的可滚动距离
+		// 计算内容的总可滚动宽度
 		const totalScrollableWidth = contentWidth - windowWidth;
 		
 		console.log(`水平滚动条容器点击 - 直接移动到 ${targetScrollbarLeft}`);
 		
-		// 直接设置滚动条位置，取消动画效果
+		// 立即更新滚动条位置
 		scrollbar.style.left = `${targetScrollbarLeft}px`;
 		
-		// 计算滚动比例
+		// 计算内容的滚动比例
 		const scrollRatio = targetScrollbarLeft / scrollbarMaxMove;
 		
-		// 计算新的偏移量
+		// 基于比例计算内容的新偏移量
 		const newOffsetX = (0.5 - scrollRatio) * totalScrollableWidth;
 		
+		// 更新全局偏移量状态
 		// 更新全局偏移量
 		currentOffsetX = newOffsetX;
 		
@@ -408,44 +414,45 @@ function handleScrollbarDrag(e) {
 	// 确保滚动条在有效范围内
 	newScrollbarLeft = Math.max(0, Math.min(scrollbarMaxMove, newScrollbarLeft));
 	
-	// 更新滚动条位置
+	// 应用滚动条的新位置
 	scrollbar.style.left = `${newScrollbarLeft}px`;
 	
-	// 计算滚动比例
+	// 计算新位置对应的滚动比例
 	const scrollRatio = newScrollbarLeft / scrollbarMaxMove;
 	
-	// 计算总的可滚动距离
+	// 计算内容的总可滚动宽度
 	const totalScrollableWidth = contentWidth - windowWidth;
 	
-	// 计算新的偏移量 - 修改方向，使其与滚动条运动方向相反
-	// 滚动条向左移动（scrollRatio接近0），内容向右移动（偏移量为正值）
-	// 滚动条向右移动（scrollRatio接近1），内容向左移动（偏移量为负值）
+	// 计算内容的新偏移量（方向与滚动条运动相反）
+	// 滚动条左移（scrollRatio接近0）→ 内容右移（偏移量正值）
+	// 滚动条右移（scrollRatio接近1）→ 内容左移（偏移量负值）
 	const newOffsetX = (0.5 - scrollRatio) * totalScrollableWidth;
 	
-	// 更新全局偏移量
+	// 更新全局内容偏移量
 	currentOffsetX = newOffsetX;
 	
-	// 应用新位置
+	// 应用内容的新位置
 	applyContentPosition();
 	
-	// 更新起始位置
+	// 更新拖动参考起始位置
 	scrollbarStartX = e.clientX;
 }
 
-// 结束滚动条拖动
+// 处理滚动条拖动结束事件
 function endScrollbarDrag() {
 	if (!isDraggingScrollbar) return;
 	
+	// 重置拖动状态标记
 	isDraggingScrollbar = false;
 	
-	// 移除拖动状态类
+	// 移除全局拖动状态样式类
 	document.body.classList.remove('dragging');
 	
-	// 重置隐藏计时器，在拖动结束后开始计时
+	// 启动滚动条自动隐藏计时器
 	resetScrollbarHideTimer();
 }
 
-// 显示自定义滚动条
+// 显示自定义水平滚动条并计算其尺寸位置
 function showCustomScrollbar(container, contentWidth, windowWidth) {
 	const scrollbarContainer = document.getElementById('custom-scrollbar-container');
 	const scrollbar = document.getElementById('custom-scrollbar');
@@ -453,22 +460,22 @@ function showCustomScrollbar(container, contentWidth, windowWidth) {
 	
 	if (!scrollbarContainer || !scrollbar) return;
 	
-	// 显示滚动条容器
+	// 显示滚动条容器元素
 	scrollbarContainer.style.display = 'block';
 	
-	// 给视口添加has-scrollbar类来减少高度
+	// 为视口添加滚动条存在标记类，以调整视口尺寸
 	if (viewport) {
 		viewport.classList.add('has-scrollbar');
 	}
 	
-	// 计算滚动条的宽度和位置
+	// 根据内容和视窗尺寸计算滚动条宽度
 	updateScrollbarDimensions(container, contentWidth, windowWidth);
 	
-	// 更新滚动条位置
+	// 更新滚动条位置以匹配当前内容偏移
 	updateScrollbarPosition();
 }
 
-// 更新滚动条尺寸和位置
+// 根据内容和视窗比例计算更新滚动条尺寸
 function updateScrollbarDimensions(container, contentWidth, windowWidth) {
 	const scrollbarContainer = document.getElementById('custom-scrollbar-container');
 	const scrollbar = document.getElementById('custom-scrollbar');
@@ -476,17 +483,17 @@ function updateScrollbarDimensions(container, contentWidth, windowWidth) {
 	
 	if (!scrollbarContainer || !scrollbar || !scrollbarHandle) return;
 	
-	// 计算窗口与内容的比例
+	// 计算视窗与内容宽度的比例
 	const ratio = windowWidth / contentWidth;
 	
-	// 计算滚动条的宽度和位置
-	const scrollbarWidth = Math.max(30, windowWidth * ratio); // 至少30px宽
+	// 根据比例计算滚动条宽度（设置最小宽度确保可用性）
+	const scrollbarWidth = Math.max(30, windowWidth * ratio); // 最小宽度30px
 	
-	// 设置滚动条的宽度
+	// 应用计算后的滚动条宽度
 	scrollbar.style.width = `${scrollbarWidth}px`;
 }
 
-// 更新滚动条位置以反映当前内容的滚动位置
+// 基于当前内容偏移量更新滚动条位置
 function updateScrollbarPosition() {
 	const container = document.querySelector('#image-container');
 	const scrollbarContainer = document.getElementById('custom-scrollbar-container');
@@ -496,41 +503,41 @@ function updateScrollbarPosition() {
 	
 	const containerRect = container.getBoundingClientRect();
 	const windowWidth = window.innerWidth;
-	const contentWidth = containerRect.width; // 已经包含缩放
+	const contentWidth = containerRect.width; // 包含缩放后的内容宽度
 	
-	// 如果内容小于窗口，不需要滚动条
+	// 内容宽度不足时隐藏滚动条
 	if (contentWidth <= windowWidth) {
 		scrollbarContainer.style.display = 'none';
 		return;
 	}
 	
-	// 确保滚动条可见
+	// 确保滚动条容器可见
 	scrollbarContainer.style.display = 'block';
 	
-	// 计算滚动条的宽度比例
+	// 计算并设置滚动条宽度
 	const ratio = windowWidth / contentWidth;
 	const scrollbarWidth = Math.max(30, windowWidth * ratio);
 	scrollbar.style.width = `${scrollbarWidth}px`;
 	
-	// 计算总的可滚动距离
+	// 计算内容总可滚动宽度
 	const totalScrollableWidth = contentWidth - windowWidth;
 	
-	// 将当前偏移量转换为滚动条位置比例 - 方向相反
-	// currentOffsetX的范围为(-totalScrollableWidth/2, +totalScrollableWidth/2)
-	// 正值对应左侧，负值对应右侧
+	// 将当前内容偏移量转换为滚动条位置比例
+	// currentOffsetX范围：-totalScrollableWidth/2 至 +totalScrollableWidth/2
+	// 正偏移表示内容偏左，对应滚动条偏右
 	const scrollRatio = 0.5 - (currentOffsetX / totalScrollableWidth);
 	
-	// 限制比例在0-1之间
+	// 限制滚动比例在有效范围(0-1)内
 	const clampedRatio = Math.max(0, Math.min(1, scrollRatio));
 	
 	// 计算滚动条可移动的最大距离
 	const scrollbarMaxMove = windowWidth - scrollbarWidth;
 	
-	// 设置滚动条位置
+	// 应用滚动条的新位置
 	scrollbar.style.left = `${clampedRatio * scrollbarMaxMove}px`;
 }
 
-// 隐藏自定义滚动条
+// 隐藏自定义水平滚动条
 function hideCustomScrollbar() {
 	const scrollbarContainer = document.getElementById('custom-scrollbar-container');
 	const viewport = document.querySelector('#viewport');
@@ -539,58 +546,58 @@ function hideCustomScrollbar() {
 		scrollbarContainer.style.display = 'none';
 	}
 	
-	// 移除视口的has-scrollbar类来恢复全高度
+	// 移除视口滚动条存在标记类，恢复原始尺寸
 	if (viewport) {
 		viewport.classList.remove('has-scrollbar');
 	}
 }
 
-// 修正缩放函数，基于偏移量实现
+// 以鼠标位置为中心应用缩放变换
 function applyZoomWithMouseCenter(newZoom, oldZoom) {
 	const container = document.querySelector('#image-container');
 	if (!container) return;
 	
-	// 标记正在缩放
+	// 标记缩放状态开始
 	document.body.classList.add('scaling');
 	
-	// 获取容器位置信息
+	// 获取视窗和内容尺寸信息
 	const containerRect = container.getBoundingClientRect();
 	const windowWidth = window.innerWidth;
 	const windowHeight = window.innerHeight;
 	
-	// 获取当前视口滚动位置
+	// 获取当前视口的垂直滚动位置
 	const viewport = document.querySelector('#viewport');
 	const scrollTop = viewport ? viewport.scrollTop : 0;
 	
-	// 获取鼠标相对于容器的位置（垂直中心点）
+	// 计算垂直中心点位置作为缩放参考点
 	const mouseY = containerRect.top + containerRect.height / 2;
 	
-	// 计算新的尺寸
+	// 计算新旧缩放比例
 	const scaleRatio = newZoom / oldZoom;
 	
-	// 记住原来的水平位置比例
+	// 记录原始水平位置比例（用于保持相对位置）
 	const contentWidth = containerRect.width;
 	const horizontalRatio = (currentOffsetX / contentWidth) || 0;
 	
-	// 计算新的水平偏移量，保持相对位置不变
+	// 按比例缩放水平偏移量，保持相对位置
 	currentOffsetX = currentOffsetX * scaleRatio;
 	
-	// 更新全局缩放比例
+	// 更新全局缩放系数
 	currentZoom = newZoom;
 	
-	// 应用新的位置和缩放
+	// 应用新的变换
 	applyContentPosition();
 	
-	// 更新横向滚动条状态
+	// 更新水平滚动条状态以反映新的缩放
 	updateHorizontalScroll(newZoom);
 	
-	// 计算新的垂直滚动位置，保持视口中心不变
+	// 保持视口中心不变，调整垂直滚动位置
 	if (viewport) {
 		const newScrollTop = scrollTop * scaleRatio;
 		viewport.scrollTop = newScrollTop;
 	}
 	
-	// 显示缩放级别
+	// 显示当前缩放级别指示器
 	showZoomLevel(newZoom);
 	
 	// 移除缩放标记
