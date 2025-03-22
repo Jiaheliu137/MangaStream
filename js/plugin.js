@@ -1,54 +1,5 @@
 const { addAbortSignal } = require('stream');
 
-// 全局变量集中管理
-const appState = {
-	zoom: {
-		current: 0.6,
-		min: 0.2,
-		max: 5.0,
-		step: 0.05
-	},
-	scrollbar: {
-		isDragging: false,
-		startX: 0,
-		hideTimer: null
-	},
-	offset: {
-		x: 0,
-		y: 0
-	},
-	animation: {
-		current: null
-	},
-	items: {
-		currentIds: []
-	}
-};
-
-// 工具函数集中
-const utils = {
-	debounce(func, wait) {
-		let timeout;
-		return function(...args) {
-			const context = this;
-			clearTimeout(timeout);
-			timeout = setTimeout(() => func.apply(context, args), wait);
-		};
-	},
-	
-	ensureNoTransitions(element) {
-		if (!element) return () => {};
-		const originalTransition = element.style.transition;
-		element.style.transition = 'none';
-		void element.offsetWidth;
-		return () => {
-			setTimeout(() => {
-				element.style.transition = originalTransition;
-			}, 50);
-		};
-	}
-};
-
 // 全局变量，用于存储当前缩放比例
 let currentZoom = 0.6; // 默认缩放为60%而不是100%
 let zoomLevelTimeout; // 用于控制缩放级别显示的定时器
@@ -62,6 +13,36 @@ let currentLoadedItemIds = [];
 
 // 全局变量，用于存储滚动条隐藏计时器
 let scrollbarHideTimer;
+
+// 缓存常用DOM元素引用
+const imageContainer = document.querySelector('#image-container');
+const viewport = document.querySelector('#viewport');
+const customScrollbarContainer = document.getElementById('custom-scrollbar-container');
+
+// 使用模块模式组织相关功能
+const ZoomModule = {
+	currentZoom: 0.6,
+	zoomLevelTimeout: null,
+	
+	init() {
+		// 初始化缩放功能
+	},
+	
+	applyZoom(newZoom) {
+		// 应用缩放
+	}
+	// 其他缩放相关方法
+};
+
+const ScrollbarModule = {
+	isDraggingScrollbar: false,
+	scrollbarStartX: 0,
+	
+	init() {
+		// 初始化滚动条
+	}
+	// 滚动条相关方法
+};
 
 eagle.onPluginCreate((plugin) => {
 	console.log('eagle.onPluginCreate');
@@ -94,11 +75,10 @@ function debounce(func, wait) {
 
 // 添加/恢复检查横向滚动条的函数
 function updateHorizontalScroll(zoomLevel) {
-	const container = document.querySelector('#image-container');
-	if (!container) return;
+	if (!imageContainer) return;
 	
 	const windowWidth = window.innerWidth;
-	const contentWidth = container.scrollWidth * zoomLevel;
+	const contentWidth = imageContainer.scrollWidth * zoomLevel;
 	
 	// 如果内容宽度超过窗口宽度，准备显示自定义滚动条（但不立即显示）
 	if (contentWidth > windowWidth) {
@@ -115,7 +95,7 @@ function updateHorizontalScroll(zoomLevel) {
 		}
 		
 		// 更新滚动条尺寸和位置
-		showCustomScrollbar(container, contentWidth, windowWidth);
+		showCustomScrollbar(imageContainer, contentWidth, windowWidth);
 	} else {
 		// 完全隐藏滚动条
 		hideCustomScrollbar();
@@ -164,34 +144,80 @@ function ensureNoTransitions(element) {
 	};
 }
 
-// 优化动画函数
+// 改进的动画函数，使用更长时间的动画效果
 function animateScroll(startValue, endValue, duration, updateFunc, completeFunc) {
-	// 清理之前的动画
-	if (appState.animation.current) {
-		cancelAnimationFrame(appState.animation.current);
+	// 删除或优化调试日志
+	// console.log(`开始动画: 从 ${startValue} 到 ${endValue}, 持续 ${duration}ms`);
+	
+	// 防止任何正在进行的动画
+	if (window.currentScrollAnimation) {
+		console.log('中断之前的动画');
+		cancelAnimationFrame(window.currentScrollAnimation);
+		window.currentScrollAnimation = null;
 	}
+	
+	// 确保滚动条在整个动画过程中保持可见
+	showScrollbars();
+	
+	// 禁用所有可能干扰动画的CSS过渡
+	const horizontalScrollbar = document.getElementById('custom-scrollbar');
+	const verticalScrollbar = document.getElementById('vertical-scrollbar');
+	
+	if (horizontalScrollbar) horizontalScrollbar.style.transition = 'none';
+	if (verticalScrollbar) verticalScrollbar.style.transition = 'none';
 	
 	const startTime = performance.now();
+	const change = endValue - startValue;
+	let lastUpdateTime = startTime;
+	let lastValue = startValue;
 	
-	function animation(currentTime) {
-		const elapsedTime = currentTime - startTime;
-		
-		if (elapsedTime >= duration) {
-			updateFunc(endValue);
-			if (completeFunc) completeFunc();
-			return;
-		}
-		
-		const progress = elapsedTime / duration;
-		// 使用缓动函数使动画更流畅
-		const easeProgress = 1 - Math.pow(1 - progress, 3); // 缓出
-		const currentValue = startValue + (endValue - startValue) * easeProgress;
-		
-		updateFunc(currentValue);
-		appState.animation.current = requestAnimationFrame(animation);
+	// 使用缓动函数使动画更自然 - easeInOutCubic效果比easeOutQuint更平滑
+	function easeInOutCubic(t) {
+		return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 	}
 	
-	appState.animation.current = requestAnimationFrame(animation);
+	// 动画帧函数
+	function animate(currentTime) {
+		const elapsedTime = currentTime - startTime;
+		const progress = Math.min(elapsedTime / duration, 1);
+		const easedProgress = easeInOutCubic(progress);
+		const currentValue = startValue + change * easedProgress;
+		
+		// 计算和显示每秒更新帧数
+		const fps = Math.round(1000 / (currentTime - lastUpdateTime));
+		// 移除或使用条件判断仅在调试模式下显示
+		// if (elapsedTime % 1000 < 20) {
+		//    console.log(`动画进度: ${Math.round(progress * 100)}%, 值: ${Math.round(currentValue)}, FPS: ${fps}`);
+		// }
+		
+		// 调用更新函数，应用新的滚动位置
+		try {
+			updateFunc(currentValue);
+			lastValue = currentValue;
+		} catch (err) {
+			console.error('动画更新函数出错:', err);
+		}
+		
+		lastUpdateTime = currentTime;
+		
+		// 如果动画尚未完成，继续请求下一帧
+		if (progress < 1) {
+			window.currentScrollAnimation = requestAnimationFrame(animate);
+		} else {
+			console.log(`动画完成: 最终值 ${Math.round(currentValue)}`);
+			window.currentScrollAnimation = null;
+			
+			// 恢复CSS过渡效果
+			if (horizontalScrollbar) horizontalScrollbar.style.transition = '';
+			if (verticalScrollbar) verticalScrollbar.style.transition = '';
+			
+			if (completeFunc) completeFunc();
+		}
+	}
+	
+	// 开始动画
+	console.log('启动动画帧');
+	window.currentScrollAnimation = requestAnimationFrame(animate);
 }
 
 // 初始化自定义滚动条
@@ -776,8 +802,10 @@ function applyZoom(zoomLevel) {
 
 // 简化后的loadSelectedItems函数
 function loadSelectedItems() {
-	// 返回Promise以便链式调用
-	return new Promise((resolve, reject) => {
+	// 显示加载状态
+	showLoading(true);
+	
+	try {
 		// 在获取新内容前添加淡出效果
 		const container = document.querySelector('#image-container');
 		if (container) {
@@ -801,7 +829,6 @@ function loadSelectedItems() {
 					if (container) {
 						container.classList.remove('fading-out');
 					}
-					resolve();
 					return;
 				}
 				
@@ -821,13 +848,11 @@ function loadSelectedItems() {
 							container.classList.remove('fading-in');
 						}, 300);
 					}
-					resolve();
 					return;
 				}
 				
 				// 使用计算好的缩放比例显示图片
 				displaySelectedItems(items);
-				resolve();
 			}).catch(err => {
 				console.error('获取选中项目时出错:', err);
 				eagle.log.error('获取选中项目时出错: ' + err.message);
@@ -842,10 +867,23 @@ function loadSelectedItems() {
 						container.classList.remove('fading-in');
 					}, 300);
 				}
-				reject(err);
+				showErrorMessage('加载图片失败，请重试');
 			});
 		}, 200); // 200ms延迟，与CSS过渡时间匹配
-	});
+	} catch (error) {
+		console.error('加载选中项目失败:', error);
+		// 显示错误提示给用户
+		showErrorMessage('加载图片失败，请重试');
+	}
+	
+	// 完成加载后
+	setTimeout(() => {
+		// 更新光标样式
+		if (window.updateAfterZoom) {
+			window.updateAfterZoom();
+		}
+		showLoading(false);
+	}, 100);
 }
 
 // 检查两个数组是否相等的辅助函数
@@ -1400,69 +1438,133 @@ function initRefreshButton() {
 	});
 }
 
-// 优化键盘快捷键处理
+// 初始化键盘快捷键
 function initKeyboardShortcuts() {
-	const keyHandlers = {
-		// 放大 - Ctrl + 加号(+/=)
-		zoom_in: (e) => {
-			if (e.ctrlKey && (e.key === '+' || e.key === '=' || e.keyCode === 187)) {
-				e.preventDefault();
-				const oldZoom = appState.zoom.current;
-				const newZoom = Math.min(appState.zoom.max, oldZoom * (1 + appState.zoom.step));
-				applyZoomWithMouseCenter(newZoom, oldZoom);
-			}
-		},
+	document.addEventListener('keydown', (event) => {
+		// Ctrl+加号或等号(+/=)：放大
+		if (event.ctrlKey && (event.key === '+' || event.key === '=' || event.keyCode === 187)) {
+			event.preventDefault();
+			
+			// 计算新的缩放比例（增加5%）
+			const oldZoom = currentZoom;
+			let newZoom = oldZoom * 1.05;
+			
+			// 设置缩放限制
+			const maxZoom = 5.0;
+			newZoom = Math.min(maxZoom, newZoom);
+			
+			// 应用缩放
+			applyZoomWithMouseCenter(newZoom, oldZoom);
+		}
 		
-		// 缩小 - Ctrl + 减号(-)
-		zoom_out: (e) => {
-			if (e.ctrlKey && (e.key === '-' || e.keyCode === 189)) {
-				e.preventDefault();
-				const oldZoom = appState.zoom.current;
-				const newZoom = Math.max(appState.zoom.min, oldZoom * (1 - appState.zoom.step));
-				applyZoomWithMouseCenter(newZoom, oldZoom);
-			}
-		},
+		// Ctrl+减号(-)：缩小
+		if (event.ctrlKey && (event.key === '-' || event.keyCode === 189)) {
+			event.preventDefault();
+			
+			// 计算新的缩放比例（减少5%）
+			const oldZoom = currentZoom;
+			let newZoom = oldZoom * 0.95;
+			
+			// 设置缩放限制
+			const minZoom = 0.2;
+			newZoom = Math.max(minZoom, newZoom);
+			
+			// 应用缩放
+			applyZoomWithMouseCenter(newZoom, oldZoom);
+		}
 		
-		// 关闭窗口 - Ctrl + W
-		close: (e) => {
-			if (e.ctrlKey && (e.key === 'w' || e.keyCode === 87)) {
-				e.preventDefault();
-				closeWindow();
-			}
-		},
-		
-		// 刷新 - Ctrl + R
-		refresh: (e) => {
-			if (e.ctrlKey && (e.key === 'r' || e.keyCode === 82)) {
-				e.preventDefault();
-				animateRefreshButton();
-				loadSelectedItems();
+		// Ctrl+W：退出窗口
+		if (event.ctrlKey && (event.key === 'w' || event.keyCode === 87)) {
+			event.preventDefault();
+			console.log('触发Ctrl+W关闭窗口');
+			
+			// 使用hide方法关闭窗口，而不是尝试调用不存在的close方法
+			if (typeof eagle !== 'undefined' && eagle.window && typeof eagle.window.hide === 'function') {
+				// 记录日志以便调试
+				console.log('正在尝试使用eagle.window.hide()关闭窗口');
+				
+				eagle.window.hide().then(() => {
+					console.log('窗口已成功隐藏');
+				}).catch(err => {
+					console.error('隐藏窗口失败:', err);
+					
+					// 如果hide方法失败，尝试使用其他可能的方法
+					console.log('尝试使用其他方法关闭窗口');
+					
+					// 尝试minimize方法
+					if (typeof eagle.window.minimize === 'function') {
+						eagle.window.minimize().catch(e => 
+							console.error('最小化窗口失败:', e)
+						);
+					}
+				});
+			} else {
+				console.warn('eagle.window.hide API不可用');
+				
+				// 记录eagle对象的属性，帮助调试
+				console.log('eagle对象可用:', typeof eagle !== 'undefined');
+				if (typeof eagle !== 'undefined') {
+					console.log('eagle.window对象可用:', typeof eagle.window !== 'undefined');
+					if (typeof eagle.window !== 'undefined') {
+						console.log('eagle.window可用的方法:', 
+							Object.getOwnPropertyNames(eagle.window)
+							.filter(prop => typeof eagle.window[prop] === 'function')
+						);
+					}
+				}
 			}
 		}
-	};
-	
-	document.addEventListener('keydown', (event) => {
-		Object.values(keyHandlers).forEach(handler => handler(event));
+		
+		// Ctrl+R：刷新
+		if (event.ctrlKey && (event.key === 'r' || event.keyCode === 82)) {
+			event.preventDefault();
+			
+			// 显示刷新按钮动画
+			const refreshButton = document.getElementById('refresh-button');
+			if (refreshButton) {
+				refreshButton.classList.add('refreshing');
+				setTimeout(() => {
+					refreshButton.classList.remove('refreshing');
+				}, 500);
+			}
+			
+			// 刷新图片
+			loadSelectedItems();
+		}
 	});
 }
 
-// 关闭窗口函数
-function closeWindow() {
-	if (typeof eagle !== 'undefined' && eagle.window && typeof eagle.window.hide === 'function') {
-		eagle.window.hide().catch(err => {
-			console.error('隐藏窗口失败:', err);
-			if (typeof eagle.window.minimize === 'function') {
-				eagle.window.minimize().catch(e => console.error('最小化窗口失败:', e));
-			}
-		});
-	}
+// 添加错误提示函数
+function showErrorMessage(message) {
+	const errorBox = document.createElement('div');
+	errorBox.className = 'error-message';
+	errorBox.textContent = message;
+	document.body.appendChild(errorBox);
+	
+	setTimeout(() => {
+		errorBox.remove();
+	}, 3000);
 }
 
-// 刷新按钮动画
-function animateRefreshButton() {
-	const refreshButton = document.getElementById('refresh-button');
-	if (refreshButton) {
-		refreshButton.classList.add('refreshing');
-		setTimeout(() => refreshButton.classList.remove('refreshing'), 500);
-	}
+function showLoading(isLoading) {
+	const loadingIndicator = document.getElementById('loading-indicator') || createLoadingIndicator();
+	loadingIndicator.style.display = isLoading ? 'flex' : 'none';
+}
+
+function createLoadingIndicator() {
+	const indicator = document.createElement('div');
+	indicator.id = 'loading-indicator';
+	indicator.innerHTML = '<div class="spinner"></div>';
+	document.body.appendChild(indicator);
+	return indicator;
+}
+
+// 清理不再需要的资源
+function clearPreviousImages() {
+	const oldImages = document.querySelectorAll('.image-container img');
+	oldImages.forEach(img => {
+		// 释放图片资源
+		img.src = '';
+		img.remove();
+	});
 }
