@@ -6,6 +6,9 @@ let scrollbarStartX = 0; // 拖动滚动条起始位置
 let currentOffsetX = 0; // 当前漫画的水平偏移量
 let currentOffsetY = 0; // 当前漫画的垂直偏移量
 
+// 全局变量，用于存储滚动条隐藏计时器
+let scrollbarHideTimer;
+
 eagle.onPluginCreate((plugin) => {
 	console.log('eagle.onPluginCreate');
 	
@@ -43,16 +46,25 @@ function updateHorizontalScroll(zoomLevel) {
 	const windowWidth = window.innerWidth;
 	const contentWidth = container.scrollWidth * zoomLevel;
 	
-	// 如果内容宽度超过窗口宽度，使用自定义滚动条
+	// 如果内容宽度超过窗口宽度，准备显示自定义滚动条（但不立即显示）
 	if (contentWidth > windowWidth) {
-		// 显示自定义滚动条
+		// 准备滚动条，但不立即显示
+		const scrollbarContainer = document.getElementById('custom-scrollbar-container');
+		if (scrollbarContainer) {
+			scrollbarContainer.style.display = 'block'; // 结构显示但透明度为0
+		}
+		
+		// 添加has-scrollbar类来调整视口大小
+		const viewport = document.querySelector('#viewport');
+		if (viewport) {
+			viewport.classList.add('has-scrollbar');
+		}
+		
+		// 更新滚动条尺寸和位置
 		showCustomScrollbar(container, contentWidth, windowWidth);
 	} else {
-		// 隐藏自定义滚动条
+		// 完全隐藏滚动条
 		hideCustomScrollbar();
-		
-		// 内容宽度不超过窗口宽度时，确保居中
-		resetContentPosition();
 	}
 }
 
@@ -210,11 +222,17 @@ function endScrollbarDrag() {
 function showCustomScrollbar(container, contentWidth, windowWidth) {
 	const scrollbarContainer = document.getElementById('custom-scrollbar-container');
 	const scrollbar = document.getElementById('custom-scrollbar');
+	const viewport = document.querySelector('#viewport');
 	
 	if (!scrollbarContainer || !scrollbar) return;
 	
 	// 显示滚动条容器
 	scrollbarContainer.style.display = 'block';
+	
+	// 给视口添加has-scrollbar类来减少高度
+	if (viewport) {
+		viewport.classList.add('has-scrollbar');
+	}
 	
 	// 计算滚动条的宽度和位置
 	updateScrollbarDimensions(container, contentWidth, windowWidth);
@@ -288,9 +306,16 @@ function updateScrollbarPosition() {
 // 隐藏自定义滚动条
 function hideCustomScrollbar() {
 	const scrollbarContainer = document.getElementById('custom-scrollbar-container');
-	if (!scrollbarContainer) return;
+	const viewport = document.querySelector('#viewport');
 	
-	scrollbarContainer.style.display = 'none';
+	if (scrollbarContainer) {
+		scrollbarContainer.style.display = 'none';
+	}
+	
+	// 移除视口的has-scrollbar类来恢复全高度
+	if (viewport) {
+		viewport.classList.remove('has-scrollbar');
+	}
 }
 
 // 修正缩放函数，基于偏移量实现
@@ -467,8 +492,8 @@ function initDragFeature() {
 		lastMouseY = e.clientY;
 		
 		// 无条件设置为抓取状态的手型光标
-		document.body.style.cursor = 'grabbing';
-		container.style.cursor = 'grabbing';
+			document.body.style.cursor = 'grabbing';
+			container.style.cursor = 'grabbing';
 		
 		// 添加拖动状态类
 		document.body.classList.add('dragging');
@@ -771,4 +796,106 @@ document.addEventListener('DOMContentLoaded', () => {
 	
 	// 显示初始缩放级别
 	showZoomLevel(currentZoom);
+	
+	// 初始化垂直滚动条
+	initVerticalScrollbar();
+	
+	// 设置滚动条可见性
+	setupScrollbarVisibility();
 });
+
+// 初始化垂直滚动条函数
+function initVerticalScrollbar() {
+	const viewport = document.querySelector('#viewport');
+	const verticalScrollbarContainer = document.getElementById('vertical-scrollbar-container');
+	const verticalScrollbar = document.getElementById('vertical-scrollbar');
+	
+	if (!viewport || !verticalScrollbarContainer || !verticalScrollbar) return;
+	
+	// 设置初始滚动条高度和位置
+	updateVerticalScrollbar();
+	
+	// 监听滚动事件
+	viewport.addEventListener('scroll', updateVerticalScrollbar);
+	
+	// 窗口大小改变时更新滚动条
+	window.addEventListener('resize', updateVerticalScrollbar);
+}
+
+// 更新垂直滚动条位置和尺寸
+function updateVerticalScrollbar() {
+	const viewport = document.querySelector('#viewport');
+	const verticalScrollbar = document.getElementById('vertical-scrollbar');
+	const verticalScrollbarHandle = document.getElementById('vertical-scrollbar-handle');
+	
+	if (!viewport || !verticalScrollbar || !verticalScrollbarHandle) return;
+	
+	// 计算内容高度与视口高度比例
+	const contentHeight = viewport.scrollHeight;
+	const viewportHeight = viewport.clientHeight;
+	const ratio = viewportHeight / contentHeight;
+	
+	// 设置滚动条高度
+	const scrollbarHeight = Math.max(30, viewportHeight * ratio);
+	verticalScrollbar.style.height = `${scrollbarHeight}px`;
+	
+	// 计算并设置滚动条位置
+	const scrollRatio = viewport.scrollTop / (contentHeight - viewportHeight);
+	const maxScrollbarOffset = viewportHeight - scrollbarHeight;
+	const scrollbarTop = scrollRatio * maxScrollbarOffset;
+	
+	verticalScrollbar.style.top = `${scrollbarTop}px`;
+}
+
+// 显示滚动条函数
+function showScrollbars() {
+	// 获取滚动条容器
+	const horizontalContainer = document.getElementById('custom-scrollbar-container');
+	const verticalContainer = document.getElementById('vertical-scrollbar-container');
+	
+	// 添加活动类使滚动条显示
+	if (horizontalContainer) horizontalContainer.classList.add('active');
+	if (verticalContainer) verticalContainer.classList.add('active');
+	
+	// 重置隐藏计时器
+	resetScrollbarHideTimer();
+}
+
+// 隐藏滚动条函数
+function hideScrollbars() {
+	// 获取滚动条容器
+	const horizontalContainer = document.getElementById('custom-scrollbar-container');
+	const verticalContainer = document.getElementById('vertical-scrollbar-container');
+	
+	// 移除活动类使滚动条隐藏
+	if (horizontalContainer) horizontalContainer.classList.remove('active');
+	if (verticalContainer) verticalContainer.classList.remove('active');
+}
+
+// 重置滚动条隐藏计时器
+function resetScrollbarHideTimer() {
+	// 清除现有计时器
+	if (scrollbarHideTimer) clearTimeout(scrollbarHideTimer);
+	
+	// 设置新计时器，1秒后隐藏滚动条（修改为1000毫秒）
+	scrollbarHideTimer = setTimeout(hideScrollbars, 1000);
+}
+
+// 修改监听事件，在滚动、鼠标移动和触摸时显示滚动条
+function setupScrollbarVisibility() {
+	// 监听viewport的滚动事件
+	const viewport = document.querySelector('#viewport');
+	if (viewport) {
+		viewport.addEventListener('scroll', showScrollbars);
+	}
+	
+	// 监听鼠标移动事件
+	document.addEventListener('mousemove', showScrollbars);
+	
+	// 监听触摸事件
+	document.addEventListener('touchstart', showScrollbars);
+	document.addEventListener('touchmove', showScrollbars);
+	
+	// 初始化时先显示一次滚动条，然后自动隐藏
+	showScrollbars();
+}

@@ -22,10 +22,22 @@
         /* 创建视口容器 */
         #viewport {
             position: relative;
-            width: 100%;
-            height: calc(100vh - 16px); /* 减去滚动条高度 */
-            overflow-x: hidden; /* 禁用水平滚动，使用自定义滚动条 */
-            overflow-y: auto; /* 允许垂直滚动 */
+            width: calc(100vw - 16px); /* 减去垂直滚动条宽度 */
+            height: 100vh;
+            overflow-x: hidden;
+            overflow-y: scroll; /* 保留滚动功能 */
+            scrollbar-width: none; /* Firefox */
+            -ms-overflow-style: none; /* IE and Edge */
+        }
+        
+        /* 隐藏WebKit浏览器的原生滚动条 */
+        #viewport::-webkit-scrollbar {
+            display: none;
+        }
+        
+        /* 当水平滚动条显示时的视口样式 */
+        #viewport.has-scrollbar {
+            height: calc(100vh - 16px);
         }
         
         /* 缩放和拖动状态样式 */
@@ -125,6 +137,8 @@
             z-index: 1000;
             display: none;
             overflow: hidden; /* 防止内容溢出 */
+            opacity: 0; /* 默认隐藏 */
+            transition: opacity 1.5s ease; /* 修改为1.5秒过渡效果 */
         }
         
         #custom-scrollbar {
@@ -146,6 +160,45 @@
             border-radius: 4px;
             position: absolute;
         }
+        
+        /* 添加垂直滚动条容器和滚动条样式 */
+        #vertical-scrollbar-container {
+            position: fixed;
+            top: 0;
+            right: 0;
+            width: 16px;
+            height: 100%;
+            background-color: rgba(30, 30, 30, 0.7);
+            z-index: 1000;
+            overflow: hidden;
+            opacity: 0; /* 默认隐藏 */
+            transition: opacity 1.5s ease; /* 修改为1.5秒过渡效果 */
+        }
+        
+        #vertical-scrollbar {
+            position: absolute;
+            width: 8px;
+            background-color: rgba(150, 150, 150, 0.7);
+            border-radius: 4px;
+            left: 4px;
+            cursor: pointer;
+            transform-origin: center;
+            transition: width 0.1s ease-out;
+        }
+        
+        #vertical-scrollbar-handle {
+            width: 100%;
+            height: 100%;
+            background-color: rgba(200, 200, 200, 0.9);
+            border-radius: 4px;
+            position: absolute;
+        }
+        
+        /* 滚动条活动时的样式 */
+        #custom-scrollbar-container.active,
+        #vertical-scrollbar-container.active {
+            opacity: 1;
+        }
     </style>
 </head>
 <body>
@@ -155,6 +208,11 @@
     <div id="custom-scrollbar-container">
         <div id="custom-scrollbar">
             <div id="custom-scrollbar-handle"></div>
+        </div>
+    </div>
+    <div id="vertical-scrollbar-container">
+        <div id="vertical-scrollbar">
+            <div id="vertical-scrollbar-handle"></div>
         </div>
     </div>
     <script src="js/plugin.js"></script>
