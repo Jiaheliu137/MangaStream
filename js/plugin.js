@@ -1,6 +1,10 @@
 // 全局变量，用于存储当前缩放比例
 let currentZoom = 1.0; // 默认缩放为100%
 let zoomLevelTimeout; // 用于控制缩放级别显示的定时器
+let isDraggingScrollbar = false; // 是否正在拖动自定义滚动条
+let scrollbarStartX = 0; // 拖动滚动条起始位置
+let currentOffsetX = 0; // 当前漫画的水平偏移量
+let currentOffsetY = 0; // 当前漫画的垂直偏移量
 
 eagle.onPluginCreate((plugin) => {
 	console.log('eagle.onPluginCreate');
@@ -10,6 +14,9 @@ eagle.onPluginCreate((plugin) => {
 	
 	// 添加缩放功能
 	initZoomFeature();
+	
+	// 初始化自定义滚动条
+	initCustomScrollbar();
 });
 
 eagle.onPluginRun(() => {
@@ -36,15 +43,257 @@ function updateHorizontalScroll(zoomLevel) {
 	const windowWidth = window.innerWidth;
 	const contentWidth = container.scrollWidth * zoomLevel;
 	
-	// 如果内容宽度超过窗口宽度，启用横向滚动
+	// 如果内容宽度超过窗口宽度，使用自定义滚动条
 	if (contentWidth > windowWidth) {
-		document.body.style.overflowX = 'auto';
+		// 显示自定义滚动条
+		showCustomScrollbar(container, contentWidth, windowWidth);
 	} else {
-		document.body.style.overflowX = 'hidden';
+		// 隐藏自定义滚动条
+		hideCustomScrollbar();
+		
+		// 内容宽度不超过窗口宽度时，确保居中
+		resetContentPosition();
 	}
 }
 
-// 修正缩放函数，确保不干扰窗口大小调整时的视图稳定性
+// 重置内容位置为居中
+function resetContentPosition() {
+	const container = document.querySelector('#image-container');
+	if (!container) return;
+	
+	// 重置水平偏移为0（居中）
+	currentOffsetX = 0;
+	
+	// 应用位置
+	applyContentPosition();
+}
+
+// 应用内容位置
+function applyContentPosition() {
+	const container = document.querySelector('#image-container');
+	if (!container) return;
+	
+	// 应用位置变换，只使用水平偏移和缩放，垂直方向使用原生滚动
+	container.style.transform = `translateX(calc(-50% + ${currentOffsetX}px)) scale(${currentZoom})`;
+}
+
+// 初始化自定义滚动条
+function initCustomScrollbar() {
+	const scrollbarContainer = document.getElementById('custom-scrollbar-container');
+	const scrollbar = document.getElementById('custom-scrollbar');
+	const scrollbarHandle = document.getElementById('custom-scrollbar-handle');
+	
+	if (!scrollbarContainer || !scrollbar || !scrollbarHandle) return;
+	
+	// 滚动条点击事件，直接跳转到点击位置
+	scrollbar.addEventListener('mousedown', (e) => {
+		// 忽略手柄上的点击，这些由手柄自己处理
+		if (e.target === scrollbarHandle) return;
+		
+		const container = document.querySelector('#image-container');
+		if (!container) return;
+		
+		const containerRect = container.getBoundingClientRect();
+		const windowWidth = window.innerWidth;
+		const contentWidth = containerRect.width; // 已经包含缩放
+		
+		// 获取滚动条宽度和最大移动距离
+		const scrollbarWidth = parseInt(scrollbar.style.width);
+		const scrollbarMaxMove = windowWidth - scrollbarWidth;
+		
+		// 计算点击位置
+		const scrollbarRect = scrollbar.getBoundingClientRect();
+		const clickX = e.clientX - scrollbarRect.left;
+		
+		// 计算点击位置应该对应的滚动条左侧位置
+		let newScrollbarLeft = clickX - (scrollbarWidth / 2);
+		
+		// 确保滚动条在有效范围内
+		newScrollbarLeft = Math.max(0, Math.min(scrollbarMaxMove, newScrollbarLeft));
+		
+		// 更新滚动条位置
+		scrollbar.style.left = `${newScrollbarLeft}px`;
+		
+		// 计算滚动比例
+		const scrollRatio = newScrollbarLeft / scrollbarMaxMove;
+		
+		// 计算总的可滚动距离
+		const totalScrollableWidth = contentWidth - windowWidth;
+		
+		// 计算新的偏移量 - 与拖动逻辑保持一致，方向相反
+		const newOffsetX = (0.5 - scrollRatio) * totalScrollableWidth;
+		
+		// 更新全局偏移量
+		currentOffsetX = newOffsetX;
+		
+		// 应用新位置
+		applyContentPosition();
+	});
+	
+	// 滚动条手柄拖动
+	scrollbarHandle.addEventListener('mousedown', (e) => {
+		e.preventDefault();
+		isDraggingScrollbar = true;
+		scrollbarStartX = e.clientX;
+		
+		// 添加拖动状态类
+		document.body.classList.add('dragging');
+	});
+	
+	// 监听鼠标移动和释放事件
+	document.addEventListener('mousemove', handleScrollbarDrag);
+	document.addEventListener('mouseup', endScrollbarDrag);
+}
+
+// 处理滚动条拖动
+function handleScrollbarDrag(e) {
+	if (!isDraggingScrollbar) return;
+	
+	const container = document.querySelector('#image-container');
+	const scrollbar = document.getElementById('custom-scrollbar');
+	
+	if (!container || !scrollbar) return;
+	
+	const containerRect = container.getBoundingClientRect();
+	const windowWidth = window.innerWidth;
+	const contentWidth = containerRect.width; // 已经包含缩放
+	
+	// 获取滚动条宽度和最大移动距离
+	const scrollbarWidth = parseInt(scrollbar.style.width);
+	const scrollbarMaxMove = windowWidth - scrollbarWidth;
+	
+	// 计算拖动距离
+	const dragDistance = e.clientX - scrollbarStartX;
+	
+	// 计算拖动后的滚动条位置
+	let currentScrollbarLeft = parseInt(scrollbar.style.left || '0');
+	let newScrollbarLeft = currentScrollbarLeft + dragDistance;
+	
+	// 确保滚动条在有效范围内
+	newScrollbarLeft = Math.max(0, Math.min(scrollbarMaxMove, newScrollbarLeft));
+	
+	// 更新滚动条位置
+	scrollbar.style.left = `${newScrollbarLeft}px`;
+	
+	// 计算滚动比例
+	const scrollRatio = newScrollbarLeft / scrollbarMaxMove;
+	
+	// 计算总的可滚动距离
+	const totalScrollableWidth = contentWidth - windowWidth;
+	
+	// 计算新的偏移量 - 修改方向，使其与滚动条运动方向相反
+	// 滚动条向左移动（scrollRatio接近0），内容向右移动（偏移量为正值）
+	// 滚动条向右移动（scrollRatio接近1），内容向左移动（偏移量为负值）
+	const newOffsetX = (0.5 - scrollRatio) * totalScrollableWidth;
+	
+	// 更新全局偏移量
+	currentOffsetX = newOffsetX;
+	
+	// 应用新位置
+	applyContentPosition();
+	
+	// 更新起始位置
+	scrollbarStartX = e.clientX;
+}
+
+// 结束滚动条拖动
+function endScrollbarDrag() {
+	if (!isDraggingScrollbar) return;
+	
+	isDraggingScrollbar = false;
+	
+	// 移除拖动状态类
+	document.body.classList.remove('dragging');
+}
+
+// 显示自定义滚动条
+function showCustomScrollbar(container, contentWidth, windowWidth) {
+	const scrollbarContainer = document.getElementById('custom-scrollbar-container');
+	const scrollbar = document.getElementById('custom-scrollbar');
+	
+	if (!scrollbarContainer || !scrollbar) return;
+	
+	// 显示滚动条容器
+	scrollbarContainer.style.display = 'block';
+	
+	// 计算滚动条的宽度和位置
+	updateScrollbarDimensions(container, contentWidth, windowWidth);
+	
+	// 更新滚动条位置
+	updateScrollbarPosition();
+}
+
+// 更新滚动条尺寸和位置
+function updateScrollbarDimensions(container, contentWidth, windowWidth) {
+	const scrollbarContainer = document.getElementById('custom-scrollbar-container');
+	const scrollbar = document.getElementById('custom-scrollbar');
+	const scrollbarHandle = document.getElementById('custom-scrollbar-handle');
+	
+	if (!scrollbarContainer || !scrollbar || !scrollbarHandle) return;
+	
+	// 计算窗口与内容的比例
+	const ratio = windowWidth / contentWidth;
+	
+	// 计算滚动条的宽度和位置
+	const scrollbarWidth = Math.max(30, windowWidth * ratio); // 至少30px宽
+	
+	// 设置滚动条的宽度
+	scrollbar.style.width = `${scrollbarWidth}px`;
+}
+
+// 更新滚动条位置以反映当前内容的滚动位置
+function updateScrollbarPosition() {
+	const container = document.querySelector('#image-container');
+	const scrollbarContainer = document.getElementById('custom-scrollbar-container');
+	const scrollbar = document.getElementById('custom-scrollbar');
+	
+	if (!container || !scrollbarContainer || !scrollbar) return;
+	
+	const containerRect = container.getBoundingClientRect();
+	const windowWidth = window.innerWidth;
+	const contentWidth = containerRect.width; // 已经包含缩放
+	
+	// 如果内容小于窗口，不需要滚动条
+	if (contentWidth <= windowWidth) {
+		scrollbarContainer.style.display = 'none';
+		return;
+	}
+	
+	// 确保滚动条可见
+	scrollbarContainer.style.display = 'block';
+	
+	// 计算滚动条的宽度比例
+	const ratio = windowWidth / contentWidth;
+	const scrollbarWidth = Math.max(30, windowWidth * ratio);
+	scrollbar.style.width = `${scrollbarWidth}px`;
+	
+	// 计算总的可滚动距离
+	const totalScrollableWidth = contentWidth - windowWidth;
+	
+	// 将当前偏移量转换为滚动条位置比例 - 方向相反
+	// currentOffsetX的范围为(-totalScrollableWidth/2, +totalScrollableWidth/2)
+	// 正值对应左侧，负值对应右侧
+	const scrollRatio = 0.5 - (currentOffsetX / totalScrollableWidth);
+	
+	// 限制比例在0-1之间
+	const clampedRatio = Math.max(0, Math.min(1, scrollRatio));
+	
+	// 计算滚动条可移动的最大距离
+	const scrollbarMaxMove = windowWidth - scrollbarWidth;
+	
+	// 设置滚动条位置
+	scrollbar.style.left = `${clampedRatio * scrollbarMaxMove}px`;
+}
+
+// 隐藏自定义滚动条
+function hideCustomScrollbar() {
+	const scrollbarContainer = document.getElementById('custom-scrollbar-container');
+	if (!scrollbarContainer) return;
+	
+	scrollbarContainer.style.display = 'none';
+}
+
+// 修正缩放函数，基于偏移量实现
 function applyZoomWithMouseCenter(newZoom, oldZoom) {
 	const container = document.querySelector('#image-container');
 	if (!container) return;
@@ -52,42 +301,45 @@ function applyZoomWithMouseCenter(newZoom, oldZoom) {
 	// 标记正在缩放
 	document.body.classList.add('scaling');
 	
-	// 获取当前滚动位置
-	const scrollY = window.scrollY || window.pageYOffset;
-	
 	// 获取容器位置信息
 	const containerRect = container.getBoundingClientRect();
-	const containerTop = containerRect.top + scrollY;
+	const windowWidth = window.innerWidth;
+	const windowHeight = window.innerHeight;
 	
-	// 计算视口顶部在容器中的相对位置比例
-	const relativeTopPositionRatio = (scrollY - containerTop) / (containerRect.height * oldZoom);
+	// 获取当前视口滚动位置
+	const viewport = document.querySelector('#viewport');
+	const scrollTop = viewport ? viewport.scrollTop : 0;
 	
-	// 设置变换原点和应用缩放
-	container.style.transformOrigin = 'top center';
-	container.style.transform = `scale(${newZoom})`;
+	// 获取鼠标相对于容器的位置（垂直中心点）
+	const mouseY = containerRect.top + containerRect.height / 2;
 	
-	// 更新CSS变量，用于在resize期间维持缩放
-	document.documentElement.style.setProperty('--current-zoom', newZoom);
+	// 计算新的尺寸
+	const scaleRatio = newZoom / oldZoom;
 	
-	// 计算新的滚动位置
-	const newContainerHeight = containerRect.height * newZoom;
-	const newScrollPosition = containerTop + (relativeTopPositionRatio * newContainerHeight);
+	// 记住原来的水平位置比例
+	const contentWidth = containerRect.width;
+	const horizontalRatio = (currentOffsetX / contentWidth) || 0;
 	
-	// 设置新的滚动位置
-	window.scrollTo({
-		left: 0, // 保持水平居中
-		top: newScrollPosition,
-		behavior: 'auto' // 立即滚动，避免延迟
-	});
+	// 计算新的水平偏移量，保持相对位置不变
+	currentOffsetX = currentOffsetX * scaleRatio;
+	
+	// 更新全局缩放比例
+	currentZoom = newZoom;
+	
+	// 应用新的位置和缩放
+	applyContentPosition();
 	
 	// 更新横向滚动条状态
 	updateHorizontalScroll(newZoom);
 	
+	// 计算新的垂直滚动位置，保持视口中心不变
+	if (viewport) {
+		const newScrollTop = scrollTop * scaleRatio;
+		viewport.scrollTop = newScrollTop;
+	}
+	
 	// 显示缩放级别
 	showZoomLevel(newZoom);
-	
-	// 更新全局缩放比例
-	currentZoom = newZoom;
 	
 	// 移除缩放标记
 	setTimeout(() => {
@@ -97,56 +349,17 @@ function applyZoomWithMouseCenter(newZoom, oldZoom) {
 
 // 确保内容居中的辅助函数
 function ensureCenteredContent() {
-	const container = document.querySelector('#image-container');
-	
-	// 确保容器自身居中
-	container.style.margin = '0 auto';
-	container.style.display = 'flex';
-	container.style.flexDirection = 'column';
-	container.style.alignItems = 'center';
-	container.style.width = '100%';
-	
-	// 确保图片包装器居中显示图片
-	const imageWrappers = document.querySelectorAll('.image-wrapper');
-	imageWrappers.forEach(wrapper => {
-		wrapper.style.display = 'flex';
-		wrapper.style.justifyContent = 'center';
-		wrapper.style.width = '100%';
-	});
+	resetContentPosition();
 }
 
 // 恢复内容居中显示的功能
 function adjustContentAlignment() {
-	const container = document.querySelector('#image-container');
-	const imageWrappers = document.querySelectorAll('.image-wrapper');
-	
-	// 恢复所有图片的居中样式
-	imageWrappers.forEach(wrapper => {
-		wrapper.style.width = '100%';
-		wrapper.style.display = 'flex';
-		wrapper.style.justifyContent = 'center';
-		wrapper.style.alignItems = 'flex-start';
-	});
-	
-	// 确保容器样式设置正确
-	container.style.width = '100%';
-	container.style.display = 'flex';
-	container.style.flexDirection = 'column';
-	container.style.alignItems = 'center';
+	resetContentPosition();
 }
 
-// 调整容器宽度函数 - 删除可能影响居中的代码
+// 调整容器宽度函数
 function adjustContainerWidth(zoom) {
-	// 不做任何可能影响居中布局的操作
-	// 只处理滚动条显示/隐藏
-	const container = document.querySelector('#image-container');
-	const windowWidth = window.innerWidth;
-	
-	if (container.scrollWidth * zoom > windowWidth) {
-		document.body.style.overflowX = 'auto';
-	} else {
-		document.body.style.overflowX = 'hidden';
-	}
+	updateHorizontalScroll(zoom);
 }
 
 // 初始化缩放功能
@@ -192,11 +405,11 @@ function initZoomFeature() {
 		if (event.ctrlKey && (event.key === '0' || event.keyCode === 48)) {
 			event.preventDefault();
 			const oldZoom = currentZoom;
+			currentOffsetX = 0; // 重置水平偏移
 			applyZoomWithMouseCenter(1.0, oldZoom);
 		}
 	});
 	
-	// 窗口大小变化时重新确保居中
 	// 初始化拖动功能
 	initDragFeature();
 	
@@ -204,10 +417,11 @@ function initZoomFeature() {
 	window.addEventListener('resize', initializePlugin);
 }
 
-// 简化拖动实现，直接使用原生滚动
+// 简化拖动实现，直接使用偏移量
 function initDragFeature() {
 	const container = document.querySelector('#image-container');
-	if (!container) return;
+	const viewport = document.querySelector('#viewport');
+	if (!container || !viewport) return;
 	
 	let isDragging = false;
 	let lastMouseX, lastMouseY;
@@ -216,15 +430,17 @@ function initDragFeature() {
 	function shouldEnableHorizontalDrag() {
 		const containerWidth = container.getBoundingClientRect().width;
 		const windowWidth = window.innerWidth;
-		return containerWidth * currentZoom > windowWidth;
+		return containerWidth > windowWidth;
 	}
 	
 	// 更新光标样式
 	function updateCursorStyle() {
 		if (shouldEnableHorizontalDrag()) {
 			container.style.cursor = 'grab'; // 可拖动时显示小手
+			container.classList.add('draggable');
 		} else {
 			container.style.cursor = 'default'; // 不可拖动时显示默认光标
+			container.classList.remove('draggable');
 		}
 	}
 	
@@ -260,29 +476,42 @@ function initDragFeature() {
 		document.body.classList.add('dragging');
 	});
 	
-	// 鼠标移动事件 - 使用passive事件减少抖动
+	// 鼠标移动事件
 	document.addEventListener('mousemove', (e) => {
 		if (!isDragging) return;
 		
 		// 计算鼠标移动距离
-		const dx = lastMouseX - e.clientX;
-		const dy = lastMouseY - e.clientY;
+		const dx = e.clientX - lastMouseX;
+		const dy = e.clientY - lastMouseY;
 		
-		// 如果内容宽度小于窗口宽度，禁止水平滚动
+		// 是否允许水平拖动
 		const horizontalEnabled = shouldEnableHorizontalDrag();
 		
-		// 更新滚动位置 - 使用scrollBy实现更平滑的滚动
-		window.scrollBy({
-			left: horizontalEnabled ? dx : 0,
-			top: dy,
-			behavior: 'auto' // 使用即时滚动
-		});
+		// 更新水平偏移量
+		if (horizontalEnabled) {
+			currentOffsetX += dx;
+		}
+		
+		// 使用垂直滚动而不是偏移
+		if (dy !== 0) {
+			// 获取viewport元素
+			const viewport = document.querySelector('#viewport');
+			if (viewport) {
+				viewport.scrollBy(0, -dy); // 负值使得拖动方向与滚动方向一致
+			}
+		}
+		
+		// 应用新位置
+		applyContentPosition();
+		
+		// 更新滚动条位置
+		updateScrollbarPosition();
 		
 		// 更新鼠标位置
 		lastMouseX = e.clientX;
 		lastMouseY = e.clientY;
 		
-	}, { passive: true }); // 使用passive事件提高性能
+	}, { passive: true });
 	
 	// 鼠标释放事件
 	function endDrag() {
@@ -297,12 +526,9 @@ function initDragFeature() {
 		document.body.classList.remove('dragging');
 		
 		// 如果内容宽度小于窗口宽度，确保水平居中
-		if (!shouldEnableHorizontalDrag() && window.scrollX !== 0) {
-			window.scrollTo({
-				left: 0,
-				top: window.scrollY,
-				behavior: 'auto'
-			});
+		if (!shouldEnableHorizontalDrag()) {
+			currentOffsetX = 0;
+			applyContentPosition();
 		}
 	}
 	
@@ -318,36 +544,6 @@ function initDragFeature() {
 function applyZoom(zoomLevel) {
 	// 使用视口中心作为缩放中心点
 	applyZoomWithMouseCenter(zoomLevel, currentZoom);
-}
-
-// 新增函数：计算最小缩放比例
-function calculateMinZoom() {
-	const container = document.querySelector('#image-container');
-	const containerHeight = container.scrollHeight;
-	const windowHeight = window.innerHeight;
-	
-	// 确保容器至少填满窗口高度
-	return Math.max(0.1, windowHeight / containerHeight);
-}
-
-// 调整容器高度以适应缩放
-function adjustContainerHeight(container, zoomLevel) {
-	// 获取容器内容的实际高度（不包括缩放的影响）
-	const contentHeight = container.scrollHeight / (container.style.transform ? parseFloat(container.style.transform.replace('scale(', '').replace(')', '')) || 1 : 1);
-	
-	// 计算缩放后的高度
-	const scaledHeight = contentHeight * zoomLevel;
-	
-	// 获取窗口可视区域高度
-	const windowHeight = window.innerHeight;
-	
-	// 如果缩放后高度小于窗口高度，设置容器的最小高度为窗口高度
-	if (scaledHeight < windowHeight) {
-		container.style.minHeight = `${windowHeight / zoomLevel}px`;
-	} else {
-		// 否则重置最小高度
-		container.style.minHeight = 'auto';
-	}
 }
 
 // 加载选中项目的函数
@@ -433,6 +629,13 @@ function displaySelectedItems(items) {
 			container.appendChild(divider);
 		}
 	});
+	
+	// 在图片加载后初始化位置
+	setTimeout(() => {
+		resetContentPosition();
+		applyContentPosition();
+		updateHorizontalScroll(currentZoom);
+	}, 100);
 }
 
 eagle.onPluginShow(() => {
@@ -501,82 +704,41 @@ function setImageWidth(img) {
 	}
 }
 
-// 加载图片时设置固定尺寸
-function loadImages(imageUrls) {
-	// ... 现有代码 ...
-	
-	// 在创建图片元素后，添加以下代码：
-	img.onload = () => {
-		// 设置图片固定宽度
-		setImageWidth(img);
-	};
-	
-	// ... 现有代码 ...
-}
-
 // 修改initializePlugin函数
 function initializePlugin() {
-	// 重置容器样式
+	// 重置容器样式和位置
+	resetContentPosition();
+	
+	// 重新应用缩放
 	const container = document.querySelector('#image-container');
 	if (container) {
-		// 使用固定宽度而非百分比
-		container.style.width = 'auto';
-		container.style.margin = '0 auto';
-		container.style.display = 'flex';
-		container.style.flexDirection = 'column';
-		container.style.alignItems = 'center';
+		// 设置所有图片为固定尺寸
+		setImageFixedSize();
 		
-		// 应用当前缩放比例
-		container.style.transform = `scale(${currentZoom})`;
-		container.style.transformOrigin = 'top center';
-	}
-	
-	// 设置所有图片为固定尺寸
-	setImageFixedSize();
-	
-	// 设置CSS变量
-	document.documentElement.style.setProperty('--current-zoom', currentZoom);
-	
-	// 更新容器类
-	updateContainerClasses();
-}
-
-// 修改resize事件处理函数，确保不会重新计算图片尺寸
-window.addEventListener('resize', debounce(() => {
-	// 获取容器
-	const container = document.querySelector('#image-container');
-	if (!container) return;
-	
-	// 标记正在调整大小
-	document.body.classList.add('resizing');
-	
-	// 保持当前缩放比例不变
-	container.style.transform = `scale(${currentZoom})`;
-	
-	// 更新横向滚动条状态
-	updateHorizontalScroll(currentZoom);
-	
-	// 如果内容宽度小于窗口宽度，确保水平居中
-	const containerRect = container.getBoundingClientRect();
-	const windowWidth = window.innerWidth;
-	
-	if (containerRect.width <= windowWidth && window.scrollX !== 0) {
-		window.scrollTo({
-			left: 0,
-			top: window.scrollY,
-			behavior: 'auto'
-		});
+		// 更新自定义滚动条
+		updateHorizontalScroll(currentZoom);
 	}
 	
 	// 更新光标样式
 	if (window.updateAfterZoom) {
 		window.updateAfterZoom();
 	}
+}
+
+// 修改resize事件处理函数
+window.addEventListener('resize', debounce(() => {
+	// 标记正在调整大小
+	document.body.classList.add('resizing');
+	
+	// 初始化插件
+	initializePlugin();
+	
+	// 更新自定义滚动条位置
+	updateScrollbarPosition();
 	
 	// 延迟移除正在调整大小的标记
 	setTimeout(() => {
 		document.body.classList.remove('resizing');
-		setImageFixedSize(); // 确保图片尺寸保持固定
 	}, 200);
 }, 100));
 
@@ -585,27 +747,12 @@ document.addEventListener('DOMContentLoaded', () => {
 	// 初始化缩放功能
 	initZoomFeature();
 	
+	// 初始化自定义滚动条
+	initCustomScrollbar();
+	
 	// 设置图片固定尺寸
 	setImageFixedSize();
 	
 	// 显示初始缩放级别
 	showZoomLevel(currentZoom);
 });
-
-// 更新容器类，用于正确显示拖动光标
-function updateContainerClasses() {
-	const container = document.querySelector('#image-container');
-	if (!container) return;
-	
-	const windowWidth = window.innerWidth;
-	const containerWidth = container.getBoundingClientRect().width;
-	
-	// 根据内容宽度与窗口宽度的关系设置类
-	if (containerWidth * currentZoom > windowWidth) {
-		container.classList.add('draggable');
-		container.classList.remove('non-draggable');
-	} else {
-		container.classList.remove('draggable');
-		container.classList.add('non-draggable');
-	}
-}
