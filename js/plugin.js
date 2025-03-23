@@ -885,7 +885,7 @@ function loadSelectedItems() {
         refreshButton.classList.add('refreshing');
         setTimeout(() => {
             refreshButton.classList.remove('refreshing');
-        }, 500);
+        }, 1000);
     }
     
     // 获取容器元素
@@ -895,14 +895,25 @@ function loadSelectedItems() {
         container.classList.add('fading-out');
         container.classList.remove('fading-in');
         
+        // 显示加载中状态
+        container.innerHTML = '<div class="loading-message"><div class="spinner"></div>正在加载图片...</div>';
+        
         setTimeout(() => {
             container.classList.remove('fading-out');
             container.classList.add('fading-in');
-        }, 500); // 从300ms改为500ms
+        }, 500);
     }
+    
+    // 创建一个计时器，如果500ms内没有响应，显示加载提示
+    let loadingTimer = setTimeout(() => {
+        console.log('Eagle获取图片时间较长，显示加载提示');
+    }, 500);
     
     // 获取Eagle中选中的图片
     eagle.item.getSelected().then(items => {
+        // 清除计时器
+        clearTimeout(loadingTimer);
+        
         console.log('选中的项目:', items.length);
         
         // 如果没有选中项目，显示提示
@@ -915,7 +926,7 @@ function loadSelectedItems() {
                 
                 setTimeout(() => {
                     container.classList.remove('fading-in');
-                }, 500); // 从300ms改为500ms
+                }, 500);
             }
             return;
         }
@@ -924,6 +935,9 @@ function loadSelectedItems() {
         displaySelectedItems(items);
         
     }).catch(err => {
+        // 清除计时器
+        clearTimeout(loadingTimer);
+        
         console.error('获取选中项目时出错:', err);
         if (container) {
             container.innerHTML = '<p class="no-images">获取选中项目时出错，请重试</p>';
@@ -932,7 +946,7 @@ function loadSelectedItems() {
             
             setTimeout(() => {
                 container.classList.remove('fading-in');
-            }, 500); // 从300ms改为500ms
+            }, 500);
         }
     });
 }
@@ -953,7 +967,7 @@ const SUPPORTED_IMAGE_FORMATS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp
 let lazyLoadingInProgress = false;
 let totalFilteredItems = [];
 let currentLoadedIndex = 0;
-const INITIAL_LOAD_COUNT = 50;   // 初始加载50张
+const INITIAL_LOAD_COUNT = 20;   // 初始加载20张（从50减少到20）
 const BATCH_LOAD_COUNT = 10;     // 每批次加载10张
 const LOAD_THRESHOLD = 2000;     // 距底部2000像素时触发加载
 
@@ -966,52 +980,87 @@ function displaySelectedItems(items) {
         return;
     }
     
-    // 清空容器
-    container.innerHTML = '';
-    
-    // 过滤出支持的图片格式
-    totalFilteredItems = items.filter(item => {
-        // 获取文件路径
-        let filePath = '';
-        if (item.filePath) {
-            filePath = item.filePath;
-        } else if (item.path) {
-            filePath = item.path;
-        } else if (item.url && item.url.startsWith('file://')) {
-            filePath = item.url.replace('file://', '');
-        }
-        
-        // 如果没有文件路径，尝试使用文件名
-        const fileName = filePath || item.name || '';
-        
-        // 检查文件扩展名是否在支持列表中
-        return SUPPORTED_IMAGE_FORMATS.some(format => 
-            fileName.toLowerCase().endsWith(format)
-        );
-    });
-    
-    // 如果过滤后没有有效图片，显示提示
-    if (totalFilteredItems.length === 0) {
-        container.innerHTML = '<p class="no-images">选中的项目中没有支持的图片格式</p>';
-        return;
+    // 在处理大量图片时显示提示
+    if (items.length > 100) {
+        console.log(`处理大量图片: ${items.length}张`);
     }
     
-    // 添加加载指示器到容器底部
-    const loadingIndicator = document.createElement('div');
-    loadingIndicator.id = 'lazy-loading-indicator';
-    loadingIndicator.innerHTML = '<div class="spinner"></div><div>加载更多图片...</div>';
-    loadingIndicator.style.display = 'none';
-    container.appendChild(loadingIndicator);
-    
-    // 重置加载状态
-    currentLoadedIndex = 0;
-    lazyLoadingInProgress = false;
-    
-    // 设置懒加载滚动监听器
-    setupLazyLoadScrollListener();
-    
-    // 初始加载前50张图片
-    loadImageBatch(INITIAL_LOAD_COUNT);
+    // 清空容器（保留正在加载的提示）
+    // 使用异步处理过滤操作，避免UI阻塞
+    setTimeout(() => {
+        // 过滤出支持的图片格式
+        totalFilteredItems = items.filter(item => {
+            // 获取文件路径
+            let filePath = '';
+            if (item.filePath) {
+                filePath = item.filePath;
+            } else if (item.path) {
+                filePath = item.path;
+            } else if (item.url && item.url.startsWith('file://')) {
+                filePath = item.url.replace('file://', '');
+            }
+            
+            // 如果没有文件路径，尝试使用文件名
+            const fileName = filePath || item.name || '';
+            
+            // 检查文件扩展名是否在支持列表中
+            return SUPPORTED_IMAGE_FORMATS.some(format => 
+                fileName.toLowerCase().endsWith(format)
+            );
+        });
+        
+        // 清空容器准备加载图片
+        container.innerHTML = '';
+        
+        // 如果过滤后没有有效图片，显示提示
+        if (totalFilteredItems.length === 0) {
+            container.innerHTML = '<p class="no-images">选中的项目中没有支持的图片格式</p>';
+            return;
+        }
+        
+        // 添加总图片数量提示（如果超过50张）
+        if (totalFilteredItems.length > 50) {
+            const totalCountIndicator = document.createElement('div');
+            totalCountIndicator.className = 'total-count-indicator';
+            totalCountIndicator.textContent = `共 ${totalFilteredItems.length} 张图片`;
+            totalCountIndicator.style.position = 'fixed';
+            totalCountIndicator.style.top = '10px';
+            totalCountIndicator.style.right = '10px';
+            totalCountIndicator.style.background = 'rgba(0,0,0,0.7)';
+            totalCountIndicator.style.color = '#fff';
+            totalCountIndicator.style.padding = '5px 10px';
+            totalCountIndicator.style.borderRadius = '3px';
+            totalCountIndicator.style.zIndex = '1000';
+            totalCountIndicator.style.fontSize = '12px';
+            
+            // 1秒后自动消失
+            setTimeout(() => {
+                if (document.body.contains(totalCountIndicator)) {
+                    totalCountIndicator.style.opacity = '0';
+                    setTimeout(() => totalCountIndicator.remove(), 1500);
+                }
+            }, 1000);
+            
+            document.body.appendChild(totalCountIndicator);
+        }
+        
+        // 添加加载指示器到容器底部
+        const loadingIndicator = document.createElement('div');
+        loadingIndicator.id = 'lazy-loading-indicator';
+        loadingIndicator.innerHTML = '<div class="spinner"></div><div>加载更多图片...</div>';
+        loadingIndicator.style.display = 'none';
+        container.appendChild(loadingIndicator);
+        
+        // 重置加载状态
+        currentLoadedIndex = 0;
+        lazyLoadingInProgress = false;
+        
+        // 设置懒加载滚动监听器
+        setupLazyLoadScrollListener();
+        
+        // 初始加载前20张图片
+        loadImageBatch(INITIAL_LOAD_COUNT);
+    }, 0);
 }
 
 // 加载一批图片
@@ -1026,6 +1075,7 @@ function loadImageBatch(count) {
         if (loadingIndicator) {
             loadingIndicator.style.display = 'none';
         }
+        console.log(`所有图片加载完成: ${totalFilteredItems.length}张`);
         return;
     }
     
@@ -1033,12 +1083,22 @@ function loadImageBatch(count) {
     
     if (loadingIndicator) {
         loadingIndicator.style.display = 'flex';
+        // 更新加载指示器上的文本显示当前进度
+        const loadingText = loadingIndicator.querySelector('div:not(.spinner)');
+        if (loadingText) {
+            loadingText.textContent = `加载中 ${currentLoadedIndex}/${totalFilteredItems.length}...`;
+        }
     }
     
     // 计算本批次要加载的图片
     const endIndex = Math.min(currentLoadedIndex + count, totalFilteredItems.length);
     const batchItems = totalFilteredItems.slice(currentLoadedIndex, endIndex);
     let batchLoaded = 0;
+    
+    // 如果这是首批图片，添加"正在加载"的提示
+    if (currentLoadedIndex === 0 && totalFilteredItems.length > 20) {
+        console.log(`开始加载第一批图片: 0-${endIndex}/${totalFilteredItems.length}`);
+    }
     
     // 在当前loadingIndicator之前插入图片
     batchItems.forEach((item, index) => {
@@ -1065,6 +1125,9 @@ function loadImageBatch(count) {
         img.style.height = 'auto';
         img.dataset.index = currentLoadedIndex + index; // 添加索引便于追踪
         
+        // 添加图片加载中的占位符效果
+        imgContainer.innerHTML = '<div class="image-placeholder" style="min-height:200px;background:#111;display:flex;align-items:center;justify-content:center;"><div class="spinner" style="width:20px;height:20px;border:2px solid rgba(120,120,120,0.3);border-top-color:#888;border-radius:50%;animation:lazy-spin 1s linear infinite;"></div></div>';
+        
         // 检查文件是否存在
         const fs = require('fs');
         let imageExists = false;
@@ -1078,6 +1141,10 @@ function loadImageBatch(count) {
         
         // 图片加载完成事件
         img.onload = function() {
+            // 移除占位符
+            imgContainer.innerHTML = '';
+            imgContainer.appendChild(img);
+            
             batchLoaded++;
             
             // 当前批次加载完成
@@ -1103,15 +1170,21 @@ function loadImageBatch(count) {
                     // 动画完成后移除类
                     setTimeout(() => {
                         container.classList.remove('fading-in');
-                    }, 500);
+                    }, 1000);
                 }
                 
                 // 更新加载索引并允许再次触发懒加载
                 currentLoadedIndex = endIndex;
                 lazyLoadingInProgress = false;
                 
-                // 隐藏加载指示器
-                if (loadingIndicator) {
+                // 如果这不是最后一批，更新加载指示器上的文本
+                if (endIndex < totalFilteredItems.length && loadingIndicator) {
+                    const loadingText = loadingIndicator.querySelector('div:not(.spinner)');
+                    if (loadingText) {
+                        loadingText.textContent = `加载中 ${endIndex}/${totalFilteredItems.length}...`;
+                    }
+                    loadingIndicator.style.display = 'none';
+                } else if (loadingIndicator) {
                     loadingIndicator.style.display = 'none';
                 }
                 
@@ -1125,7 +1198,6 @@ function loadImageBatch(count) {
         // 图片加载错误事件
         img.onerror = function() {
             console.error(`图片加载失败: ${imagePath}`);
-            batchLoaded++;
             
             // 创建错误占位符
             const errorPlaceholder = document.createElement('div');
@@ -1136,9 +1208,11 @@ function loadImageBatch(count) {
             errorPlaceholder.style.textAlign = 'center';
             errorPlaceholder.style.color = '#ff6b6b';
             
-            if (imgContainer.contains(img)) {
-                imgContainer.replaceChild(errorPlaceholder, img);
-            }
+            // 清空容器并添加错误信息
+            imgContainer.innerHTML = '';
+            imgContainer.appendChild(errorPlaceholder);
+            
+            batchLoaded++;
             
             // 检查是否所有图片都已处理
             if (batchLoaded === batchItems.length) {
@@ -1155,50 +1229,6 @@ function loadImageBatch(count) {
                 }
             }
         };
-        
-        // 设置图片源
-        if (imageExists) {
-            img.src = `file://${imagePath}`;
-        } else if (item.thumbnail) {
-            img.src = item.thumbnail;
-        } else if (item.url) {
-            img.src = item.url;
-        } else {
-            // 如果没有可用的图片源，创建一个占位符
-            const placeholder = document.createElement('div');
-            placeholder.className = 'image-placeholder';
-            placeholder.textContent = '无法加载图片';
-            placeholder.style.width = '100%';
-            placeholder.style.padding = '20px';
-            placeholder.style.textAlign = 'center';
-            placeholder.style.color = '#999';
-            
-            imgContainer.appendChild(placeholder);
-            
-            // 将图片容器插入到加载指示器之前
-            if (loadingIndicator) {
-                container.insertBefore(imgContainer, loadingIndicator);
-            } else {
-                container.appendChild(imgContainer);
-            }
-            
-            batchLoaded++;
-            
-            // 检查是否所有图片都已处理
-            if (batchLoaded === batchItems.length) {
-                currentLoadedIndex = endIndex;
-                lazyLoadingInProgress = false;
-                
-                if (loadingIndicator) {
-                    loadingIndicator.style.display = 'none';
-                }
-            }
-            
-            return;
-        }
-        
-        // 添加图片到容器
-        imgContainer.appendChild(img);
         
         // 将图片容器插入到加载指示器之前
         if (loadingIndicator) {
@@ -1219,6 +1249,41 @@ function loadImageBatch(count) {
                 container.appendChild(divider);
             }
         }
+        
+        // 设置图片源 - 延迟加载图片以避免阻塞UI
+        setTimeout(() => {
+            if (imageExists) {
+                img.src = `file://${imagePath}`;
+            } else if (item.thumbnail) {
+                img.src = item.thumbnail;
+            } else if (item.url) {
+                img.src = item.url;
+            } else {
+                // 如果没有可用的图片源，创建一个占位符
+                const placeholder = document.createElement('div');
+                placeholder.className = 'image-placeholder';
+                placeholder.textContent = '无法加载图片';
+                placeholder.style.width = '100%';
+                placeholder.style.padding = '20px';
+                placeholder.style.textAlign = 'center';
+                placeholder.style.color = '#999';
+                
+                imgContainer.innerHTML = '';
+                imgContainer.appendChild(placeholder);
+                
+                batchLoaded++;
+                
+                // 检查是否所有图片都已处理
+                if (batchLoaded === batchItems.length) {
+                    currentLoadedIndex = endIndex;
+                    lazyLoadingInProgress = false;
+                    
+                    if (loadingIndicator) {
+                        loadingIndicator.style.display = 'none';
+                    }
+                }
+            }
+        }, index * 10); // 每张图片延迟10ms，避免同时发起过多请求
     });
 }
 
@@ -1300,6 +1365,27 @@ function addLazyLoadStyles() {
             width: 20px;
             height: 20px;
             margin-right: 10px;
+            border: 2px solid rgba(120, 120, 120, 0.3);
+            border-top-color: #888;
+            border-radius: 50%;
+            animation: lazy-spin 1s linear infinite;
+        }
+        
+        .loading-message {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            color: #888;
+            text-align: center;
+            width: 100%;
+            font-size: 16px;
+        }
+        
+        .loading-message .spinner {
+            width: 24px;
+            height: 24px;
+            margin-right: 12px;
             border: 2px solid rgba(120, 120, 120, 0.3);
             border-top-color: #888;
             border-radius: 50%;
