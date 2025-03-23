@@ -1183,6 +1183,7 @@ function displaySelectedItems(items) {
         if (index < filteredItems.length - 1) {
             const divider = document.createElement('div');
             divider.className = 'image-divider';
+            divider.style.backgroundColor = '#1e1e1e'; // 设置分割线颜色为#1e1e1e
             container.appendChild(divider);
         }
     });
