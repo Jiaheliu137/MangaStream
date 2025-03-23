@@ -1,7 +1,7 @@
 const { addAbortSignal } = require('stream');
 
 // 全局变量定义区
-let currentZoom = 0.6; // 初始默认缩放比例为60%
+let currentZoom = 1.0; // 修改初始默认缩放比例为100%，后续会根据图片尺寸自动调整
 let zoomLevelTimeout; // 控制缩放级别指示器显示的定时器
 let isDraggingScrollbar = false; // 标记是否正在拖动自定义滚动条
 let scrollbarStartX = 0; // 记录滚动条拖动的初始X坐标
@@ -21,7 +21,7 @@ const customScrollbarContainer = document.getElementById('custom-scrollbar-conta
 
 // 使用模块模式组织缩放功能相关代码
 const ZoomModule = {
-	currentZoom: 0.6,
+	currentZoom: 1.0, // 修改为100%，将根据图片尺寸动态调整
 	zoomLevelTimeout: null,
 	
 	init() {
@@ -62,9 +62,6 @@ const ScrollModule = {
 // 插件创建时的入口点
 eagle.onPluginCreate((plugin) => {
 	console.log('eagle.onPluginCreate');
-	
-	// 注意：不在此处立即加载选中项目
-	// 而是等待插件完全初始化后再加载
 	
 	// 初始化缩放功能
 	initZoomFeature();
@@ -987,6 +984,10 @@ function displaySelectedItems(items) {
 	// 清空容器
 	container.innerHTML = '';
 	
+	// 记录要加载的图片总数
+	const totalImages = items.length;
+	let loadedImages = 0;
+	
 	// 按照顺序加载图片
 	items.forEach((item, index) => {
 		// 尝试获取图片的本地路径
@@ -1019,6 +1020,17 @@ function displaySelectedItems(items) {
 			console.error('检查文件是否存在时出错:', err);
 		}
 		
+		// 设置图片加载完成的处理函数
+		img.onload = function() {
+			loadedImages++;
+			
+			// 所有图片加载完成后进行处理
+			if (loadedImages === totalImages) {
+				// 计算最佳缩放比例并应用
+				calculateAndApplyBestZoom();
+			}
+		};
+		
 		// 设置图片源
 		if (imageExists) {
 			img.src = `file://${imagePath}`;
@@ -1027,11 +1039,12 @@ function displaySelectedItems(items) {
 		} else if (item.url) {
 			img.src = item.url;
 		} else {
-			// 如果没有可用的图片源，创建一个占位符
+			// 如果没有可用的图片源，创建一个占位符并计为已加载
 			const placeholder = document.createElement('div');
 			placeholder.className = 'image-placeholder';
 			placeholder.textContent = '无法加载图片';
 			container.appendChild(placeholder);
+			loadedImages++; // 计数加一
 			return; // 跳过当前项
 		}
 		
@@ -1046,24 +1059,62 @@ function displaySelectedItems(items) {
 			container.appendChild(divider);
 		}
 	});
+}
+
+// 计算最佳缩放比例并应用
+function calculateAndApplyBestZoom() {
+	const container = document.querySelector('#image-container');
+	const viewport = document.querySelector('#viewport');
 	
-	// 在图片加载后初始化位置，直接应用60%的缩放
+	if (!container || !viewport) return;
+	
+	// 获取所有图片
+	const images = container.querySelectorAll('.seamless-image');
+	if (images.length === 0) return;
+	
+	// 找出所有图片中最宽的一张
+	let maxImageWidth = 0;
+	images.forEach(img => {
+		// 使用图片的原始宽度
+		const width = img.naturalWidth;
+		if (width > maxImageWidth) {
+			maxImageWidth = width;
+		}
+	});
+	
+	// 获取窗口宽度
+	const windowWidth = window.innerWidth;
+	
+	// 留出一定的边距（两侧各留约5%的边距）
+	const targetWidth = windowWidth * 0.9;
+	
+	// 计算最佳缩放比例（窗口宽度除以图片最大宽度）
+	let optimalZoom = targetWidth / maxImageWidth;
+	
+	// 限制缩放比例在合理范围内
+	optimalZoom = Math.max(0.2, Math.min(1.0, optimalZoom));
+	
+	console.log(`计算出的最佳缩放比例: ${optimalZoom.toFixed(2)} (最大图片宽度: ${maxImageWidth}px, 窗口宽度: ${windowWidth}px)`);
+	
+	// 更新全局缩放比例
+	currentZoom = optimalZoom;
+	
+	// 应用缩放
+	resetContentPosition();
+	applyContentPosition();
+	setImageFixedSize();
+	updateHorizontalScroll(currentZoom);
+	updateVerticalScrollbar();
+	showZoomLevel(currentZoom);
+	
+	// 添加过渡效果
+	container.classList.remove('fading-out');
+	container.classList.add('fading-in');
+	
+	// 动画完成后移除类
 	setTimeout(() => {
-		resetContentPosition();
-		applyContentPosition();
-		updateHorizontalScroll(currentZoom);
-		updateVerticalScrollbar();
-		showZoomLevel(currentZoom);
-		
-		// 完成后移除淡出类并添加淡入类
-		container.classList.remove('fading-out');
-		container.classList.add('fading-in');
-		
-		// 动画完成后移除类
-		setTimeout(() => {
-			container.classList.remove('fading-in');
-		}, 300);
-	}, 100);
+		container.classList.remove('fading-in');
+	}, 300);
 }
 
 eagle.onPluginShow(() => {
@@ -1161,8 +1212,17 @@ window.addEventListener('resize', debounce(() => {
 	// 标记正在调整大小
 	document.body.classList.add('resizing');
 	
-	// 初始化插件
-	initializePlugin();
+	// 如果已有图片，重新计算并应用最佳缩放比例
+	const container = document.querySelector('#image-container');
+	const images = container ? container.querySelectorAll('.seamless-image') : [];
+	
+	if (images.length > 0) {
+		// 重新计算并应用最佳缩放比例
+		calculateAndApplyBestZoom();
+	} else {
+		// 如果没有图片，执行常规初始化
+		initializePlugin();
+	}
 	
 	// 更新自定义滚动条位置
 	updateScrollbarPosition();
@@ -1171,7 +1231,7 @@ window.addEventListener('resize', debounce(() => {
 	setTimeout(() => {
 		document.body.classList.remove('resizing');
 	}, 200);
-}, 100));
+}, 300)); // 增加防抖延迟到300ms，给计算留出更多时间
 
 // 确保在文档加载完成后调用
 document.addEventListener('DOMContentLoaded', () => {
