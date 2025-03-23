@@ -22,7 +22,7 @@
         /* 创建可滚动视口容器 */
         #viewport {
             position: relative;
-            width: calc(100vw - 16px); /* 减去原生垂直滚动条宽度 */
+            width: 100vw; /* 使用全宽，不再为滚动条预留空间 */
             height: 100vh;
             overflow-x: hidden;
             overflow-y: scroll; /* 仅启用垂直方向滚动 */
@@ -37,7 +37,7 @@
         
         /* 当水平滚动条显示时的视口尺寸调整 */
         #viewport.has-scrollbar {
-            height: calc(100vh - 16px);
+            height: 100vh; /* 使用全高，不再为滚动条预留空间 */
         }
         
         /* 缩放和拖动状态的特殊样式 */

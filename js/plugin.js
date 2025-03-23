@@ -102,10 +102,14 @@ function updateHorizontalScroll(zoomLevel) {
 		// 结构上显示滚动条容器，但保持透明状态
 		const scrollbarContainer = document.getElementById('custom-scrollbar-container');
 		if (scrollbarContainer) {
-			scrollbarContainer.style.display = 'block'; 
+			scrollbarContainer.style.display = 'block';
+			// 添加样式确保滚动条不会遮挡内容
+			scrollbarContainer.style.position = 'absolute';
+			scrollbarContainer.style.bottom = '0';
+			scrollbarContainer.style.zIndex = '100';
 		}
 		
-		// 添加has-scrollbar类调整视口尺寸以适应滚动条
+		// 保留这行，但不再影响实际视口高度
 		const viewport = document.querySelector('#viewport');
 		if (viewport) {
 			viewport.classList.add('has-scrollbar');
@@ -1635,3 +1639,4 @@ const DOM = {
 
 // 使用时：
 const container = DOM.get('#image-container');
+
