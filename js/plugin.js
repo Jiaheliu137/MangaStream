@@ -309,8 +309,8 @@ function initCustomScrollbar() {
 		// 应用内容的新位置
 		applyContentPosition();
 		
-		// 重置滚动条自动隐藏计时器
-		showScrollbars();
+		// 仅显示水平滚动条
+		showHorizontalScrollbar();
 	});
 	
 	// 滚动条容器背景点击事件处理
@@ -353,15 +353,14 @@ function initCustomScrollbar() {
 		// 基于比例计算内容的新偏移量
 		const newOffsetX = (0.5 - scrollRatio) * totalScrollableWidth;
 		
-		// 更新全局偏移量状态
 		// 更新全局偏移量
 		currentOffsetX = newOffsetX;
 		
 		// 应用新位置
 		applyContentPosition();
 		
-		// 确保滚动条保持可见
-		showScrollbars();
+		// 仅显示水平滚动条
+		showHorizontalScrollbar();
 	});
 	
 	// 滚动条手柄拖动
@@ -393,8 +392,8 @@ function initCustomScrollbar() {
 function handleScrollbarDrag(e) {
 	if (!isDraggingScrollbar) return;
 	
-	// 确保滚动条在拖动期间保持可见
-	showScrollbars();
+	// 仅确保水平滚动条在拖动期间保持可见
+	showHorizontalScrollbar();
 	
 	const container = document.querySelector('#image-container');
 	const scrollbar = document.getElementById('custom-scrollbar');
@@ -602,8 +601,14 @@ function applyZoomWithMouseCenter(newZoom, oldZoom) {
 		viewport.scrollTop = newScrollTop;
 	}
 	
+	// 更新垂直滚动条状态
+	updateVerticalScrollbar();
+	
 	// 显示当前缩放级别指示器
 	showZoomLevel(newZoom);
+	
+	// 缩放时同时显示水平和垂直滚动条
+	showScrollbars();
 	
 	// 移除缩放标记
 	setTimeout(() => {
@@ -636,6 +641,9 @@ function initZoomFeature() {
 		currentZoom = 1.0;
 	}
 	
+	// 滚轮滚动结束检测计时器
+	let wheelEndTimer = null;
+	
 	// 监听滚轮事件
 	document.addEventListener('wheel', (event) => {
 		// 只有按住Ctrl键时才进行缩放
@@ -661,6 +669,36 @@ function initZoomFeature() {
 			
 			// 应用缩放
 			applyZoomWithMouseCenter(newZoom, oldZoom);
+		}
+		// 普通滚轮事件（非缩放）
+		else {
+			// 清除之前的滚轮结束检测计时器
+			if (wheelEndTimer) {
+				clearTimeout(wheelEndTimer);
+			}
+			
+			// 如果垂直有滚动，仅显示垂直滚动条
+			if (event.deltaY !== 0) {
+				showVerticalScrollbar();
+				
+				// 设置新的计时器，滚轮停止一段时间后重置滚动条隐藏计时器
+				wheelEndTimer = setTimeout(() => {
+					// 当滚轮滚动停止后，启动隐藏计时器
+					resetVerticalScrollbarHideTimer();
+					wheelEndTimer = null;
+				}, 150); // 滚轮停止150毫秒后认为滚动结束
+			}
+			
+			// 如果水平有滚动，仅显示水平滚动条
+			if (event.deltaX !== 0) {
+				showHorizontalScrollbar();
+				
+				// 设置滚轮停止后自动隐藏水平滚动条
+				wheelEndTimer = setTimeout(() => {
+					resetHorizontalScrollbarHideTimer();
+					wheelEndTimer = null;
+				}, 150);
+			}
 		}
 	}, { passive: false });
 	
@@ -749,8 +787,14 @@ function initDragFeature() {
 		// 是否允许水平拖动
 		const horizontalEnabled = shouldEnableHorizontalDrag();
 		
+		// 记录是否有水平或垂直移动
+		let hasHorizontalMovement = false;
+		let hasVerticalMovement = false;
+		
 		// 更新水平偏移量，并添加限制
-		if (horizontalEnabled) {
+		if (horizontalEnabled && dx !== 0) {
+			hasHorizontalMovement = true;
+			
 			// 计算新的偏移量
 			const newOffsetX = currentOffsetX + dx;
 			
@@ -770,22 +814,32 @@ function initDragFeature() {
 			
 			// 应用限制
 			currentOffsetX = Math.max(minOffset, Math.min(maxOffset, newOffsetX));
+			
+			// 仅显示水平滚动条
+			showHorizontalScrollbar();
 		}
 		
 		// 使用垂直滚动而不是偏移
 		if (dy !== 0) {
+			hasVerticalMovement = true;
+			
 			// 获取viewport元素
 			const viewport = document.querySelector('#viewport');
 			if (viewport) {
 				viewport.scrollBy(0, -dy); // 负值使得拖动方向与滚动方向一致
+				
+				// 仅显示垂直滚动条
+				showVerticalScrollbar();
 			}
 		}
 		
 		// 应用新位置
 		applyContentPosition();
 		
-		// 更新滚动条位置
-		updateScrollbarPosition();
+		// 只有在有水平移动时才更新水平滚动条位置
+		if (hasHorizontalMovement) {
+			updateScrollbarPosition();
+		}
 		
 		// 更新鼠标位置
 		lastMouseX = e.clientX;
@@ -998,6 +1052,7 @@ function displaySelectedItems(items) {
 		resetContentPosition();
 		applyContentPosition();
 		updateHorizontalScroll(currentZoom);
+		updateVerticalScrollbar();
 		showZoomLevel(currentZoom);
 		
 		// 完成后移除淡出类并添加淡入类
@@ -1085,11 +1140,14 @@ function initializePlugin() {
 	// 重新应用缩放
 	const container = document.querySelector('#image-container');
 	if (container) {
-	// 设置所有图片为固定尺寸
-	setImageFixedSize();
-	
-		// 更新自定义滚动条
-	updateHorizontalScroll(currentZoom);
+		// 设置所有图片为固定尺寸
+		setImageFixedSize();
+		
+		// 更新自定义水平滚动条
+		updateHorizontalScroll(currentZoom);
+		
+		// 更新垂直滚动条
+		updateVerticalScrollbar();
 	}
 	
 	// 更新光标样式
@@ -1140,6 +1198,16 @@ document.addEventListener('DOMContentLoaded', () => {
 	
 	// 初始化键盘快捷键
 	initKeyboardShortcuts();
+	
+	// 初始化完成后检查并处理滚动条状态
+	setTimeout(() => {
+		// 检查并更新垂直滚动条状态
+		updateVerticalScrollbar();
+		
+		// 立即重置滚动条隐藏计时器，确保滚动条能自动隐藏
+		resetVerticalScrollbarHideTimer();
+		resetHorizontalScrollbarHideTimer();
+	}, 500);
 });
 
 // 初始化垂直滚动条函数
@@ -1212,8 +1280,8 @@ function initVerticalScrollbar() {
 		// 更新垂直滚动条位置
 		verticalScrollbar.style.top = `${targetScrollbarTop}px`;
 		
-		// 确保滚动条保持可见
-		showScrollbars();
+		// 仅显示垂直滚动条
+		showVerticalScrollbar();
 	});
 	
 	// 滚动条容器点击事件，平滑滚动到点击位置
@@ -1253,8 +1321,8 @@ function initVerticalScrollbar() {
 		// 更新垂直滚动条位置
 		verticalScrollbar.style.top = `${targetScrollbarTop}px`;
 		
-		// 确保滚动条保持可见
-		showScrollbars();
+		// 仅显示垂直滚动条
+		showVerticalScrollbar();
 	});
 	
 	// 垂直滚动条手柄拖动
@@ -1280,8 +1348,8 @@ function initVerticalScrollbar() {
 	function handleVerticalScrollbarDrag(e) {
 		if (!isDraggingVerticalScrollbar) return;
 		
-		// 确保滚动条在拖动期间保持可见
-		showScrollbars();
+		// 仅确保垂直滚动条在拖动期间保持可见
+		showVerticalScrollbar();
 		
 		const viewport = document.querySelector('#viewport');
 		if (!viewport) return;
@@ -1326,17 +1394,35 @@ function initVerticalScrollbar() {
 	document.addEventListener('mouseup', endVerticalScrollbarDrag);
 }
 
-// 更新垂直滚动条位置和尺寸
+// 修改updateVerticalScrollbar函数，增强检测逻辑
 function updateVerticalScrollbar() {
 	const viewport = document.querySelector('#viewport');
 	const verticalScrollbar = document.getElementById('vertical-scrollbar');
 	const verticalScrollbarHandle = document.getElementById('vertical-scrollbar-handle');
+	const verticalScrollbarContainer = document.getElementById('vertical-scrollbar-container');
 	
-	if (!viewport || !verticalScrollbar || !verticalScrollbarHandle) return;
+	if (!viewport || !verticalScrollbar || !verticalScrollbarHandle || !verticalScrollbarContainer) return;
 	
 	// 计算内容高度与视口高度比例
 	const contentHeight = viewport.scrollHeight;
 	const viewportHeight = viewport.clientHeight;
+	
+	// 如果内容高度小于或等于视口高度，隐藏滚动条
+	if (contentHeight <= viewportHeight) {
+		verticalScrollbarContainer.style.display = 'none';
+		// 确保移除活动状态类
+		verticalScrollbarContainer.classList.remove('active');
+		// 强制清除任何可能存在的隐藏计时器
+		if (verticalScrollbarHideTimer) {
+			clearTimeout(verticalScrollbarHideTimer);
+			verticalScrollbarHideTimer = null;
+		}
+		return;
+	}
+	
+	// 内容超出视口时，确保滚动条容器可见
+	verticalScrollbarContainer.style.display = 'block';
+	
 	const ratio = viewportHeight / contentHeight;
 	
 	// 设置滚动条高度
@@ -1349,6 +1435,15 @@ function updateVerticalScrollbar() {
 	const scrollbarTop = scrollRatio * maxScrollbarOffset;
 	
 	verticalScrollbar.style.top = `${scrollbarTop}px`;
+	
+	// 更新后短暂显示滚动条，然后自动隐藏（仅当不在拖动状态时）
+	const isDragging = document.body.classList.contains('dragging');
+	if (!isDragging) {
+		// 添加活动类显示滚动条
+		verticalScrollbarContainer.classList.add('active');
+		// 启动隐藏计时器
+		resetVerticalScrollbarHideTimer();
+	}
 }
 
 // 显示滚动条函数，分离水平和垂直滚动条显示逻辑
@@ -1381,13 +1476,29 @@ function showHorizontalScrollbar() {
 // 显示垂直滚动条
 function showVerticalScrollbar() {
 	const verticalContainer = document.getElementById('vertical-scrollbar-container');
-	if (verticalContainer) {
+	const viewport = document.querySelector('#viewport');
+	
+	if (!verticalContainer || !viewport) return;
+	
+	// 检查内容高度和视口高度
+	const contentHeight = viewport.scrollHeight;
+	const viewportHeight = viewport.clientHeight;
+	
+	// 只有当内容高度大于视口高度时才显示滚动条
+	if (contentHeight > viewportHeight) {
+		// 确保滚动条容器可见
+		verticalContainer.style.display = 'block';
 		verticalContainer.classList.add('active');
+		
 		// 确保清除计时器，防止滚动条意外消失
 		if (verticalScrollbarHideTimer) {
 			clearTimeout(verticalScrollbarHideTimer);
 			verticalScrollbarHideTimer = null;
 		}
+	} else {
+		// 内容小于视口时确保滚动条隐藏
+		verticalContainer.style.display = 'none';
+		verticalContainer.classList.remove('active');
 	}
 }
 
@@ -1449,12 +1560,27 @@ function resetVerticalScrollbarHideTimer() {
 
 // 修改监听事件，在滚动、鼠标移动和触摸时显示滚动条
 function setupScrollbarVisibility() {
+	// 记录滚动停止检测计时器
+	let scrollEndTimer = null;
+	
 	// 监听viewport的滚动事件
 	const viewport = document.querySelector('#viewport');
 	if (viewport) {
 		viewport.addEventListener('scroll', () => {
-			// 显示两个滚动条
-			showScrollbars();
+			// 仅显示垂直滚动条
+			showVerticalScrollbar();
+			
+			// 清除之前的滚动结束检测计时器
+			if (scrollEndTimer) {
+				clearTimeout(scrollEndTimer);
+			}
+			
+			// 设置新的计时器，滚动停止一段时间后重置隐藏计时器
+			scrollEndTimer = setTimeout(() => {
+				// 当用户停止滚动后，启动隐藏计时器
+				resetVerticalScrollbarHideTimer();
+				scrollEndTimer = null;
+			}, 150); // 滚动停止150毫秒后认为滚动结束
 		});
 	}
 	
@@ -1637,6 +1763,9 @@ function initKeyboardShortcuts() {
 			
 			// 应用缩放
 			applyZoomWithMouseCenter(newZoom, oldZoom);
+			
+			// 同时显示水平和垂直滚动条
+			showScrollbars();
 		}
 		
 		// Ctrl+减号(-)：缩小
@@ -1653,6 +1782,9 @@ function initKeyboardShortcuts() {
 			
 			// 应用缩放
 			applyZoomWithMouseCenter(newZoom, oldZoom);
+			
+			// 同时显示水平和垂直滚动条
+			showScrollbars();
 		}
 		
 		// Ctrl+W：退出窗口
