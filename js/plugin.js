@@ -376,8 +376,9 @@ function initCustomScrollbar() {
 		// 添加拖动状态类
 		document.body.classList.add('dragging');
 		
-		// 确保滚动条在拖动过程中保持可见
-		showScrollbars();
+		// 确保水平滚动条在拖动过程中保持可见
+		if (horizontalScrollbarHideTimer) clearTimeout(horizontalScrollbarHideTimer);
+		showHorizontalScrollbar();
 		
 		// 在控制台输出调试信息
 		console.log('开始拖动水平滚动条');
@@ -452,8 +453,8 @@ function endScrollbarDrag() {
 	// 移除全局拖动状态样式类
 	document.body.classList.remove('dragging');
 	
-	// 启动滚动条自动隐藏计时器
-	resetScrollbarHideTimer();
+	// 启动水平滚动条自动隐藏计时器
+	resetHorizontalScrollbarHideTimer();
 }
 
 // 显示自定义水平滚动条并计算其尺寸位置
@@ -1316,8 +1317,8 @@ function initVerticalScrollbar() {
 		// 移除拖动状态类
 		document.body.classList.remove('dragging');
 		
-		// 重置隐藏计时器
-		resetScrollbarHideTimer();
+		// 重置垂直滚动条隐藏计时器
+		resetVerticalScrollbarHideTimer();
 	}
 	
 	// 添加全局事件监听
@@ -1350,7 +1351,7 @@ function updateVerticalScrollbar() {
 	verticalScrollbar.style.top = `${scrollbarTop}px`;
 }
 
-// 显示滚动条函数
+// 显示滚动条函数，分离水平和垂直滚动条显示逻辑
 function showScrollbars() {
 	// 获取滚动条容器
 	const horizontalContainer = document.getElementById('custom-scrollbar-container');
@@ -1364,6 +1365,32 @@ function showScrollbars() {
 	resetScrollbarHideTimer();
 }
 
+// 显示水平滚动条
+function showHorizontalScrollbar() {
+	const horizontalContainer = document.getElementById('custom-scrollbar-container');
+	if (horizontalContainer) {
+		horizontalContainer.classList.add('active');
+		// 确保清除计时器，防止滚动条意外消失
+		if (horizontalScrollbarHideTimer) {
+			clearTimeout(horizontalScrollbarHideTimer);
+			horizontalScrollbarHideTimer = null;
+		}
+	}
+}
+
+// 显示垂直滚动条
+function showVerticalScrollbar() {
+	const verticalContainer = document.getElementById('vertical-scrollbar-container');
+	if (verticalContainer) {
+		verticalContainer.classList.add('active');
+		// 确保清除计时器，防止滚动条意外消失
+		if (verticalScrollbarHideTimer) {
+			clearTimeout(verticalScrollbarHideTimer);
+			verticalScrollbarHideTimer = null;
+		}
+	}
+}
+
 // 隐藏滚动条函数
 function hideScrollbars() {
 	// 获取滚动条容器
@@ -1375,7 +1402,19 @@ function hideScrollbars() {
 	if (verticalContainer) verticalContainer.classList.remove('active');
 }
 
-// 重置滚动条隐藏计时器
+// 隐藏水平滚动条
+function hideHorizontalScrollbar() {
+	const horizontalContainer = document.getElementById('custom-scrollbar-container');
+	if (horizontalContainer) horizontalContainer.classList.remove('active');
+}
+
+// 隐藏垂直滚动条
+function hideVerticalScrollbar() {
+	const verticalContainer = document.getElementById('vertical-scrollbar-container');
+	if (verticalContainer) verticalContainer.classList.remove('active');
+}
+
+// 重置滚动条隐藏计时器（全部滚动条）
 function resetScrollbarHideTimer() {
 	// 清除现有计时器
 	if (scrollbarHideTimer) clearTimeout(scrollbarHideTimer);
@@ -1384,57 +1423,175 @@ function resetScrollbarHideTimer() {
 	scrollbarHideTimer = setTimeout(hideScrollbars, 500);
 }
 
+// 水平滚动条隐藏计时器
+let horizontalScrollbarHideTimer;
+
+// 垂直滚动条隐藏计时器
+let verticalScrollbarHideTimer;
+
+// 重置水平滚动条隐藏计时器
+function resetHorizontalScrollbarHideTimer() {
+	// 清除现有计时器
+	if (horizontalScrollbarHideTimer) clearTimeout(horizontalScrollbarHideTimer);
+	
+	// 设置新计时器
+	horizontalScrollbarHideTimer = setTimeout(hideHorizontalScrollbar, 500);
+}
+
+// 重置垂直滚动条隐藏计时器
+function resetVerticalScrollbarHideTimer() {
+	// 清除现有计时器
+	if (verticalScrollbarHideTimer) clearTimeout(verticalScrollbarHideTimer);
+	
+	// 设置新计时器
+	verticalScrollbarHideTimer = setTimeout(hideVerticalScrollbar, 500);
+}
+
 // 修改监听事件，在滚动、鼠标移动和触摸时显示滚动条
 function setupScrollbarVisibility() {
 	// 监听viewport的滚动事件
 	const viewport = document.querySelector('#viewport');
 	if (viewport) {
-		viewport.addEventListener('scroll', showScrollbars);
+		viewport.addEventListener('scroll', () => {
+			// 显示两个滚动条
+			showScrollbars();
+		});
 	}
 	
-	// 仅在特定元素上添加鼠标事件监听器
+	// 获取滚动条容器
+	const horizontalContainer = document.getElementById('custom-scrollbar-container');
+	const verticalContainer = document.getElementById('vertical-scrollbar-container');
+	const customScrollbar = document.getElementById('custom-scrollbar');
+	const verticalScrollbar = document.getElementById('vertical-scrollbar');
 	const scrollbarHandle = document.getElementById('custom-scrollbar-handle');
 	const verticalScrollbarHandle = document.getElementById('vertical-scrollbar-handle');
-	const imageContainer = document.querySelector('#image-container');
 	
-	// 确保滚动条手柄在鼠标悬停和点击时显示
+	// 水平滚动条相关元素的事件处理
+	if (horizontalContainer) {
+		// 鼠标进入水平滚动条容器
+		horizontalContainer.addEventListener('mouseenter', () => {
+			if (horizontalScrollbarHideTimer) {
+				clearTimeout(horizontalScrollbarHideTimer);
+				horizontalScrollbarHideTimer = null;
+			}
+			showHorizontalScrollbar();
+		});
+		
+		// 鼠标离开水平滚动条容器
+		horizontalContainer.addEventListener('mouseleave', () => {
+			// 只有当鼠标不在滚动条或滚动条手柄上时才重置计时器
+			const isMouseOverScrollbar = document.querySelector(':hover') === customScrollbar;
+			const isMouseOverHandle = document.querySelector(':hover') === scrollbarHandle;
+			
+			if (!isMouseOverScrollbar && !isMouseOverHandle) {
+				resetHorizontalScrollbarHideTimer();
+			}
+		});
+	}
+	
+	// 为水平滚动条和手柄添加事件
+	if (customScrollbar) {
+		customScrollbar.addEventListener('mouseenter', () => {
+			if (horizontalScrollbarHideTimer) {
+				clearTimeout(horizontalScrollbarHideTimer);
+				horizontalScrollbarHideTimer = null;
+			}
+			showHorizontalScrollbar();
+		});
+		
+		customScrollbar.addEventListener('mouseleave', () => {
+			// 只有当鼠标不在容器或手柄上时才重置计时器
+			const isMouseOverContainer = document.querySelector(':hover') === horizontalContainer;
+			const isMouseOverHandle = document.querySelector(':hover') === scrollbarHandle;
+			
+			if (!isMouseOverContainer && !isMouseOverHandle) {
+				resetHorizontalScrollbarHideTimer();
+			}
+		});
+	}
+	
 	if (scrollbarHandle) {
-		scrollbarHandle.addEventListener('mouseenter', showScrollbars);
-		scrollbarHandle.addEventListener('mousedown', showScrollbars);
+		scrollbarHandle.addEventListener('mouseenter', () => {
+			if (horizontalScrollbarHideTimer) {
+				clearTimeout(horizontalScrollbarHideTimer);
+				horizontalScrollbarHideTimer = null;
+			}
+			showHorizontalScrollbar();
+		});
+		
+		scrollbarHandle.addEventListener('mouseleave', () => {
+			// 只有当鼠标不在容器或滚动条上时才重置计时器
+			const isMouseOverContainer = document.querySelector(':hover') === horizontalContainer;
+			const isMouseOverScrollbar = document.querySelector(':hover') === customScrollbar;
+			
+			if (!isMouseOverContainer && !isMouseOverScrollbar) {
+				resetHorizontalScrollbarHideTimer();
+			}
+		});
+	}
+	
+	// 垂直滚动条相关元素的事件处理
+	if (verticalContainer) {
+		// 鼠标进入垂直滚动条容器
+		verticalContainer.addEventListener('mouseenter', () => {
+			if (verticalScrollbarHideTimer) {
+				clearTimeout(verticalScrollbarHideTimer);
+				verticalScrollbarHideTimer = null;
+			}
+			showVerticalScrollbar();
+		});
+		
+		// 鼠标离开垂直滚动条容器
+		verticalContainer.addEventListener('mouseleave', () => {
+			// 只有当鼠标不在滚动条或滚动条手柄上时才重置计时器
+			const isMouseOverScrollbar = document.querySelector(':hover') === verticalScrollbar;
+			const isMouseOverHandle = document.querySelector(':hover') === verticalScrollbarHandle;
+			
+			if (!isMouseOverScrollbar && !isMouseOverHandle) {
+				resetVerticalScrollbarHideTimer();
+			}
+		});
+	}
+	
+	// 为垂直滚动条和手柄添加事件
+	if (verticalScrollbar) {
+		verticalScrollbar.addEventListener('mouseenter', () => {
+			if (verticalScrollbarHideTimer) {
+				clearTimeout(verticalScrollbarHideTimer);
+				verticalScrollbarHideTimer = null;
+			}
+			showVerticalScrollbar();
+		});
+		
+		verticalScrollbar.addEventListener('mouseleave', () => {
+			// 只有当鼠标不在容器或手柄上时才重置计时器
+			const isMouseOverContainer = document.querySelector(':hover') === verticalContainer;
+			const isMouseOverHandle = document.querySelector(':hover') === verticalScrollbarHandle;
+			
+			if (!isMouseOverContainer && !isMouseOverHandle) {
+				resetVerticalScrollbarHideTimer();
+			}
+		});
 	}
 	
 	if (verticalScrollbarHandle) {
-		verticalScrollbarHandle.addEventListener('mouseenter', showScrollbars);
-		verticalScrollbarHandle.addEventListener('mousedown', showScrollbars);
-	}
-	
-	// 确保水平滚动条容器在鼠标悬停时显示
-	const horizontalContainer = document.getElementById('custom-scrollbar-container');
-	if (horizontalContainer) {
-		horizontalContainer.addEventListener('mouseenter', showScrollbars);
-		horizontalContainer.addEventListener('mousemove', showScrollbars);
-		horizontalContainer.addEventListener('mousedown', showScrollbars);
-	}
-	
-	// 确保垂直滚动条容器在鼠标悬停时显示
-	const verticalContainer = document.getElementById('vertical-scrollbar-container');
-	if (verticalContainer) {
-		verticalContainer.addEventListener('mouseenter', showScrollbars);
-		verticalContainer.addEventListener('mousemove', showScrollbars);
-		verticalContainer.addEventListener('mousedown', showScrollbars);
-	}
-	
-	// 添加滚动条交互事件
-	const customScrollbar = document.getElementById('custom-scrollbar');
-	if (customScrollbar) {
-		customScrollbar.addEventListener('mouseenter', showScrollbars);
-		customScrollbar.addEventListener('mousedown', showScrollbars);
-	}
-	
-	const verticalScrollbar = document.getElementById('vertical-scrollbar');
-	if (verticalScrollbar) {
-		verticalScrollbar.addEventListener('mouseenter', showScrollbars);
-		verticalScrollbar.addEventListener('mousedown', showScrollbars);
+		verticalScrollbarHandle.addEventListener('mouseenter', () => {
+			if (verticalScrollbarHideTimer) {
+				clearTimeout(verticalScrollbarHideTimer);
+				verticalScrollbarHideTimer = null;
+			}
+			showVerticalScrollbar();
+		});
+		
+		verticalScrollbarHandle.addEventListener('mouseleave', () => {
+			// 只有当鼠标不在容器或滚动条上时才重置计时器
+			const isMouseOverContainer = document.querySelector(':hover') === verticalContainer;
+			const isMouseOverScrollbar = document.querySelector(':hover') === verticalScrollbar;
+			
+			if (!isMouseOverContainer && !isMouseOverScrollbar) {
+				resetVerticalScrollbarHideTimer();
+			}
+		});
 	}
 	
 	// 触摸事件
