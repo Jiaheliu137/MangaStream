@@ -67,6 +67,8 @@
             display: flex;
             flex-direction: column;
             align-items: center;
+            width: 100%; /* 确保宽度为100% */
+            padding: 0; /* 确保没有内边距 */
             user-select: none;
             will-change: transform;
             backface-visibility: hidden;
@@ -89,7 +91,7 @@
         }
         
         .image-wrapper {
-            width: auto; /* 适应内容宽度 */
+            width: 100%; /* 容器宽度设为100% */
             display: flex;
             justify-content: center;
             align-items: flex-start;
@@ -99,9 +101,9 @@
         }
         
         .seamless-image {
-            width: auto;
-            max-width: none; /* 取消最大宽度限制 */
-            height: auto;
+            width: 100%; /* 图片宽度为100%，完全填充容器 */
+            max-width: 100%; /* 限制最大宽度也为100% */
+            height: auto; /* 高度自动按比例缩放 */
             display: block;
             margin: 0 auto;
             padding: 0;

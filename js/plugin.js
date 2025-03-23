@@ -972,149 +972,136 @@ function arraysEqual(arr1, arr2) {
 	return true;
 }
 
-// 修改displaySelectedItems函数，删除自动计算缩放的部分
+// 修改displaySelectedItems函数，设置图片显示策略为窗口宽度一致
 function displaySelectedItems(items) {
-	const container = document.querySelector('#image-container');
-	
-	if (!items || items.length === 0) {
-		container.innerHTML = '<p class="no-images">请先在Eagle中选择一个或多个图片</p>';
-		return;
-	}
-	
-	// 清空容器
-	container.innerHTML = '';
-	
-	// 记录要加载的图片总数
-	const totalImages = items.length;
-	let loadedImages = 0;
-	
-	// 按照顺序加载图片
-	items.forEach((item, index) => {
-		// 尝试获取图片的本地路径
-		let imagePath = '';
-		if (item.filePath) {
-			imagePath = item.filePath;
-		} else if (item.path) {
-			imagePath = item.path;
-		} else if (item.url && item.url.startsWith('file://')) {
-			imagePath = item.url.replace('file://', '');
-		}
-		
-		// 创建图片容器元素（用于居中）
-		const imgContainer = document.createElement('div');
-		imgContainer.className = 'image-wrapper';
-		
-		// 创建图片元素
-		const img = document.createElement('img');
-		img.className = 'seamless-image';
-		img.alt = item.name || '未命名';
-		
-		// 检查文件是否存在
-		const fs = require('fs');
-		let imageExists = false;
-		try {
-			if (imagePath) {
-				imageExists = fs.existsSync(imagePath);
-			}
-		} catch (err) {
-			console.error('检查文件是否存在时出错:', err);
-		}
-		
-		// 设置图片加载完成的处理函数
-		img.onload = function() {
-			loadedImages++;
-			
-			// 所有图片加载完成后进行处理
-			if (loadedImages === totalImages) {
-				// 计算最佳缩放比例并应用
-				calculateAndApplyBestZoom();
-			}
-		};
-		
-		// 设置图片源
-		if (imageExists) {
-			img.src = `file://${imagePath}`;
-		} else if (item.thumbnail) {
-			img.src = item.thumbnail;
-		} else if (item.url) {
-			img.src = item.url;
-		} else {
-			// 如果没有可用的图片源，创建一个占位符并计为已加载
-			const placeholder = document.createElement('div');
-			placeholder.className = 'image-placeholder';
-			placeholder.textContent = '无法加载图片';
-			container.appendChild(placeholder);
-			loadedImages++; // 计数加一
-			return; // 跳过当前项
-		}
-		
-		// 添加图片到容器
-		imgContainer.appendChild(img);
-		container.appendChild(imgContainer);
-		
-		// 如果不是最后一张图片，添加分割线
-		if (index < items.length - 1) {
-			const divider = document.createElement('div');
-			divider.className = 'image-divider';
-			container.appendChild(divider);
-		}
-	});
+  const container = document.querySelector('#image-container');
+  
+  if (!items || items.length === 0) {
+    container.innerHTML = '<p class="no-images">请先在Eagle中选择一个或多个图片</p>';
+    return;
+  }
+  
+  // 清空容器
+  container.innerHTML = '';
+  
+  // 记录要加载的图片总数
+  const totalImages = items.length;
+  let loadedImages = 0;
+  
+  // 按照顺序加载图片
+  items.forEach((item, index) => {
+    // 尝试获取图片的本地路径
+    let imagePath = '';
+    if (item.filePath) {
+      imagePath = item.filePath;
+    } else if (item.path) {
+      imagePath = item.path;
+    } else if (item.url && item.url.startsWith('file://')) {
+      imagePath = item.url.replace('file://', '');
+    }
+    
+    // 创建图片容器元素（用于居中）
+    const imgContainer = document.createElement('div');
+    imgContainer.className = 'image-wrapper';
+    imgContainer.style.width = '100%'; // 设置容器宽度为100%
+    
+    // 创建图片元素
+    const img = document.createElement('img');
+    img.className = 'seamless-image';
+    img.alt = item.name || '未命名';
+    img.style.width = '100%'; // 强制所有图片宽度为100%，而不是90%
+    img.style.height = 'auto'; // 高度自动按比例缩放
+    
+    // 检查文件是否存在
+    const fs = require('fs');
+    let imageExists = false;
+    try {
+      if (imagePath) {
+        imageExists = fs.existsSync(imagePath);
+      }
+    } catch (err) {
+      console.error('检查文件是否存在时出错:', err);
+    }
+    
+    // 设置图片加载完成的处理函数
+    img.onload = function() {
+      loadedImages++;
+      
+      // 所有图片加载完成后进行处理
+      if (loadedImages === totalImages) {
+        // 应用统一宽度显示策略
+        applyUniformWidthDisplay();
+      }
+    };
+    
+    // 设置图片源
+    if (imageExists) {
+      img.src = `file://${imagePath}`;
+    } else if (item.thumbnail) {
+      img.src = item.thumbnail;
+    } else if (item.url) {
+      img.src = item.url;
+    } else {
+      // 如果没有可用的图片源，创建一个占位符并计为已加载
+      const placeholder = document.createElement('div');
+      placeholder.className = 'image-placeholder';
+      placeholder.textContent = '无法加载图片';
+      placeholder.style.width = '100%';
+      container.appendChild(placeholder);
+      loadedImages++; // 计数加一
+      return; // 跳过当前项
+    }
+    
+    // 添加图片到容器
+    imgContainer.appendChild(img);
+    container.appendChild(imgContainer);
+    
+    // 如果不是最后一张图片，添加分割线
+    if (index < items.length - 1) {
+      const divider = document.createElement('div');
+      divider.className = 'image-divider';
+      container.appendChild(divider);
+    }
+  });
 }
 
-// 计算最佳缩放比例并应用
-function calculateAndApplyBestZoom() {
-	const container = document.querySelector('#image-container');
-	const viewport = document.querySelector('#viewport');
-	
-	if (!container || !viewport) return;
-	
-	// 获取所有图片
-	const images = container.querySelectorAll('.seamless-image');
-	if (images.length === 0) return;
-	
-	// 找出所有图片中最宽的一张
-	let maxImageWidth = 0;
-	images.forEach(img => {
-		// 使用图片的原始宽度
-		const width = img.naturalWidth;
-		if (width > maxImageWidth) {
-			maxImageWidth = width;
-		}
-	});
-	
-	// 获取窗口宽度
-	const windowWidth = window.innerWidth;
-	
-	// 留出一定的边距（两侧各留约5%的边距）
-	const targetWidth = windowWidth * 0.9;
-	
-	// 计算最佳缩放比例（窗口宽度除以图片最大宽度）
-	let optimalZoom = targetWidth / maxImageWidth;
-	
-	// 限制缩放比例在合理范围内
-	optimalZoom = Math.max(0.2, Math.min(1.0, optimalZoom));
-	
-	console.log(`计算出的最佳缩放比例: ${optimalZoom.toFixed(2)} (最大图片宽度: ${maxImageWidth}px, 窗口宽度: ${windowWidth}px)`);
-	
-	// 更新全局缩放比例
-	currentZoom = optimalZoom;
-	
-	// 应用缩放
-	resetContentPosition();
-	applyContentPosition();
-	setImageFixedSize();
-	updateHorizontalScroll(currentZoom);
-	updateVerticalScrollbar();
-	showZoomLevel(currentZoom);
-	
-	// 添加过渡效果
-	container.classList.remove('fading-out');
-	container.classList.add('fading-in');
-	
-	// 动画完成后移除类
-	setTimeout(() => {
-		container.classList.remove('fading-in');
-	}, 300);
+// 新函数：应用统一宽度显示策略
+function applyUniformWidthDisplay() {
+  const container = document.querySelector('#image-container');
+  if (!container) return;
+  
+  // 获取窗口宽度（不再留边距）
+  const windowWidth = window.innerWidth; // 不再乘以0.9，使用全部窗口宽度
+  
+  // 确保容器宽度正确
+  container.style.width = '100%';
+  
+  // 重置内容位置
+  resetContentPosition();
+  
+  // 应用位置
+  applyContentPosition();
+  
+  // 重置缩放为1.0
+  currentZoom = 1.0;
+  
+  // 更新水平滚动条
+  updateHorizontalScroll(currentZoom);
+  
+  // 更新垂直滚动条
+  updateVerticalScrollbar();
+  
+  // 显示缩放级别
+  showZoomLevel(currentZoom);
+  
+  // 添加过渡效果
+  container.classList.remove('fading-out');
+  container.classList.add('fading-in');
+  
+  // 动画完成后移除类
+  setTimeout(() => {
+    container.classList.remove('fading-in');
+  }, 300);
 }
 
 eagle.onPluginShow(() => {
