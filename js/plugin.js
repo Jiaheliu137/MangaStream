@@ -19,6 +19,9 @@ const imageContainer = document.querySelector('#image-container');
 const viewport = document.querySelector('#viewport');
 const customScrollbarContainer = document.getElementById('custom-scrollbar-container');
 
+// 添加全局变量记录初始窗口宽度
+let initialWindowWidth = null;
+
 // 使用模块模式组织缩放功能相关代码
 const ZoomModule = {
 	currentZoom: 1.0, // 修改为100%，将根据图片尺寸动态调整
@@ -879,6 +882,9 @@ function applyZoom(zoomLevel) {
 
 // 简化后的loadSelectedItems函数
 function loadSelectedItems() {
+	// 重置初始窗口宽度，这样每次加载新内容时都会重新获取窗口宽度
+	initialWindowWidth = null;
+	
 	// 显示加载状态
 	showLoading(true);
 	
@@ -1059,8 +1065,27 @@ function displaySelectedItems(items) {
             
             // 所有图片加载完成后进行处理
             if (loadedImages === totalImages) {
-                // 设置图片样式，确保填满窗口
-                applyUniformWidthDisplay();
+                // 使用setImageFixedSize确保所有图片宽度一致，但不随窗口变化
+                setImageFixedSize();
+                
+                // 重置内容位置
+                resetContentPosition();
+                
+                // 应用位置
+                applyContentPosition();
+                
+                // 更新滚动条
+                updateHorizontalScroll(currentZoom);
+                updateVerticalScrollbar();
+                
+                // 添加过渡效果
+                container.classList.remove('fading-out');
+                container.classList.add('fading-in');
+                
+                // 动画完成后移除类
+                setTimeout(() => {
+                    container.classList.remove('fading-in');
+                }, 300);
             }
         };
         
@@ -1085,7 +1110,23 @@ function displaySelectedItems(items) {
             
             // 所有图片加载完成后进行处理
             if (loadedImages === totalImages) {
-                applyUniformWidthDisplay();
+                // 使用setImageFixedSize确保所有图片宽度一致，但不随窗口变化
+                setImageFixedSize();
+                
+                // 完成其他初始化
+                resetContentPosition();
+                applyContentPosition();
+                updateHorizontalScroll(currentZoom);
+                updateVerticalScrollbar();
+                
+                // 添加过渡效果
+                container.classList.remove('fading-out');
+                container.classList.add('fading-in');
+                
+                // 动画完成后移除类
+                setTimeout(() => {
+                    container.classList.remove('fading-in');
+                }, 300);
             }
         };
         
@@ -1112,7 +1153,23 @@ function displaySelectedItems(items) {
             
             // 所有图片加载完成后进行处理
             if (loadedImages === totalImages) {
-                applyUniformWidthDisplay();
+                // 使用setImageFixedSize确保所有图片宽度一致，但不随窗口变化
+                setImageFixedSize();
+                
+                // 完成其他初始化
+                resetContentPosition();
+                applyContentPosition();
+                updateHorizontalScroll(currentZoom);
+                updateVerticalScrollbar();
+                
+                // 添加过渡效果
+                container.classList.remove('fading-out');
+                container.classList.add('fading-in');
+                
+                // 动画完成后移除类
+                setTimeout(() => {
+                    container.classList.remove('fading-in');
+                }, 300);
             }
             
             return; // 跳过当前项
@@ -1217,29 +1274,38 @@ function showZoomLevel(zoomLevel) {
 // 为所有图片设置固定尺寸
 function setImageFixedSize() {
 	const images = document.querySelectorAll('.seamless-image');
+	if (images.length === 0) return;
+	
+	// 只在第一次调用时保存初始窗口宽度
+	if (initialWindowWidth === null) {
+		initialWindowWidth = window.innerWidth;
+	}
+	
+	// 使用保存的初始窗口宽度，而不是当前窗口宽度
+	const uniformWidth = initialWindowWidth;
+	
+	// 应用统一宽度到所有图片
 	images.forEach(img => {
-		// 如果图片已加载，设置其固定宽度
+		// 对于已加载的图片，直接设置宽度
 		if (img.complete) {
-			setImageWidth(img);
+			applyFixedWidthToImage(img, uniformWidth);
 		} else {
-			// 如果图片尚未加载，等待加载完成后设置
-			img.onload = () => setImageWidth(img);
+			// 对于尚未加载的图片，等待加载完成后设置
+			img.onload = () => applyFixedWidthToImage(img, uniformWidth);
 		}
 	});
 }
 
-// 设置图片固定宽度
-function setImageWidth(img) {
-	// 获取图片的原始宽度
-	const naturalWidth = img.naturalWidth;
-	
-	// 设置图片的固定宽度为原始宽度
-	img.style.width = `${naturalWidth}px`;
+// 新增：为单个图片应用固定宽度
+function applyFixedWidthToImage(img, width) {
+	// 设置图片的固定宽度
+	img.style.width = `${width}px`;
+	img.style.maxWidth = `${width}px`;
 	
 	// 确保包装器宽度也是固定的
 	const wrapper = img.closest('.image-wrapper');
 	if (wrapper) {
-		wrapper.style.width = `${naturalWidth}px`;
+		wrapper.style.width = `${width}px`;
 	}
 }
 
@@ -1251,7 +1317,7 @@ function initializePlugin() {
 	// 重新应用缩放
 	const container = document.querySelector('#image-container');
 	if (container) {
-		// 设置所有图片为固定尺寸
+		// 恢复使用setImageFixedSize，确保图片保持固定原始尺寸
 		setImageFixedSize();
 		
 		// 更新自定义水平滚动条
@@ -1267,22 +1333,43 @@ function initializePlugin() {
 	}
 }
 
+// 修改计算和应用最佳缩放比例函数，保持漫画尺寸不变
+function calculateAndApplyBestZoom() {
+	// 保持当前缩放级别，不改变图片实际尺寸
+	const container = document.querySelector('#image-container');
+	if (container) {
+		// 不重新设置图片尺寸，仅重置位置
+		// 注释掉这行，防止在窗口调整大小时重设图片尺寸
+		// setImageFixedSize();
+		
+		// 重置内容位置到中心
+		resetContentPosition();
+		
+		// 应用位置和缩放，但保持缩放级别不变
+		applyContentPosition();
+		
+		// 更新滚动条
+		updateHorizontalScroll(currentZoom);
+		updateVerticalScrollbar();
+	}
+}
+
 // 修改resize事件处理函数
 window.addEventListener('resize', debounce(() => {
 	// 标记正在调整大小
 	document.body.classList.add('resizing');
 	
-	// 如果已有图片，重新计算并应用最佳缩放比例
-	const container = document.querySelector('#image-container');
-	const images = container ? container.querySelectorAll('.seamless-image') : [];
+	// 保持漫画尺寸不变，只更新位置和滚动条
+	const oldZoom = currentZoom; // 保存当前缩放级别
 	
-	if (images.length > 0) {
-		// 重新计算并应用最佳缩放比例
-		calculateAndApplyBestZoom();
-	} else {
-		// 如果没有图片，执行常规初始化
-		initializePlugin();
-	}
+	// 调用calculateAndApplyBestZoom更新布局但不改变图片尺寸
+	calculateAndApplyBestZoom();
+	
+	// 确保缩放级别不变
+	currentZoom = oldZoom;
+	
+	// 重新应用当前缩放以确保正确的变换
+	applyContentPosition();
 	
 	// 更新自定义滚动条位置
 	updateScrollbarPosition();
