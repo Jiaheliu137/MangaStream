@@ -882,9 +882,6 @@ function applyZoom(zoomLevel) {
 
 // 简化后的loadSelectedItems函数
 function loadSelectedItems() {
-	// 重置初始窗口宽度，这样每次加载新内容时都会重新获取窗口宽度
-	initialWindowWidth = null;
-	
 	// 显示加载状态
 	showLoading(true);
 	
@@ -901,22 +898,8 @@ function loadSelectedItems() {
 			eagle.item.getSelected().then(items => {
 				console.log('选中的项目:', items.length);
 				
-				// 检查选中的项目是否与当前加载的项目相同
-				const newItemIds = items.map(item => item.id || '');
-				const isSameContent = arraysEqual(newItemIds, currentLoadedItemIds);
-				
-				// 如果内容相同，取消刷新操作
-				if (isSameContent && currentLoadedItemIds.length > 0) {
-					console.log('所选项目未发生变化，取消刷新');
-					// 移除淡出效果，恢复原样
-					if (container) {
-						container.classList.remove('fading-out');
-					}
-					return;
-				}
-				
 				// 更新当前加载的项目ID列表
-				currentLoadedItemIds = newItemIds;
+				currentLoadedItemIds = items.map(item => item.id || '');
 				
 				// 如果没有项目，直接显示提示
 				if (!items || items.length === 0) {
@@ -931,14 +914,14 @@ function loadSelectedItems() {
 							container.classList.remove('fading-in');
 						}, 300);
 					}
+					showLoading(false);
 					return;
 				}
 				
-				// 使用计算好的缩放比例显示图片
+				// 直接显示选中的图片
 				displaySelectedItems(items);
 			}).catch(err => {
 				console.error('获取选中项目时出错:', err);
-				eagle.log.error('获取选中项目时出错: ' + err.message);
 				if (container) {
 					container.innerHTML = '<p class="no-images">获取选中项目时出错，请重试</p>';
 					// 完成后移除过渡类
@@ -951,22 +934,15 @@ function loadSelectedItems() {
 					}, 300);
 				}
 				showErrorMessage('加载图片失败，请重试');
+				showLoading(false);
 			});
 		}, 200); // 200ms延迟，与CSS过渡时间匹配
 	} catch (error) {
 		console.error('加载选中项目失败:', error);
 		// 显示错误提示给用户
 		showErrorMessage('加载图片失败，请重试');
-	}
-	
-	// 完成加载后
-	setTimeout(() => {
-		// 更新光标样式
-		if (window.updateAfterZoom) {
-			window.updateAfterZoom();
-		}
 		showLoading(false);
-	}, 100);
+	}
 }
 
 // 检查两个数组是否相等的辅助函数
@@ -981,12 +957,13 @@ function arraysEqual(arr1, arr2) {
 // 添加支持的图片格式白名单
 const SUPPORTED_IMAGE_FORMATS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg'];
 
-// 修改 displaySelectedItems 函数，增加文件格式过滤
+// 简化 displaySelectedItems 函数
 function displaySelectedItems(items) {
     const container = document.querySelector('#image-container');
     
     if (!items || items.length === 0) {
         container.innerHTML = '<p class="no-images">请先在Eagle中选择一个或多个图片</p>';
+        showLoading(false);
         return;
     }
     
@@ -994,7 +971,7 @@ function displaySelectedItems(items) {
     container.innerHTML = '';
     
     // 过滤出支持的图片格式
-    const filteredItems = items.filter(item => {
+    let filteredItems = items.filter(item => {
         // 获取文件路径
         let filePath = '';
         if (item.filePath) {
@@ -1005,18 +982,19 @@ function displaySelectedItems(items) {
             filePath = item.url.replace('file://', '');
         }
         
-        // 如果没有文件路径，尝试使用文件名
-        const fileName = filePath || item.name || '';
-        
         // 检查文件扩展名是否在支持列表中
+        const fileName = filePath || item.name || '';
         return SUPPORTED_IMAGE_FORMATS.some(format => 
             fileName.toLowerCase().endsWith(format)
         );
     });
     
+    // 注意：不再进行自定义排序，保持Eagle原始的排序顺序
+    
     // 如果过滤后没有有效图片，显示提示
     if (filteredItems.length === 0) {
         container.innerHTML = '<p class="no-images">选中的项目中没有支持的图片格式</p>';
+        showLoading(false);
         return;
     }
     
@@ -1024,59 +1002,35 @@ function displaySelectedItems(items) {
     const totalImages = filteredItems.length;
     let loadedImages = 0;
     
-    // 按照顺序加载图片
+    // 按照Eagle原始顺序加载图片
     filteredItems.forEach((item, index) => {
-        // 尝试获取图片的本地路径
-        let imagePath = '';
-        if (item.filePath) {
-            imagePath = item.filePath;
-        } else if (item.path) {
-            imagePath = item.path;
-        } else if (item.url && item.url.startsWith('file://')) {
-            imagePath = item.url.replace('file://', '');
-        }
+        // 获取图片的本地路径
+        let imagePath = item.filePath || item.path || 
+                       (item.url && item.url.startsWith('file://') ? item.url.replace('file://', '') : '');
         
-        // 创建图片容器元素（用于居中）
+        // 创建图片容器元素
         const imgContainer = document.createElement('div');
         imgContainer.className = 'image-wrapper';
-        imgContainer.style.width = '100%'; // 确保容器宽度为100%
+        imgContainer.style.width = '100%';
         
         // 创建图片元素
         const img = document.createElement('img');
         img.className = 'seamless-image';
         img.alt = item.name || '未命名';
-        img.style.width = '100%'; // 确保图片宽度为100%填满窗口
-        img.style.height = 'auto'; // 高度自动按比例缩放
-        
-        // 检查文件是否存在
-        const fs = require('fs');
-        let imageExists = false;
-        try {
-            if (imagePath) {
-                imageExists = fs.existsSync(imagePath);
-            }
-        } catch (err) {
-            console.error('检查文件是否存在时出错:', err);
-        }
+        img.style.width = '100%';
+        img.style.height = 'auto';
         
         // 设置图片加载完成的处理函数
         img.onload = function() {
             loadedImages++;
             
-            // 所有图片加载完成后进行处理
+            // 所有图片加载完成后处理
             if (loadedImages === totalImages) {
-                // 使用setImageFixedSize确保所有图片宽度一致，但不随窗口变化
+                // 设置图片固定尺寸
                 setImageFixedSize();
                 
                 // 重置内容位置
                 resetContentPosition();
-                
-                // 应用位置
-                applyContentPosition();
-                
-                // 更新滚动条
-                updateHorizontalScroll(currentZoom);
-                updateVerticalScrollbar();
                 
                 // 添加过渡效果
                 container.classList.remove('fading-out');
@@ -1086,6 +1040,9 @@ function displaySelectedItems(items) {
                 setTimeout(() => {
                     container.classList.remove('fading-in');
                 }, 300);
+                
+                // 隐藏加载指示器
+                showLoading(false);
             }
         };
         
@@ -1094,12 +1051,11 @@ function displaySelectedItems(items) {
             console.error(`图片加载失败: ${imagePath}`);
             loadedImages++;
             
-            // 创建一个错误占位符
+            // 创建错误占位符
             const errorPlaceholder = document.createElement('div');
             errorPlaceholder.className = 'image-error';
             errorPlaceholder.textContent = '图片加载失败';
             errorPlaceholder.style.width = '100%';
-            errorPlaceholder.style.padding = '20px';
             errorPlaceholder.style.textAlign = 'center';
             errorPlaceholder.style.color = '#ff6b6b';
             
@@ -1108,71 +1064,43 @@ function displaySelectedItems(items) {
                 imgContainer.replaceChild(errorPlaceholder, img);
             }
             
-            // 所有图片加载完成后进行处理
+            // 所有图片加载完成后检查
             if (loadedImages === totalImages) {
-                // 使用setImageFixedSize确保所有图片宽度一致，但不随窗口变化
-                setImageFixedSize();
-                
-                // 完成其他初始化
-                resetContentPosition();
-                applyContentPosition();
-                updateHorizontalScroll(currentZoom);
-                updateVerticalScrollbar();
-                
-                // 添加过渡效果
                 container.classList.remove('fading-out');
                 container.classList.add('fading-in');
-                
-                // 动画完成后移除类
                 setTimeout(() => {
                     container.classList.remove('fading-in');
                 }, 300);
+                showLoading(false);
             }
         };
         
         // 设置图片源
-        if (imageExists) {
+        const fs = require('fs');
+        if (imagePath && fs.existsSync(imagePath)) {
             img.src = `file://${imagePath}`;
         } else if (item.thumbnail) {
             img.src = item.thumbnail;
         } else if (item.url) {
             img.src = item.url;
         } else {
-            // 如果没有可用的图片源，创建一个占位符并计为已加载
+            // 没有可用图片源，创建占位符
             const placeholder = document.createElement('div');
             placeholder.className = 'image-placeholder';
             placeholder.textContent = '无法加载图片';
             placeholder.style.width = '100%';
-            placeholder.style.padding = '20px';
             placeholder.style.textAlign = 'center';
             placeholder.style.color = '#999';
             
             imgContainer.appendChild(placeholder);
             container.appendChild(imgContainer);
-            loadedImages++; // 计数加一
+            loadedImages++;
             
-            // 所有图片加载完成后进行处理
             if (loadedImages === totalImages) {
-                // 使用setImageFixedSize确保所有图片宽度一致，但不随窗口变化
-                setImageFixedSize();
-                
-                // 完成其他初始化
-                resetContentPosition();
-                applyContentPosition();
-                updateHorizontalScroll(currentZoom);
-                updateVerticalScrollbar();
-                
-                // 添加过渡效果
-                container.classList.remove('fading-out');
-                container.classList.add('fading-in');
-                
-                // 动画完成后移除类
-                setTimeout(() => {
-                    container.classList.remove('fading-in');
-                }, 300);
+                showLoading(false);
             }
             
-            return; // 跳过当前项
+            return;
         }
         
         // 添加图片到容器
@@ -1183,7 +1111,7 @@ function displaySelectedItems(items) {
         if (index < filteredItems.length - 1) {
             const divider = document.createElement('div');
             divider.className = 'image-divider';
-            divider.style.backgroundColor = '#1e1e1e'; // 设置分割线颜色为#1e1e1e
+            divider.style.backgroundColor = '#1e1e1e';
             container.appendChild(divider);
         }
     });
@@ -1946,7 +1874,7 @@ function initRefreshButton() {
 		// 调用刷新函数
 		loadSelectedItems();
 		
-		// 仅显示动画效果
+		// 显示动画效果
 		refreshButton.classList.add('refreshing');
 		setTimeout(() => {
 			refreshButton.classList.remove('refreshing');
@@ -2136,4 +2064,15 @@ const DOM = {
 
 // 使用时：
 const container = DOM.get('#image-container');
+
+// 从文件名中提取数字的辅助函数
+function extractNumberFromFilename(filename) {
+    // 匹配文件名中的数字部分
+    const match = filename.match(/(\d+)/);
+    if (match && match[1]) {
+        // 将匹配到的数字字符串转换为数字
+        return parseInt(match[1], 10);
+    }
+    return null;
+}
 
