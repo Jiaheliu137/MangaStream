@@ -8,9 +8,6 @@ let scrollbarStartX = 0; // 记录滚动条拖动的初始X坐标
 let currentOffsetX = 0; // 漫画内容的当前水平偏移量
 let currentOffsetY = 0; // 漫画内容的当前垂直偏移量
 
-// 记录当前已加载漫画项目的ID数组
-let currentLoadedItemIds = [];
-
 // 滚动条自动隐藏定时器
 let scrollbarHideTimer;
 
@@ -162,7 +159,7 @@ function ensureNoTransitions(element) {
 		// 延迟恢复过渡效果以确保不干扰当前操作
 		setTimeout(() => {
 			element.style.transition = originalTransition;
-		}, 50);
+		}, 500);
 	};
 }
 
@@ -882,67 +879,62 @@ function applyZoom(zoomLevel) {
 
 // 简化后的loadSelectedItems函数
 function loadSelectedItems() {
-	// 显示加载状态
-	showLoading(true);
-	
-	try {
-		// 在获取新内容前添加淡出效果
-		const container = document.querySelector('#image-container');
-		if (container) {
-			// 添加过渡类
-			container.classList.add('fading-out');
-		}
-		
-		// 短暂延迟后获取新内容，让淡出动画有时间执行
-		setTimeout(() => {
-			eagle.item.getSelected().then(items => {
-				console.log('选中的项目:', items.length);
-				
-				// 更新当前加载的项目ID列表
-				currentLoadedItemIds = items.map(item => item.id || '');
-				
-				// 如果没有项目，直接显示提示
-				if (!items || items.length === 0) {
-					if (container) {
-						container.innerHTML = '<p class="no-images">请先在Eagle中选择一个或多个图片</p>';
-						// 完成后移除过渡类并添加淡入类
-						container.classList.remove('fading-out');
-						container.classList.add('fading-in');
-						
-						// 动画完成后移除类
-						setTimeout(() => {
-							container.classList.remove('fading-in');
-						}, 300);
-					}
-					showLoading(false);
-					return;
-				}
-				
-				// 直接显示选中的图片
-				displaySelectedItems(items);
-			}).catch(err => {
-				console.error('获取选中项目时出错:', err);
-				if (container) {
-					container.innerHTML = '<p class="no-images">获取选中项目时出错，请重试</p>';
-					// 完成后移除过渡类
-					container.classList.remove('fading-out');
-					container.classList.add('fading-in');
-					
-					// 动画完成后移除类
-					setTimeout(() => {
-						container.classList.remove('fading-in');
-					}, 300);
-				}
-				showErrorMessage('加载图片失败，请重试');
-				showLoading(false);
-			});
-		}, 200); // 200ms延迟，与CSS过渡时间匹配
-	} catch (error) {
-		console.error('加载选中项目失败:', error);
-		// 显示错误提示给用户
-		showErrorMessage('加载图片失败，请重试');
-		showLoading(false);
-	}
+    // 显示刷新动画（如果刷新按钮存在）
+    const refreshButton = document.getElementById('refresh-button');
+    if (refreshButton) {
+        refreshButton.classList.add('refreshing');
+        setTimeout(() => {
+            refreshButton.classList.remove('refreshing');
+        }, 500);
+    }
+    
+    // 获取容器元素
+    const container = document.querySelector('#image-container');
+    if (container) {
+        // 添加淡出效果
+        container.classList.add('fading-out');
+        container.classList.remove('fading-in');
+        
+        setTimeout(() => {
+            container.classList.remove('fading-out');
+            container.classList.add('fading-in');
+        }, 500); // 从300ms改为500ms
+    }
+    
+    // 获取Eagle中选中的图片
+    eagle.item.getSelected().then(items => {
+        console.log('选中的项目:', items.length);
+        
+        // 如果没有选中项目，显示提示
+        if (!items || items.length === 0) {
+            if (container) {
+                container.innerHTML = '<p class="no-images">请先在Eagle中选择一个或多个图片</p>';
+                // 移除淡出效果，添加淡入效果
+                container.classList.remove('fading-out');
+                container.classList.add('fading-in');
+                
+                setTimeout(() => {
+                    container.classList.remove('fading-in');
+                }, 500); // 从300ms改为500ms
+            }
+            return;
+        }
+        
+        // 显示选中的图片
+        displaySelectedItems(items);
+        
+    }).catch(err => {
+        console.error('获取选中项目时出错:', err);
+        if (container) {
+            container.innerHTML = '<p class="no-images">获取选中项目时出错，请重试</p>';
+            container.classList.remove('fading-out');
+            container.classList.add('fading-in');
+            
+            setTimeout(() => {
+                container.classList.remove('fading-in');
+            }, 500); // 从300ms改为500ms
+        }
+    });
 }
 
 // 检查两个数组是否相等的辅助函数
@@ -957,13 +949,20 @@ function arraysEqual(arr1, arr2) {
 // 添加支持的图片格式白名单
 const SUPPORTED_IMAGE_FORMATS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg'];
 
-// 简化 displaySelectedItems 函数
+// 全局变量，用于跟踪懒加载状态
+let lazyLoadingInProgress = false;
+let totalFilteredItems = [];
+let currentLoadedIndex = 0;
+const INITIAL_LOAD_COUNT = 50;   // 初始加载50张
+const BATCH_LOAD_COUNT = 10;     // 每批次加载10张
+const LOAD_THRESHOLD = 2000;     // 距底部2000像素时触发加载
+
+// 修改 displaySelectedItems 函数，实现懒加载
 function displaySelectedItems(items) {
     const container = document.querySelector('#image-container');
     
     if (!items || items.length === 0) {
         container.innerHTML = '<p class="no-images">请先在Eagle中选择一个或多个图片</p>';
-        showLoading(false);
         return;
     }
     
@@ -971,7 +970,7 @@ function displaySelectedItems(items) {
     container.innerHTML = '';
     
     // 过滤出支持的图片格式
-    let filteredItems = items.filter(item => {
+    totalFilteredItems = items.filter(item => {
         // 获取文件路径
         let filePath = '';
         if (item.filePath) {
@@ -982,31 +981,76 @@ function displaySelectedItems(items) {
             filePath = item.url.replace('file://', '');
         }
         
-        // 检查文件扩展名是否在支持列表中
+        // 如果没有文件路径，尝试使用文件名
         const fileName = filePath || item.name || '';
+        
+        // 检查文件扩展名是否在支持列表中
         return SUPPORTED_IMAGE_FORMATS.some(format => 
             fileName.toLowerCase().endsWith(format)
         );
     });
     
-    // 注意：不再进行自定义排序，保持Eagle原始的排序顺序
-    
     // 如果过滤后没有有效图片，显示提示
-    if (filteredItems.length === 0) {
+    if (totalFilteredItems.length === 0) {
         container.innerHTML = '<p class="no-images">选中的项目中没有支持的图片格式</p>';
-        showLoading(false);
         return;
     }
     
-    // 记录要加载的图片总数
-    const totalImages = filteredItems.length;
-    let loadedImages = 0;
+    // 添加加载指示器到容器底部
+    const loadingIndicator = document.createElement('div');
+    loadingIndicator.id = 'lazy-loading-indicator';
+    loadingIndicator.innerHTML = '<div class="spinner"></div><div>加载更多图片...</div>';
+    loadingIndicator.style.display = 'none';
+    container.appendChild(loadingIndicator);
     
-    // 按照Eagle原始顺序加载图片
-    filteredItems.forEach((item, index) => {
-        // 获取图片的本地路径
-        let imagePath = item.filePath || item.path || 
-                       (item.url && item.url.startsWith('file://') ? item.url.replace('file://', '') : '');
+    // 重置加载状态
+    currentLoadedIndex = 0;
+    lazyLoadingInProgress = false;
+    
+    // 设置懒加载滚动监听器
+    setupLazyLoadScrollListener();
+    
+    // 初始加载前50张图片
+    loadImageBatch(INITIAL_LOAD_COUNT);
+}
+
+// 加载一批图片
+function loadImageBatch(count) {
+    if (lazyLoadingInProgress) return;
+    
+    const container = document.querySelector('#image-container');
+    const loadingIndicator = document.getElementById('lazy-loading-indicator');
+    
+    // 如果已经加载完所有图片
+    if (currentLoadedIndex >= totalFilteredItems.length) {
+        if (loadingIndicator) {
+            loadingIndicator.style.display = 'none';
+        }
+        return;
+    }
+    
+    lazyLoadingInProgress = true;
+    
+    if (loadingIndicator) {
+        loadingIndicator.style.display = 'flex';
+    }
+    
+    // 计算本批次要加载的图片
+    const endIndex = Math.min(currentLoadedIndex + count, totalFilteredItems.length);
+    const batchItems = totalFilteredItems.slice(currentLoadedIndex, endIndex);
+    let batchLoaded = 0;
+    
+    // 在当前loadingIndicator之前插入图片
+    batchItems.forEach((item, index) => {
+        // 尝试获取图片的本地路径
+        let imagePath = '';
+        if (item.filePath) {
+            imagePath = item.filePath;
+        } else if (item.path) {
+            imagePath = item.path;
+        } else if (item.url && item.url.startsWith('file://')) {
+            imagePath = item.url.replace('file://', '');
+        }
         
         // 创建图片容器元素
         const imgContainer = document.createElement('div');
@@ -1019,85 +1063,135 @@ function displaySelectedItems(items) {
         img.alt = item.name || '未命名';
         img.style.width = '100%';
         img.style.height = 'auto';
+        img.dataset.index = currentLoadedIndex + index; // 添加索引便于追踪
         
-        // 设置图片加载完成的处理函数
+        // 检查文件是否存在
+        const fs = require('fs');
+        let imageExists = false;
+        try {
+            if (imagePath) {
+                imageExists = fs.existsSync(imagePath);
+            }
+        } catch (err) {
+            console.error('检查文件是否存在时出错:', err);
+        }
+        
+        // 图片加载完成事件
         img.onload = function() {
-            loadedImages++;
+            batchLoaded++;
             
-            // 所有图片加载完成后处理
-            if (loadedImages === totalImages) {
-                // 设置图片固定尺寸
-                setImageFixedSize();
+            // 当前批次加载完成
+            if (batchLoaded === batchItems.length) {
+                // 如果是初始加载，设置图片固定尺寸
+                if (currentLoadedIndex === 0 && batchLoaded >= batchItems.length) {
+                    setImageFixedSize();
+                    
+                    // 重置内容位置
+                    resetContentPosition();
+                    
+                    // 应用位置
+                    applyContentPosition();
+                    
+                    // 更新滚动条
+                    updateHorizontalScroll(currentZoom);
+                    updateVerticalScrollbar();
+                    
+                    // 添加过渡效果
+                    container.classList.remove('fading-out');
+                    container.classList.add('fading-in');
+                    
+                    // 动画完成后移除类
+                    setTimeout(() => {
+                        container.classList.remove('fading-in');
+                    }, 500);
+                }
                 
-                // 重置内容位置
-                resetContentPosition();
-                
-                // 添加过渡效果
-                container.classList.remove('fading-out');
-                container.classList.add('fading-in');
-                
-                // 动画完成后移除类
-                setTimeout(() => {
-                    container.classList.remove('fading-in');
-                }, 300);
+                // 更新加载索引并允许再次触发懒加载
+                currentLoadedIndex = endIndex;
+                lazyLoadingInProgress = false;
                 
                 // 隐藏加载指示器
-                showLoading(false);
+                if (loadingIndicator) {
+                    loadingIndicator.style.display = 'none';
+                }
+                
+                // 如果视口可见底部，继续加载下一批
+                if (isNearBottom() && currentLoadedIndex < totalFilteredItems.length) {
+                    loadImageBatch(BATCH_LOAD_COUNT);
+                }
             }
         };
         
-        // 设置图片加载失败的处理函数
+        // 图片加载错误事件
         img.onerror = function() {
             console.error(`图片加载失败: ${imagePath}`);
-            loadedImages++;
+            batchLoaded++;
             
             // 创建错误占位符
             const errorPlaceholder = document.createElement('div');
             errorPlaceholder.className = 'image-error';
             errorPlaceholder.textContent = '图片加载失败';
             errorPlaceholder.style.width = '100%';
+            errorPlaceholder.style.padding = '20px';
             errorPlaceholder.style.textAlign = 'center';
             errorPlaceholder.style.color = '#ff6b6b';
             
-            // 替换图片元素
             if (imgContainer.contains(img)) {
                 imgContainer.replaceChild(errorPlaceholder, img);
             }
             
-            // 所有图片加载完成后检查
-            if (loadedImages === totalImages) {
-                container.classList.remove('fading-out');
-                container.classList.add('fading-in');
-                setTimeout(() => {
-                    container.classList.remove('fading-in');
-                }, 300);
-                showLoading(false);
+            // 检查是否所有图片都已处理
+            if (batchLoaded === batchItems.length) {
+                currentLoadedIndex = endIndex;
+                lazyLoadingInProgress = false;
+                
+                if (loadingIndicator) {
+                    loadingIndicator.style.display = 'none';
+                }
+                
+                // 如果视口可见底部，继续加载下一批
+                if (isNearBottom() && currentLoadedIndex < totalFilteredItems.length) {
+                    loadImageBatch(BATCH_LOAD_COUNT);
+                }
             }
         };
         
         // 设置图片源
-        const fs = require('fs');
-        if (imagePath && fs.existsSync(imagePath)) {
+        if (imageExists) {
             img.src = `file://${imagePath}`;
         } else if (item.thumbnail) {
             img.src = item.thumbnail;
         } else if (item.url) {
             img.src = item.url;
         } else {
-            // 没有可用图片源，创建占位符
+            // 如果没有可用的图片源，创建一个占位符
             const placeholder = document.createElement('div');
             placeholder.className = 'image-placeholder';
             placeholder.textContent = '无法加载图片';
             placeholder.style.width = '100%';
+            placeholder.style.padding = '20px';
             placeholder.style.textAlign = 'center';
             placeholder.style.color = '#999';
             
             imgContainer.appendChild(placeholder);
-            container.appendChild(imgContainer);
-            loadedImages++;
             
-            if (loadedImages === totalImages) {
-                showLoading(false);
+            // 将图片容器插入到加载指示器之前
+            if (loadingIndicator) {
+                container.insertBefore(imgContainer, loadingIndicator);
+            } else {
+                container.appendChild(imgContainer);
+            }
+            
+            batchLoaded++;
+            
+            // 检查是否所有图片都已处理
+            if (batchLoaded === batchItems.length) {
+                currentLoadedIndex = endIndex;
+                lazyLoadingInProgress = false;
+                
+                if (loadingIndicator) {
+                    loadingIndicator.style.display = 'none';
+                }
             }
             
             return;
@@ -1105,63 +1199,125 @@ function displaySelectedItems(items) {
         
         // 添加图片到容器
         imgContainer.appendChild(img);
-        container.appendChild(imgContainer);
+        
+        // 将图片容器插入到加载指示器之前
+        if (loadingIndicator) {
+            container.insertBefore(imgContainer, loadingIndicator);
+        } else {
+            container.appendChild(imgContainer);
+        }
         
         // 如果不是最后一张图片，添加分割线
-        if (index < filteredItems.length - 1) {
+        if (currentLoadedIndex + index < totalFilteredItems.length - 1) {
             const divider = document.createElement('div');
             divider.className = 'image-divider';
             divider.style.backgroundColor = '#1e1e1e';
-            container.appendChild(divider);
+            
+            if (loadingIndicator) {
+                container.insertBefore(divider, loadingIndicator);
+            } else {
+                container.appendChild(divider);
+            }
         }
     });
 }
 
-// 应用统一宽度显示
-function applyUniformWidthDisplay() {
-    const container = document.querySelector('#image-container');
-    if (!container) return;
+// 检查是否接近底部
+function isNearBottom() {
+    const viewport = document.querySelector('#viewport');
+    if (!viewport) return false;
     
-    // 确保容器宽度为100%
-    container.style.width = '100%';
+    const scrollHeight = viewport.scrollHeight;
+    const scrollTop = viewport.scrollTop;
+    const clientHeight = viewport.clientHeight;
     
-    // 获取所有图片
-    const images = container.querySelectorAll('.seamless-image');
-    
-    // 设置所有图片宽度为100%
-    images.forEach(img => {
-        img.style.width = '100%';
-        img.style.maxWidth = '100%';
-        img.style.height = 'auto';
-    });
-    
-    // 重置内容位置
-    resetContentPosition();
-    
-    // 应用位置
-    applyContentPosition();
-    
-    // 重置缩放为1.0
-    currentZoom = 1.0;
-    
-    // 更新水平滚动条
-    updateHorizontalScroll(currentZoom);
-    
-    // 更新垂直滚动条
-    updateVerticalScrollbar();
-    
-    // 显示缩放级别
-    showZoomLevel(currentZoom);
-    
-    // 添加过渡效果
-    container.classList.remove('fading-out');
-    container.classList.add('fading-in');
-    
-    // 动画完成后移除类
-    setTimeout(() => {
-        container.classList.remove('fading-in');
-    }, 300);
+    // 当距离底部小于LOAD_THRESHOLD时返回true
+    return (scrollHeight - scrollTop - clientHeight) < LOAD_THRESHOLD;
 }
+
+// 设置懒加载滚动监听器
+function setupLazyLoadScrollListener() {
+    const viewport = document.querySelector('#viewport');
+    if (!viewport) return;
+    
+    // 移除已有的懒加载监听器（如果有）
+    if (viewport._lazyLoadListener) {
+        viewport.removeEventListener('scroll', viewport._lazyLoadListener);
+    }
+    
+    // 创建节流函数处理滚动事件
+    const throttledScrollHandler = throttle(function() {
+        if (!lazyLoadingInProgress && isNearBottom() && currentLoadedIndex < totalFilteredItems.length) {
+            loadImageBatch(BATCH_LOAD_COUNT);
+        }
+    }, 200); // 每200ms最多触发一次
+    
+    // 保存监听器引用以便之后可以移除
+    viewport._lazyLoadListener = throttledScrollHandler;
+    
+    // 添加滚动监听
+    viewport.addEventListener('scroll', throttledScrollHandler);
+}
+
+// 节流函数：限制函数在特定时间内只能执行一次
+function throttle(func, limit) {
+    let lastFunc;
+    let lastRan;
+    return function() {
+        const context = this;
+        const args = arguments;
+        if (!lastRan) {
+            func.apply(context, args);
+            lastRan = Date.now();
+        } else {
+            clearTimeout(lastFunc);
+            lastFunc = setTimeout(function() {
+                if ((Date.now() - lastRan) >= limit) {
+                    func.apply(context, args);
+                    lastRan = Date.now();
+                }
+            }, limit - (Date.now() - lastRan));
+        }
+    };
+}
+
+// 添加CSS样式
+function addLazyLoadStyles() {
+    const style = document.createElement('style');
+    style.textContent = `
+        #lazy-loading-indicator {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            color: #888;
+            text-align: center;
+            width: 100%;
+            height: 60px;
+        }
+        
+        #lazy-loading-indicator .spinner {
+            width: 20px;
+            height: 20px;
+            margin-right: 10px;
+            border: 2px solid rgba(120, 120, 120, 0.3);
+            border-top-color: #888;
+            border-radius: 50%;
+            animation: lazy-spin 1s linear infinite;
+        }
+        
+        @keyframes lazy-spin {
+            to { transform: rotate(360deg); }
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+// 在文档加载完成后初始化懒加载样式
+document.addEventListener('DOMContentLoaded', () => {
+    addLazyLoadStyles();
+    // 其他初始化代码...
+});
 
 eagle.onPluginShow(() => {
 	console.log('eagle.onPluginShow');
@@ -1871,14 +2027,8 @@ function initRefreshButton() {
 	
 	// 添加点击事件
 	refreshButton.addEventListener('click', () => {
-		// 调用刷新函数
+		// 调用刷新函数（已包含动画效果）
 		loadSelectedItems();
-		
-		// 显示动画效果
-		refreshButton.classList.add('refreshing');
-		setTimeout(() => {
-			refreshButton.classList.remove('refreshing');
-		}, 500);
 	});
 }
 
@@ -1969,16 +2119,7 @@ function initKeyboardShortcuts() {
 		if (event.ctrlKey && (event.key === 'r' || event.keyCode === 82)) {
 			event.preventDefault();
 			
-			// 显示刷新按钮动画
-			const refreshButton = document.getElementById('refresh-button');
-			if (refreshButton) {
-				refreshButton.classList.add('refreshing');
-				setTimeout(() => {
-					refreshButton.classList.remove('refreshing');
-				}, 500);
-			}
-			
-			// 刷新图片
+			// 调用刷新函数
 			loadSelectedItems();
 		}
 	});
@@ -2064,15 +2205,4 @@ const DOM = {
 
 // 使用时：
 const container = DOM.get('#image-container');
-
-// 从文件名中提取数字的辅助函数
-function extractNumberFromFilename(filename) {
-    // 匹配文件名中的数字部分
-    const match = filename.match(/(\d+)/);
-    if (match && match[1]) {
-        // 将匹配到的数字字符串转换为数字
-        return parseInt(match[1], 10);
-    }
-    return null;
-}
 
