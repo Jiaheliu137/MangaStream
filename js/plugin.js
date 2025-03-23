@@ -972,136 +972,209 @@ function arraysEqual(arr1, arr2) {
 	return true;
 }
 
-// 修改displaySelectedItems函数，设置图片显示策略为窗口宽度一致
+// 添加支持的图片格式白名单
+const SUPPORTED_IMAGE_FORMATS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg'];
+
+// 修改 displaySelectedItems 函数，增加文件格式过滤
 function displaySelectedItems(items) {
-  const container = document.querySelector('#image-container');
-  
-  if (!items || items.length === 0) {
-    container.innerHTML = '<p class="no-images">请先在Eagle中选择一个或多个图片</p>';
-    return;
-  }
-  
-  // 清空容器
-  container.innerHTML = '';
-  
-  // 记录要加载的图片总数
-  const totalImages = items.length;
-  let loadedImages = 0;
-  
-  // 按照顺序加载图片
-  items.forEach((item, index) => {
-    // 尝试获取图片的本地路径
-    let imagePath = '';
-    if (item.filePath) {
-      imagePath = item.filePath;
-    } else if (item.path) {
-      imagePath = item.path;
-    } else if (item.url && item.url.startsWith('file://')) {
-      imagePath = item.url.replace('file://', '');
+    const container = document.querySelector('#image-container');
+    
+    if (!items || items.length === 0) {
+        container.innerHTML = '<p class="no-images">请先在Eagle中选择一个或多个图片</p>';
+        return;
     }
     
-    // 创建图片容器元素（用于居中）
-    const imgContainer = document.createElement('div');
-    imgContainer.className = 'image-wrapper';
-    imgContainer.style.width = '100%'; // 设置容器宽度为100%
+    // 清空容器
+    container.innerHTML = '';
     
-    // 创建图片元素
-    const img = document.createElement('img');
-    img.className = 'seamless-image';
-    img.alt = item.name || '未命名';
-    img.style.width = '100%'; // 强制所有图片宽度为100%，而不是90%
-    img.style.height = 'auto'; // 高度自动按比例缩放
+    // 过滤出支持的图片格式
+    const filteredItems = items.filter(item => {
+        // 获取文件路径
+        let filePath = '';
+        if (item.filePath) {
+            filePath = item.filePath;
+        } else if (item.path) {
+            filePath = item.path;
+        } else if (item.url && item.url.startsWith('file://')) {
+            filePath = item.url.replace('file://', '');
+        }
+        
+        // 如果没有文件路径，尝试使用文件名
+        const fileName = filePath || item.name || '';
+        
+        // 检查文件扩展名是否在支持列表中
+        return SUPPORTED_IMAGE_FORMATS.some(format => 
+            fileName.toLowerCase().endsWith(format)
+        );
+    });
     
-    // 检查文件是否存在
-    const fs = require('fs');
-    let imageExists = false;
-    try {
-      if (imagePath) {
-        imageExists = fs.existsSync(imagePath);
-      }
-    } catch (err) {
-      console.error('检查文件是否存在时出错:', err);
+    // 如果过滤后没有有效图片，显示提示
+    if (filteredItems.length === 0) {
+        container.innerHTML = '<p class="no-images">选中的项目中没有支持的图片格式</p>';
+        return;
     }
     
-    // 设置图片加载完成的处理函数
-    img.onload = function() {
-      loadedImages++;
-      
-      // 所有图片加载完成后进行处理
-      if (loadedImages === totalImages) {
-        // 应用统一宽度显示策略
-        applyUniformWidthDisplay();
-      }
-    };
+    // 记录要加载的图片总数
+    const totalImages = filteredItems.length;
+    let loadedImages = 0;
     
-    // 设置图片源
-    if (imageExists) {
-      img.src = `file://${imagePath}`;
-    } else if (item.thumbnail) {
-      img.src = item.thumbnail;
-    } else if (item.url) {
-      img.src = item.url;
-    } else {
-      // 如果没有可用的图片源，创建一个占位符并计为已加载
-      const placeholder = document.createElement('div');
-      placeholder.className = 'image-placeholder';
-      placeholder.textContent = '无法加载图片';
-      placeholder.style.width = '100%';
-      container.appendChild(placeholder);
-      loadedImages++; // 计数加一
-      return; // 跳过当前项
-    }
-    
-    // 添加图片到容器
-    imgContainer.appendChild(img);
-    container.appendChild(imgContainer);
-    
-    // 如果不是最后一张图片，添加分割线
-    if (index < items.length - 1) {
-      const divider = document.createElement('div');
-      divider.className = 'image-divider';
-      container.appendChild(divider);
-    }
-  });
+    // 按照顺序加载图片
+    filteredItems.forEach((item, index) => {
+        // 尝试获取图片的本地路径
+        let imagePath = '';
+        if (item.filePath) {
+            imagePath = item.filePath;
+        } else if (item.path) {
+            imagePath = item.path;
+        } else if (item.url && item.url.startsWith('file://')) {
+            imagePath = item.url.replace('file://', '');
+        }
+        
+        // 创建图片容器元素（用于居中）
+        const imgContainer = document.createElement('div');
+        imgContainer.className = 'image-wrapper';
+        imgContainer.style.width = '100%'; // 确保容器宽度为100%
+        
+        // 创建图片元素
+        const img = document.createElement('img');
+        img.className = 'seamless-image';
+        img.alt = item.name || '未命名';
+        img.style.width = '100%'; // 确保图片宽度为100%填满窗口
+        img.style.height = 'auto'; // 高度自动按比例缩放
+        
+        // 检查文件是否存在
+        const fs = require('fs');
+        let imageExists = false;
+        try {
+            if (imagePath) {
+                imageExists = fs.existsSync(imagePath);
+            }
+        } catch (err) {
+            console.error('检查文件是否存在时出错:', err);
+        }
+        
+        // 设置图片加载完成的处理函数
+        img.onload = function() {
+            loadedImages++;
+            
+            // 所有图片加载完成后进行处理
+            if (loadedImages === totalImages) {
+                // 设置图片样式，确保填满窗口
+                applyUniformWidthDisplay();
+            }
+        };
+        
+        // 设置图片加载失败的处理函数
+        img.onerror = function() {
+            console.error(`图片加载失败: ${imagePath}`);
+            loadedImages++;
+            
+            // 创建一个错误占位符
+            const errorPlaceholder = document.createElement('div');
+            errorPlaceholder.className = 'image-error';
+            errorPlaceholder.textContent = '图片加载失败';
+            errorPlaceholder.style.width = '100%';
+            errorPlaceholder.style.padding = '20px';
+            errorPlaceholder.style.textAlign = 'center';
+            errorPlaceholder.style.color = '#ff6b6b';
+            
+            // 替换图片元素
+            if (imgContainer.contains(img)) {
+                imgContainer.replaceChild(errorPlaceholder, img);
+            }
+            
+            // 所有图片加载完成后进行处理
+            if (loadedImages === totalImages) {
+                applyUniformWidthDisplay();
+            }
+        };
+        
+        // 设置图片源
+        if (imageExists) {
+            img.src = `file://${imagePath}`;
+        } else if (item.thumbnail) {
+            img.src = item.thumbnail;
+        } else if (item.url) {
+            img.src = item.url;
+        } else {
+            // 如果没有可用的图片源，创建一个占位符并计为已加载
+            const placeholder = document.createElement('div');
+            placeholder.className = 'image-placeholder';
+            placeholder.textContent = '无法加载图片';
+            placeholder.style.width = '100%';
+            placeholder.style.padding = '20px';
+            placeholder.style.textAlign = 'center';
+            placeholder.style.color = '#999';
+            
+            imgContainer.appendChild(placeholder);
+            container.appendChild(imgContainer);
+            loadedImages++; // 计数加一
+            
+            // 所有图片加载完成后进行处理
+            if (loadedImages === totalImages) {
+                applyUniformWidthDisplay();
+            }
+            
+            return; // 跳过当前项
+        }
+        
+        // 添加图片到容器
+        imgContainer.appendChild(img);
+        container.appendChild(imgContainer);
+        
+        // 如果不是最后一张图片，添加分割线
+        if (index < filteredItems.length - 1) {
+            const divider = document.createElement('div');
+            divider.className = 'image-divider';
+            container.appendChild(divider);
+        }
+    });
 }
 
-// 新函数：应用统一宽度显示策略
+// 应用统一宽度显示
 function applyUniformWidthDisplay() {
-  const container = document.querySelector('#image-container');
-  if (!container) return;
-  
-  // 获取窗口宽度（不再留边距）
-  const windowWidth = window.innerWidth; // 不再乘以0.9，使用全部窗口宽度
-  
-  // 确保容器宽度正确
-  container.style.width = '100%';
-  
-  // 重置内容位置
-  resetContentPosition();
-  
-  // 应用位置
-  applyContentPosition();
-  
-  // 重置缩放为1.0
-  currentZoom = 1.0;
-  
-  // 更新水平滚动条
-  updateHorizontalScroll(currentZoom);
-  
-  // 更新垂直滚动条
-  updateVerticalScrollbar();
-  
-  // 显示缩放级别
-  showZoomLevel(currentZoom);
-  
-  // 添加过渡效果
-  container.classList.remove('fading-out');
-  container.classList.add('fading-in');
-  
-  // 动画完成后移除类
-  setTimeout(() => {
-    container.classList.remove('fading-in');
-  }, 300);
+    const container = document.querySelector('#image-container');
+    if (!container) return;
+    
+    // 确保容器宽度为100%
+    container.style.width = '100%';
+    
+    // 获取所有图片
+    const images = container.querySelectorAll('.seamless-image');
+    
+    // 设置所有图片宽度为100%
+    images.forEach(img => {
+        img.style.width = '100%';
+        img.style.maxWidth = '100%';
+        img.style.height = 'auto';
+    });
+    
+    // 重置内容位置
+    resetContentPosition();
+    
+    // 应用位置
+    applyContentPosition();
+    
+    // 重置缩放为1.0
+    currentZoom = 1.0;
+    
+    // 更新水平滚动条
+    updateHorizontalScroll(currentZoom);
+    
+    // 更新垂直滚动条
+    updateVerticalScrollbar();
+    
+    // 显示缩放级别
+    showZoomLevel(currentZoom);
+    
+    // 添加过渡效果
+    container.classList.remove('fading-out');
+    container.classList.add('fading-in');
+    
+    // 动画完成后移除类
+    setTimeout(() => {
+        container.classList.remove('fading-in');
+    }, 300);
 }
 
 eagle.onPluginShow(() => {
