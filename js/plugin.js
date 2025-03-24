@@ -92,10 +92,7 @@ function updateHorizontalScroll(zoomLevel) {
 	if (!imageContainer) return;
 	
 	const windowWidth = window.innerWidth;
-	
-	// 获取实际内容尺寸（考虑实际渲染宽度，而非scrollWidth）
-	const containerRect = imageContainer.getBoundingClientRect();
-	const contentWidth = containerRect.width;
+	const contentWidth = imageContainer.scrollWidth * zoomLevel;
 	
 	// 当内容宽度超过视窗宽度时，准备显示自定义滚动条
 	if (contentWidth > windowWidth) {
@@ -421,14 +418,16 @@ function handleScrollbarDrag(e) {
 	// 应用滚动条的新位置
 	scrollbar.style.left = `${newScrollbarLeft}px`;
 	
-	// 计算新位置对应的滚动比例，从滚动条的相对位置[0, scrollbarMaxMove]转换到内容的相对位置[0, totalScrollableWidth]
+	// 计算新位置对应的滚动比例
 	const scrollRatio = newScrollbarLeft / scrollbarMaxMove;
 	
 	// 计算内容的总可滚动宽度
 	const totalScrollableWidth = contentWidth - windowWidth;
 	
-	// 将[0, 1]的滚动比例转换回内容的偏移量，中心点偏移[-totalScrollableWidth/2, totalScrollableWidth/2]
-	const newOffsetX = (scrollRatio * totalScrollableWidth) - (totalScrollableWidth / 2);
+	// 计算内容的新偏移量（方向与滚动条运动相反）
+	// 滚动条左移（scrollRatio接近0）→ 内容右移（偏移量正值）
+	// 滚动条右移（scrollRatio接近1）→ 内容左移（偏移量负值）
+	const newOffsetX = (0.5 - scrollRatio) * totalScrollableWidth;
 	
 	// 更新全局内容偏移量
 	currentOffsetX = newOffsetX;
@@ -524,11 +523,10 @@ function updateScrollbarPosition() {
 	// 计算内容总可滚动宽度
 	const totalScrollableWidth = contentWidth - windowWidth;
 	
-	// 计算当前内容偏移的比例位置
-	// 由于偏移量原点在中心，转换为左边原点的相对位置
-	// 首先将currentOffsetX从[-totalScrollableWidth/2, totalScrollableWidth/2]转换为[0, totalScrollableWidth]
-	const absoluteOffset = (totalScrollableWidth/2) + currentOffsetX;
-	const scrollRatio = absoluteOffset / totalScrollableWidth;
+	// 将当前内容偏移量转换为滚动条位置比例
+	// currentOffsetX范围：-totalScrollableWidth/2 至 +totalScrollableWidth/2
+	// 正偏移表示内容偏左，对应滚动条偏右
+	const scrollRatio = 0.5 - (currentOffsetX / totalScrollableWidth);
 	
 	// 限制滚动比例在有效范围(0-1)内
 	const clampedRatio = Math.max(0, Math.min(1, scrollRatio));
@@ -943,7 +941,7 @@ function arraysEqual(arr1, arr2) {
 }
 
 // 添加支持的图片格式白名单
-const SUPPORTED_IMAGE_FORMATS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg'];
+const SUPPORTED_IMAGE_FORMATS = ['.jpg', '.jpeg', '.png', '.gif', '.webp']; // 只保留浏览器常用支持的格式
 
 // 全局变量，用于跟踪懒加载状态
 let lazyLoadingInProgress = false;
@@ -953,7 +951,7 @@ const INITIAL_LOAD_COUNT = 300;   // 初始加载300张（从20改为300）
 const BATCH_LOAD_COUNT = 30;     // 每批次加载30张（从10改为30）
 const LOAD_THRESHOLD = 2000;     // 距底部2000像素时触发加载
 
-// 修改 displaySelectedItems 函数，移除占位符相关代码
+// 修改 displaySelectedItems 函数，移除图片加载失败的处理
 function displaySelectedItems(items) {
     const container = document.querySelector('#image-container');
     
@@ -969,10 +967,26 @@ function displaySelectedItems(items) {
     currentLoadedIndex = 0;
     lazyLoadingInProgress = false;
     
-    // 1. 立即处理前300张图片，不等待过滤
-    const initialItems = items.slice(0, INITIAL_LOAD_COUNT);
+    // 先筛选支持的图片格式
+    const filteredItems = items.filter(item => {
+        // 获取图片路径
+        let imagePath = item.filePath || item.path || (item.url && item.url.startsWith('file://') ? item.url.replace('file://', '') : '');
+        const fileName = imagePath || item.name || '';
+        
+        // 检查是否为支持的格式
+        return SUPPORTED_IMAGE_FORMATS.some(format => fileName.toLowerCase().endsWith(format));
+    });
     
-    // 创建总数显示元素，初始设为隐藏状态
+    // 如果筛选后没有图片，显示提示
+    if (filteredItems.length === 0) {
+        container.innerHTML = '<p class="no-images">当前选择中没有支持的图片格式<br>支持的格式：JPG、JPEG、PNG、GIF、WEBP</p>';
+        return;
+    }
+    
+    // 1. 立即处理前300张图片
+    const initialItems = filteredItems.slice(0, INITIAL_LOAD_COUNT);
+    
+    // 创建总数显示元素
     let totalCountIndicator = document.getElementById('total-count-indicator');
     if (!totalCountIndicator) {
         totalCountIndicator = document.createElement('div');
@@ -980,7 +994,7 @@ function displaySelectedItems(items) {
         document.body.appendChild(totalCountIndicator);
     }
     
-    // 立即加载前300张图片(不管图片格式，先加载再说)
+    // 立即加载前300张图片
     let validInitialItems = [];
     initialItems.forEach(item => {
         // 获取图片路径
@@ -1024,23 +1038,7 @@ function displaySelectedItems(items) {
                 }
             };
             
-            // 图片加载错误事件
-            img.onerror = function() {
-                // 创建错误占位符
-                const errorPlaceholder = document.createElement('div');
-                errorPlaceholder.className = 'image-error';
-                errorPlaceholder.textContent = '图片加载失败';
-                errorPlaceholder.style.width = '100%';
-                errorPlaceholder.style.padding = '20px';
-                errorPlaceholder.style.textAlign = 'center';
-                errorPlaceholder.style.color = '#ff6b6b';
-                
-                // 替换为错误提示
-                imgContainer.textContent = '';
-                imgContainer.appendChild(errorPlaceholder);
-            };
-            
-            // 直接将图片添加到容器，无需占位符
+            // 直接将图片添加到容器
             imgContainer.appendChild(img);
             
             // 将图片容器添加到主容器
@@ -1062,35 +1060,25 @@ function displaySelectedItems(items) {
     // 更新已加载数量
     currentLoadedIndex = validInitialItems.length;
     
-    // 2. 异步处理所有图片并统计总数
-    setTimeout(() => {
-        // 过滤所有图片
-        totalFilteredItems = items.filter(item => {
-            // 获取图片路径
-            let imagePath = item.filePath || item.path || (item.url && item.url.startsWith('file://') ? item.url.replace('file://', '') : '');
-            const fileName = imagePath || item.name || '';
-            
-            // 检查是否为支持的格式
-            return SUPPORTED_IMAGE_FORMATS.some(format => fileName.toLowerCase().endsWith(format));
-        });
+    // 保存总筛选项目
+    totalFilteredItems = filteredItems;
+    
+    // 显示总数信息
+    if (totalFilteredItems.length > 0) {
+        // 初始显示第1张/总数
+        updateCountIndicator(1, totalFilteredItems.length);
         
-        // 更新总数显示在左上角（持续显示）
-        if (totalFilteredItems.length > 0) {
-            // 初始显示第1张/总数
-            updateCountIndicator(1, totalFilteredItems.length);
-            
-            // 初始化滚动位置跟踪
-            initScrollPositionTracker();
-        }
-        
-        // 设置懒加载监听器
-        setupLazyLoadScrollListener();
-        
-        // 如果初始加载的图片不足初始加载数，继续加载更多
-        if (currentLoadedIndex < INITIAL_LOAD_COUNT && totalFilteredItems.length > currentLoadedIndex) {
-            loadImageBatch(INITIAL_LOAD_COUNT - currentLoadedIndex);
-        }
-    }, 10); // 使用极短的延时，让UI先渲染
+        // 初始化滚动位置跟踪
+        initScrollPositionTracker();
+    }
+    
+    // 设置懒加载监听器
+    setupLazyLoadScrollListener();
+    
+    // 如果初始加载的图片不足初始加载数，继续加载更多
+    if (currentLoadedIndex < INITIAL_LOAD_COUNT && totalFilteredItems.length > currentLoadedIndex) {
+        loadImageBatch(INITIAL_LOAD_COUNT - currentLoadedIndex);
+    }
 }
 
 // 添加总数指示器的样式
@@ -1185,7 +1173,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 其他初始化代码...
 });
 
-// 修改 loadImageBatch 函数，移除占位符相关代码
+// 修改 loadImageBatch 函数，移除图片加载失败相关代码
 function loadImageBatch(count) {
     if (lazyLoadingInProgress) return;
     
@@ -1275,38 +1263,7 @@ function loadImageBatch(count) {
             }
         };
         
-        // 图片加载错误事件
-        img.onerror = function() {
-            console.error(`图片加载失败: ${imagePath}`);
-            
-            // 创建错误占位符
-            const errorPlaceholder = document.createElement('div');
-            errorPlaceholder.className = 'image-error';
-            errorPlaceholder.textContent = '图片加载失败';
-            errorPlaceholder.style.width = '100%';
-            errorPlaceholder.style.padding = '20px';
-            errorPlaceholder.style.textAlign = 'center';
-            errorPlaceholder.style.color = '#ff6b6b';
-            
-            // 替换为错误提示
-            imgContainer.textContent = '';
-            imgContainer.appendChild(errorPlaceholder);
-            
-            batchLoaded++;
-            
-            // 检查是否所有图片都已处理
-            if (batchLoaded === batchItems.length) {
-                currentLoadedIndex = endIndex;
-                lazyLoadingInProgress = false;
-                
-                // 如果视口可见底部，继续加载下一批
-                if (isNearBottom() && currentLoadedIndex < totalFilteredItems.length) {
-                    loadImageBatch(BATCH_LOAD_COUNT);
-                }
-            }
-        };
-        
-        // 直接将图片添加到容器，无需占位符
+        // 直接将图片添加到容器
         imgContainer.appendChild(img);
         
         // 将图片容器添加到主容器
