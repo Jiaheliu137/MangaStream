@@ -92,7 +92,10 @@ function updateHorizontalScroll(zoomLevel) {
 	if (!imageContainer) return;
 	
 	const windowWidth = window.innerWidth;
-	const contentWidth = imageContainer.scrollWidth * zoomLevel;
+	
+	// 获取实际内容尺寸（考虑实际渲染宽度，而非scrollWidth）
+	const containerRect = imageContainer.getBoundingClientRect();
+	const contentWidth = containerRect.width;
 	
 	// 当内容宽度超过视窗宽度时，准备显示自定义滚动条
 	if (contentWidth > windowWidth) {
@@ -418,16 +421,14 @@ function handleScrollbarDrag(e) {
 	// 应用滚动条的新位置
 	scrollbar.style.left = `${newScrollbarLeft}px`;
 	
-	// 计算新位置对应的滚动比例
+	// 计算新位置对应的滚动比例，从滚动条的相对位置[0, scrollbarMaxMove]转换到内容的相对位置[0, totalScrollableWidth]
 	const scrollRatio = newScrollbarLeft / scrollbarMaxMove;
 	
 	// 计算内容的总可滚动宽度
 	const totalScrollableWidth = contentWidth - windowWidth;
 	
-	// 计算内容的新偏移量（方向与滚动条运动相反）
-	// 滚动条左移（scrollRatio接近0）→ 内容右移（偏移量正值）
-	// 滚动条右移（scrollRatio接近1）→ 内容左移（偏移量负值）
-	const newOffsetX = (0.5 - scrollRatio) * totalScrollableWidth;
+	// 将[0, 1]的滚动比例转换回内容的偏移量，中心点偏移[-totalScrollableWidth/2, totalScrollableWidth/2]
+	const newOffsetX = (scrollRatio * totalScrollableWidth) - (totalScrollableWidth / 2);
 	
 	// 更新全局内容偏移量
 	currentOffsetX = newOffsetX;
@@ -523,10 +524,11 @@ function updateScrollbarPosition() {
 	// 计算内容总可滚动宽度
 	const totalScrollableWidth = contentWidth - windowWidth;
 	
-	// 将当前内容偏移量转换为滚动条位置比例
-	// currentOffsetX范围：-totalScrollableWidth/2 至 +totalScrollableWidth/2
-	// 正偏移表示内容偏左，对应滚动条偏右
-	const scrollRatio = 0.5 - (currentOffsetX / totalScrollableWidth);
+	// 计算当前内容偏移的比例位置
+	// 由于偏移量原点在中心，转换为左边原点的相对位置
+	// 首先将currentOffsetX从[-totalScrollableWidth/2, totalScrollableWidth/2]转换为[0, totalScrollableWidth]
+	const absoluteOffset = (totalScrollableWidth/2) + currentOffsetX;
+	const scrollRatio = absoluteOffset / totalScrollableWidth;
 	
 	// 限制滚动比例在有效范围(0-1)内
 	const clampedRatio = Math.max(0, Math.min(1, scrollRatio));
