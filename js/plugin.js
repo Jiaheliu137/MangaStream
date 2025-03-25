@@ -90,35 +90,35 @@ function debounce(func, wait) {
 
 // 更新水平滚动条状态和显示
 function updateHorizontalScroll(zoomLevel) {
-	if (!imageContainer) return;
-	
-	const windowWidth = window.innerWidth;
-	const contentWidth = imageContainer.scrollWidth * zoomLevel;
-	
-	// 当内容宽度超过视窗宽度时，准备显示自定义滚动条
-	if (contentWidth > windowWidth) {
-		// 结构上显示滚动条容器，但保持透明状态
-		const scrollbarContainer = document.getElementById('custom-scrollbar-container');
-		if (scrollbarContainer) {
-			scrollbarContainer.style.display = 'block';
-			// 添加样式确保滚动条不会遮挡内容
-			scrollbarContainer.style.position = 'absolute';
-			scrollbarContainer.style.bottom = '0';
-			scrollbarContainer.style.zIndex = '100';
-		}
-		
-		// 保留这行，但不再影响实际视口高度
-		const viewport = document.querySelector('#viewport');
-		if (viewport) {
-			viewport.classList.add('has-scrollbar');
-		}
-		
-		// 更新滚动条尺寸和位置
-		showCustomScrollbar(imageContainer, contentWidth, windowWidth);
-	} else {
-		// 内容宽度小于视窗时，隐藏滚动条
-		hideCustomScrollbar();
-	}
+    if (!imageContainer) return;
+    
+    const windowWidth = window.innerWidth;
+    // 修改：使用.image-wrapper的宽度而不是imageContainer的宽度
+    const imageWrapper = document.querySelector('.image-wrapper');
+    if (!imageWrapper) return;
+    
+    const contentWidth = imageWrapper.offsetWidth * zoomLevel;
+    
+    // 当内容宽度超过视窗宽度时，准备显示自定义滚动条
+    if (contentWidth > windowWidth) {
+        const scrollbarContainer = document.getElementById('custom-scrollbar-container');
+        if (scrollbarContainer) {
+            scrollbarContainer.style.display = 'block';
+            scrollbarContainer.style.position = 'absolute';
+            scrollbarContainer.style.bottom = '0';
+            scrollbarContainer.style.zIndex = '100';
+        }
+        
+        const viewport = document.querySelector('#viewport');
+        if (viewport) {
+            viewport.classList.add('has-scrollbar');
+        }
+        
+        // 更新滚动条尺寸和位置
+        showCustomScrollbar(imageWrapper, contentWidth, windowWidth);
+    } else {
+        hideCustomScrollbar();
+    }
 }
 
 // 重置内容位置到水平居中状态
@@ -388,56 +388,53 @@ function initCustomScrollbar() {
 
 // 处理滚动条拖动
 function handleScrollbarDrag(e) {
-	if (!isDraggingScrollbar) return;
-	
-	// 仅确保水平滚动条在拖动期间保持可见
-	showHorizontalScrollbar();
-	
-	const container = document.querySelector('#image-container');
-	const scrollbar = document.getElementById('custom-scrollbar');
-	
-	if (!container || !scrollbar) return;
-	
-	const containerRect = container.getBoundingClientRect();
-	const windowWidth = window.innerWidth;
-	const contentWidth = containerRect.width; // 已经包含缩放
-	
-	// 获取滚动条宽度和最大移动距离
-	const scrollbarWidth = parseInt(scrollbar.style.width);
-	const scrollbarMaxMove = windowWidth - scrollbarWidth;
-	
-	// 计算拖动距离
-	const dragDistance = e.clientX - scrollbarStartX;
-	
-	// 计算拖动后的滚动条位置
-	let currentScrollbarLeft = parseInt(scrollbar.style.left || '0');
-	let newScrollbarLeft = currentScrollbarLeft + dragDistance;
-	
-	// 确保滚动条在有效范围内
-	newScrollbarLeft = Math.max(0, Math.min(scrollbarMaxMove, newScrollbarLeft));
-	
-	// 应用滚动条的新位置
-	scrollbar.style.left = `${newScrollbarLeft}px`;
-	
-	// 计算新位置对应的滚动比例
-	const scrollRatio = newScrollbarLeft / scrollbarMaxMove;
-	
-	// 计算内容的总可滚动宽度
-	const totalScrollableWidth = contentWidth - windowWidth;
-	
-	// 计算内容的新偏移量（方向与滚动条运动相反）
-	// 滚动条左移（scrollRatio接近0）→ 内容右移（偏移量正值）
-	// 滚动条右移（scrollRatio接近1）→ 内容左移（偏移量负值）
-	const newOffsetX = (0.5 - scrollRatio) * totalScrollableWidth;
-	
-	// 更新全局内容偏移量
-	currentOffsetX = newOffsetX;
-	
-	// 应用内容的新位置
-	applyContentPosition();
-	
-	// 更新拖动参考起始位置
-	scrollbarStartX = e.clientX;
+    if (!isDraggingScrollbar) return;
+    
+    showHorizontalScrollbar();
+    
+    const imageWrapper = document.querySelector('.image-wrapper');
+    const scrollbar = document.getElementById('custom-scrollbar');
+    
+    if (!imageWrapper || !scrollbar) return;
+    
+    const windowWidth = window.innerWidth;
+    // 修改：使用.image-wrapper的宽度
+    const contentWidth = imageWrapper.offsetWidth * currentZoom;
+    
+    // 获取滚动条宽度和最大移动距离
+    const scrollbarWidth = parseInt(scrollbar.style.width);
+    const scrollbarMaxMove = windowWidth - scrollbarWidth;
+    
+    // 计算拖动距离
+    const dragDistance = e.clientX - scrollbarStartX;
+    
+    // 计算拖动后的滚动条位置
+    let currentScrollbarLeft = parseInt(scrollbar.style.left || '0');
+    let newScrollbarLeft = currentScrollbarLeft + dragDistance;
+    
+    // 确保滚动条在有效范围内
+    newScrollbarLeft = Math.max(0, Math.min(scrollbarMaxMove, newScrollbarLeft));
+    
+    // 应用滚动条的新位置
+    scrollbar.style.left = `${newScrollbarLeft}px`;
+    
+    // 计算新位置对应的滚动比例
+    const scrollRatio = newScrollbarLeft / scrollbarMaxMove;
+    
+    // 计算内容的总可滚动宽度
+    const totalScrollableWidth = contentWidth - windowWidth;
+    
+    // 计算内容的新偏移量
+    const newOffsetX = (0.5 - scrollRatio) * totalScrollableWidth;
+    
+    // 更新全局内容偏移量
+    currentOffsetX = newOffsetX;
+    
+    // 应用内容的新位置
+    applyContentPosition();
+    
+    // 更新拖动参考起始位置
+    scrollbarStartX = e.clientX;
 }
 
 // 处理滚动条拖动结束事件
@@ -497,46 +494,44 @@ function updateScrollbarDimensions(container, contentWidth, windowWidth) {
 
 // 基于当前内容偏移量更新滚动条位置
 function updateScrollbarPosition() {
-	const container = document.querySelector('#image-container');
-	const scrollbarContainer = document.getElementById('custom-scrollbar-container');
-	const scrollbar = document.getElementById('custom-scrollbar');
-	
-	if (!container || !scrollbarContainer || !scrollbar) return;
-	
-	const containerRect = container.getBoundingClientRect();
-	const windowWidth = window.innerWidth;
-	const contentWidth = containerRect.width; // 包含缩放后的内容宽度
-	
-	// 内容宽度不足时隐藏滚动条
-	if (contentWidth <= windowWidth) {
-		scrollbarContainer.style.display = 'none';
-		return;
-	}
-	
-	// 确保滚动条容器可见
-	scrollbarContainer.style.display = 'block';
-	
-	// 计算并设置滚动条宽度
-	const ratio = windowWidth / contentWidth;
-	const scrollbarWidth = Math.max(30, windowWidth * ratio);
-	scrollbar.style.width = `${scrollbarWidth}px`;
-	
-	// 计算内容总可滚动宽度
-	const totalScrollableWidth = contentWidth - windowWidth;
-	
-	// 将当前内容偏移量转换为滚动条位置比例
-	// currentOffsetX范围：-totalScrollableWidth/2 至 +totalScrollableWidth/2
-	// 正偏移表示内容偏左，对应滚动条偏右
-	const scrollRatio = 0.5 - (currentOffsetX / totalScrollableWidth);
-	
-	// 限制滚动比例在有效范围(0-1)内
-	const clampedRatio = Math.max(0, Math.min(1, scrollRatio));
-	
-	// 计算滚动条可移动的最大距离
-	const scrollbarMaxMove = windowWidth - scrollbarWidth;
-	
-	// 应用滚动条的新位置
-	scrollbar.style.left = `${clampedRatio * scrollbarMaxMove}px`;
+    const imageWrapper = document.querySelector('.image-wrapper');
+    const scrollbarContainer = document.getElementById('custom-scrollbar-container');
+    const scrollbar = document.getElementById('custom-scrollbar');
+    
+    if (!imageWrapper || !scrollbarContainer || !scrollbar) return;
+    
+    const windowWidth = window.innerWidth;
+    // 修改：使用.image-wrapper的宽度
+    const contentWidth = imageWrapper.offsetWidth * currentZoom;
+    
+    // 内容宽度不足时隐藏滚动条
+    if (contentWidth <= windowWidth) {
+        scrollbarContainer.style.display = 'none';
+        return;
+    }
+    
+    // 确保滚动条容器可见
+    scrollbarContainer.style.display = 'block';
+    
+    // 计算并设置滚动条宽度
+    const ratio = windowWidth / contentWidth;
+    const scrollbarWidth = Math.max(30, windowWidth * ratio);
+    scrollbar.style.width = `${scrollbarWidth}px`;
+    
+    // 计算内容总可滚动宽度
+    const totalScrollableWidth = contentWidth - windowWidth;
+    
+    // 将当前内容偏移量转换为滚动条位置比例
+    const scrollRatio = 0.5 - (currentOffsetX / totalScrollableWidth);
+    
+    // 限制滚动比例在有效范围(0-1)内
+    const clampedRatio = Math.max(0, Math.min(1, scrollRatio));
+    
+    // 计算滚动条可移动的最大距离
+    const scrollbarMaxMove = windowWidth - scrollbarWidth;
+    
+    // 应用滚动条的新位置
+    scrollbar.style.left = `${clampedRatio * scrollbarMaxMove}px`;
 }
 
 // 隐藏自定义水平滚动条
@@ -1482,6 +1477,26 @@ function initializePlugin() {
 	if (window.updateAfterZoom) {
 		window.updateAfterZoom();
 	}
+	
+	// 保存初始窗口宽度
+	initialWindowWidth = window.innerWidth;
+	
+	// 添加窗口大小变化事件监听
+	window.addEventListener('resize', handleWindowResize);
+}
+
+// 添加窗口大小变化处理函数
+function handleWindowResize() {
+	if (!initialWindowWidth) return;
+	
+	// 计算窗口宽度比例
+	const widthRatio = window.innerWidth / initialWindowWidth;
+	
+	// 计算新的缩放比例 (用户设置的缩放 * 窗口宽度比例)
+	const newZoom = currentZoom * widthRatio;
+	
+	// 应用新的缩放比例（但不更新用户设置的缩放值）
+	applyZoom(newZoom, false);
 }
 
 // 修改计算和应用最佳缩放比例函数，保持漫画尺寸不变
