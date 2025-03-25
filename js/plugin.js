@@ -723,7 +723,10 @@ function initDragFeature() {
 	
 	// 检查是否应该启用水平拖动
 	function shouldEnableHorizontalDrag() {
-		const containerWidth = container.getBoundingClientRect().width;
+		const imageWrapper = document.querySelector('.image-wrapper');
+		if (!imageWrapper) return false;
+		
+		const containerWidth = imageWrapper.offsetWidth * currentZoom;
 		const windowWidth = window.innerWidth;
 		return containerWidth > windowWidth;
 	}
@@ -788,28 +791,30 @@ function initDragFeature() {
 		if (horizontalEnabled && dx !== 0) {
 			hasHorizontalMovement = true;
 			
-			// 计算新的偏移量
-			const newOffsetX = currentOffsetX + dx;
-			
-			// 获取容器和窗口宽度
-			const container = document.querySelector('#image-container');
-			const containerRect = container.getBoundingClientRect();
-			const windowWidth = window.innerWidth;
-			const contentWidth = containerRect.width;
-			
-			// 计算总的可滚动距离
-			const totalScrollableWidth = contentWidth - windowWidth;
-			
-			// 限制偏移量在允许的范围内
-			// 与滚动条范围保持一致：[-totalScrollableWidth/2, totalScrollableWidth/2]
-			const minOffset = -totalScrollableWidth/2;
-			const maxOffset = totalScrollableWidth/2;
-			
-			// 应用限制
-			currentOffsetX = Math.max(minOffset, Math.min(maxOffset, newOffsetX));
-			
-			// 仅显示水平滚动条
-			showHorizontalScrollbar();
+			// 修改：使用image-wrapper的宽度计算限制
+			const imageWrapper = document.querySelector('.image-wrapper');
+			if (imageWrapper) {
+				// 计算新的偏移量
+				const newOffsetX = currentOffsetX + dx;
+				
+				const windowWidth = window.innerWidth;
+				// 使用image-wrapper的实际宽度
+				const contentWidth = imageWrapper.offsetWidth * currentZoom;
+				
+				// 计算总的可滚动距离
+				const totalScrollableWidth = contentWidth - windowWidth;
+				
+				// 限制偏移量在允许的范围内
+				// 与滚动条范围保持一致：[-totalScrollableWidth/2, totalScrollableWidth/2]
+				const minOffset = -totalScrollableWidth/2;
+				const maxOffset = totalScrollableWidth/2;
+				
+				// 应用限制
+				currentOffsetX = Math.max(minOffset, Math.min(maxOffset, newOffsetX));
+				
+				// 仅显示水平滚动条
+				showHorizontalScrollbar();
+			}
 		}
 		
 		// 使用垂直滚动而不是偏移
@@ -1046,13 +1051,13 @@ function displaySelectedItems(items, useAnimation = true) {
             // 创建图片容器
             const imgContainer = document.createElement('div');
             imgContainer.className = 'image-wrapper';
-            imgContainer.style.width = '100%';
+            imgContainer.style.width = 'auto'; // 改为auto，不再固定宽度
             
             // 创建图片元素
             const img = document.createElement('img');
             img.className = 'seamless-image';
             img.alt = item.name || '未命名';
-            img.style.width = '100%';
+            img.style.width = 'auto'; // 改为auto，使用图片原始尺寸
             img.style.height = 'auto';
             
             // 图片加载完成事件
@@ -1422,22 +1427,28 @@ function setImageFixedSize() {
 	const images = document.querySelectorAll('.seamless-image');
 	if (images.length === 0) return;
 	
-	// 只在第一次调用时保存初始窗口宽度
-	if (initialWindowWidth === null) {
-		initialWindowWidth = window.innerWidth;
-	}
-	
-	// 使用保存的初始窗口宽度，而不是当前窗口宽度
-	const uniformWidth = initialWindowWidth;
-	
-	// 应用统一宽度到所有图片
+	// 不再使用窗口宽度，而是保持图片原始尺寸
 	images.forEach(img => {
-		// 对于已加载的图片，直接设置宽度
 		if (img.complete) {
-			applyFixedWidthToImage(img, uniformWidth);
+			// 移除宽度限制，让图片保持其原始尺寸
+			img.style.width = 'auto';
+			img.style.maxWidth = 'none';
+			
+			// 确保包装器也使用图片的实际尺寸
+			const wrapper = img.closest('.image-wrapper');
+			if (wrapper) {
+				wrapper.style.width = 'auto';
+			}
 		} else {
-			// 对于尚未加载的图片，等待加载完成后设置
-			img.onload = () => applyFixedWidthToImage(img, uniformWidth);
+			img.onload = () => {
+				img.style.width = 'auto';
+				img.style.maxWidth = 'none';
+				
+				const wrapper = img.closest('.image-wrapper');
+				if (wrapper) {
+					wrapper.style.width = 'auto';
+				}
+			};
 		}
 	});
 }
@@ -1455,49 +1466,57 @@ function applyFixedWidthToImage(img, width) {
 	}
 }
 
-// 修改initializePlugin函数
+// 修改initializePlugin函数，移除窗口大小变化的缩放处理
 function initializePlugin() {
-	// 重置容器样式和位置
-	resetContentPosition();
-	
-	// 重新应用缩放
-	const container = document.querySelector('#image-container');
-	if (container) {
-		// 恢复使用setImageFixedSize，确保图片保持固定原始尺寸
-		setImageFixedSize();
-		
-		// 更新自定义水平滚动条
-		updateHorizontalScroll(currentZoom);
-		
-		// 更新垂直滚动条
-		updateVerticalScrollbar();
-	}
-	
-	// 更新光标样式
-	if (window.updateAfterZoom) {
-		window.updateAfterZoom();
-	}
-	
-	// 保存初始窗口宽度
-	initialWindowWidth = window.innerWidth;
-	
-	// 添加窗口大小变化事件监听
-	window.addEventListener('resize', handleWindowResize);
+    // 重置容器样式和位置
+    resetContentPosition();
+    
+    // 重新应用缩放
+    const container = document.querySelector('#image-container');
+    if (container) {
+        // 恢复使用setImageFixedSize，确保图片保持固定原始尺寸
+        setImageFixedSize();
+        
+        // 更新自定义水平滚动条
+        updateHorizontalScroll(currentZoom);
+        
+        // 更新垂直滚动条
+        updateVerticalScrollbar();
+    }
+    
+    // 更新光标样式
+    if (window.updateAfterZoom) {
+        window.updateAfterZoom();
+    }
+    
+    // 保存初始窗口宽度
+    initialWindowWidth = window.innerWidth;
 }
 
-// 添加窗口大小变化处理函数
-function handleWindowResize() {
-	if (!initialWindowWidth) return;
-	
-	// 计算窗口宽度比例
-	const widthRatio = window.innerWidth / initialWindowWidth;
-	
-	// 计算新的缩放比例 (用户设置的缩放 * 窗口宽度比例)
-	const newZoom = currentZoom * widthRatio;
-	
-	// 应用新的缩放比例（但不更新用户设置的缩放值）
-	applyZoom(newZoom, false);
-}
+// 修改resize事件处理函数，移除缩放相关的处理
+window.addEventListener('resize', debounce(() => {
+    // 标记正在调整大小
+    document.body.classList.add('resizing');
+    
+    // 只更新滚动条状态，不改变图片尺寸和缩放
+    const container = document.querySelector('#image-container');
+    if (container) {
+        // 更新滚动条状态
+        updateHorizontalScroll(currentZoom);
+        updateVerticalScrollbar();
+        
+        // 更新滚动条位置
+        updateScrollbarPosition();
+    }
+    
+    // 延迟移除正在调整大小的标记
+    setTimeout(() => {
+        document.body.classList.remove('resizing');
+    }, 200);
+}, 300));
+
+// 移除handleWindowResize函数，因为我们不再需要它
+// function handleWindowResize() { ... }
 
 // 修改计算和应用最佳缩放比例函数，保持漫画尺寸不变
 function calculateAndApplyBestZoom() {
@@ -1519,32 +1538,6 @@ function calculateAndApplyBestZoom() {
 		updateVerticalScrollbar();
 	}
 }
-
-// 修改resize事件处理函数
-window.addEventListener('resize', debounce(() => {
-	// 标记正在调整大小
-	document.body.classList.add('resizing');
-	
-	// 保持漫画尺寸不变，只更新位置和滚动条
-	const oldZoom = currentZoom; // 保存当前缩放级别
-	
-	// 调用calculateAndApplyBestZoom更新布局但不改变图片尺寸
-	calculateAndApplyBestZoom();
-	
-	// 确保缩放级别不变
-	currentZoom = oldZoom;
-	
-	// 重新应用当前缩放以确保正确的变换
-	applyContentPosition();
-	
-	// 更新自定义滚动条位置
-	updateScrollbarPosition();
-	
-	// 延迟移除正在调整大小的标记
-	setTimeout(() => {
-		document.body.classList.remove('resizing');
-	}, 200);
-}, 300)); // 增加防抖延迟到300ms，给计算留出更多时间
 
 // 确保在文档加载完成后调用
 document.addEventListener('DOMContentLoaded', () => {
