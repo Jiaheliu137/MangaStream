@@ -551,62 +551,55 @@ function hideCustomScrollbar() {
 
 // 以鼠标位置为中心应用缩放变换
 function applyZoomWithMouseCenter(newZoom, oldZoom) {
-	const container = document.querySelector('#image-container');
-	if (!container) return;
-	
-	// 标记缩放状态开始
-	document.body.classList.add('scaling');
-	
-	// 获取视窗和内容尺寸信息
-	const containerRect = container.getBoundingClientRect();
-	const windowWidth = window.innerWidth;
-	const windowHeight = window.innerHeight;
-	
-	// 获取当前视口的垂直滚动位置
-	const viewport = document.querySelector('#viewport');
-	const scrollTop = viewport ? viewport.scrollTop : 0;
-	
-	// 计算垂直中心点位置作为缩放参考点
-	const mouseY = containerRect.top + containerRect.height / 2;
-	
-	// 计算新旧缩放比例
-	const scaleRatio = newZoom / oldZoom;
-	
-	// 记录原始水平位置比例（用于保持相对位置）
-	const contentWidth = containerRect.width;
-	const horizontalRatio = (currentOffsetX / contentWidth) || 0;
-	
-	// 按比例缩放水平偏移量，保持相对位置
-	currentOffsetX = currentOffsetX * scaleRatio;
-	
-	// 更新全局缩放系数
-	currentZoom = newZoom;
-	
-	// 应用新的变换
-	applyContentPosition();
-	
-	// 更新水平滚动条状态以反映新的缩放
-	updateHorizontalScroll(newZoom);
-	
-	// 保持视口中心不变，调整垂直滚动位置
-	if (viewport) {
-		const newScrollTop = scrollTop * scaleRatio;
-		viewport.scrollTop = newScrollTop;
-	}
-	
-	// 更新垂直滚动条状态
-	updateVerticalScrollbar();
-	
-	// 显示当前缩放级别指示器
-	showZoomLevel(newZoom);
-	
-	// 缩放时同时显示水平和垂直滚动条
-	showScrollbars();
-	
-	// 移除缩放标记
-	setTimeout(() => {
-		document.body.classList.remove('scaling');
-	}, 100);
+    const container = document.querySelector('#image-container');
+    if (!container) return;
+    
+    // 标记缩放状态开始
+    document.body.classList.add('scaling');
+    
+    // 获取视窗和内容尺寸信息
+    const containerRect = container.getBoundingClientRect();
+    const windowWidth = window.innerWidth;
+    const windowHeight = window.innerHeight;
+    
+    // 获取当前视口的垂直滚动位置
+    const viewport = document.querySelector('#viewport');
+    const scrollTop = viewport ? viewport.scrollTop : 0;
+    
+    // 计算新旧缩放比例
+    const scaleRatio = newZoom / oldZoom;
+    
+    // 按比例缩放水平偏移量，保持相对位置
+    currentOffsetX = currentOffsetX * scaleRatio;
+    
+    // 更新全局缩放系数
+    currentZoom = newZoom;
+    
+    // 应用新的变换
+    applyContentPosition();
+    
+    // 更新水平滚动条状态以反映新的缩放
+    updateHorizontalScroll(newZoom);
+    
+    // 保持视口中心不变，调整垂直滚动位置
+    if (viewport) {
+        const newScrollTop = scrollTop * scaleRatio;
+        viewport.scrollTop = newScrollTop;
+    }
+    
+    // 更新垂直滚动条状态
+    updateVerticalScrollbar();
+    
+    // 显示当前缩放级别指示器
+    showZoomLevel(newZoom);
+    
+    // 缩放时同时显示水平和垂直滚动条
+    showScrollbars();
+    
+    // 移除缩放标记
+    setTimeout(() => {
+        document.body.classList.remove('scaling');
+    }, 100);
 }
 
 // 确保内容居中的辅助函数
@@ -1051,13 +1044,20 @@ function displaySelectedItems(items, useAnimation = true) {
             // 创建图片容器
             const imgContainer = document.createElement('div');
             imgContainer.className = 'image-wrapper';
-            imgContainer.style.width = 'auto'; // 改为auto，不再固定宽度
+            // 使用初始窗口宽度（如果已设置）
+            if (initialWindowWidth) {
+                imgContainer.style.width = `${initialWindowWidth}px`;
+            }
             
             // 创建图片元素
             const img = document.createElement('img');
             img.className = 'seamless-image';
             img.alt = item.name || '未命名';
-            img.style.width = 'auto'; // 改为auto，使用图片原始尺寸
+            // 使用初始窗口宽度（如果已设置）
+            if (initialWindowWidth) {
+                img.style.width = `${initialWindowWidth}px`;
+                img.style.maxWidth = `${initialWindowWidth}px`;
+            }
             img.style.height = 'auto';
             
             // 图片加载完成事件
@@ -1424,46 +1424,33 @@ function showZoomLevel(zoomLevel) {
 
 // 为所有图片设置固定尺寸
 function setImageFixedSize() {
-	const images = document.querySelectorAll('.seamless-image');
-	if (images.length === 0) return;
-	
-	// 不再使用窗口宽度，而是保持图片原始尺寸
-	images.forEach(img => {
-		if (img.complete) {
-			// 移除宽度限制，让图片保持其原始尺寸
-			img.style.width = 'auto';
-			img.style.maxWidth = 'none';
-			
-			// 确保包装器也使用图片的实际尺寸
-			const wrapper = img.closest('.image-wrapper');
-			if (wrapper) {
-				wrapper.style.width = 'auto';
-			}
-		} else {
-			img.onload = () => {
-				img.style.width = 'auto';
-				img.style.maxWidth = 'none';
-				
-				const wrapper = img.closest('.image-wrapper');
-				if (wrapper) {
-					wrapper.style.width = 'auto';
-				}
-			};
-		}
-	});
+    const images = document.querySelectorAll('.seamless-image');
+    if (images.length === 0) return;
+    
+    // 使用保存的初始窗口宽度
+    const uniformWidth = initialWindowWidth;
+    
+    // 应用统一宽度到所有图片
+    images.forEach(img => {
+        if (img.complete) {
+            applyFixedWidthToImage(img, uniformWidth);
+        } else {
+            img.onload = () => applyFixedWidthToImage(img, uniformWidth);
+        }
+    });
 }
 
-// 新增：为单个图片应用固定宽度
+// 修改applyFixedWidthToImage函数，确保固定宽度的应用
 function applyFixedWidthToImage(img, width) {
-	// 设置图片的固定宽度
-	img.style.width = `${width}px`;
-	img.style.maxWidth = `${width}px`;
-	
-	// 确保包装器宽度也是固定的
-	const wrapper = img.closest('.image-wrapper');
-	if (wrapper) {
-		wrapper.style.width = `${width}px`;
-	}
+    // 设置图片的固定宽度，但不影响缩放
+    img.style.width = `${width}px`;
+    img.style.maxWidth = `${width}px`;
+    
+    // 确保包装器宽度也是固定的
+    const wrapper = img.closest('.image-wrapper');
+    if (wrapper) {
+        wrapper.style.width = `${width}px`;
+    }
 }
 
 // 修改initializePlugin函数，移除窗口大小变化的缩放处理
@@ -1474,13 +1461,14 @@ function initializePlugin() {
     // 重新应用缩放
     const container = document.querySelector('#image-container');
     if (container) {
-        // 恢复使用setImageFixedSize，确保图片保持固定原始尺寸
-        setImageFixedSize();
+        // 只在首次初始化时设置固定宽度
+        if (initialWindowWidth === null) {
+            initialWindowWidth = window.innerWidth;
+            setImageFixedSize();
+        }
         
-        // 更新自定义水平滚动条
+        // 更新滚动条
         updateHorizontalScroll(currentZoom);
-        
-        // 更新垂直滚动条
         updateVerticalScrollbar();
     }
     
@@ -1488,9 +1476,6 @@ function initializePlugin() {
     if (window.updateAfterZoom) {
         window.updateAfterZoom();
     }
-    
-    // 保存初始窗口宽度
-    initialWindowWidth = window.innerWidth;
 }
 
 // 修改resize事件处理函数，移除缩放相关的处理
@@ -1498,14 +1483,11 @@ window.addEventListener('resize', debounce(() => {
     // 标记正在调整大小
     document.body.classList.add('resizing');
     
-    // 只更新滚动条状态，不改变图片尺寸和缩放
     const container = document.querySelector('#image-container');
     if (container) {
-        // 更新滚动条状态
+        // 不重新计算缩放，只更新滚动条状态
         updateHorizontalScroll(currentZoom);
         updateVerticalScrollbar();
-        
-        // 更新滚动条位置
         updateScrollbarPosition();
     }
     
