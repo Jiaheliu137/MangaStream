@@ -1023,6 +1023,17 @@ function finishRefreshAnimation(oldContainer, tempContainer) {
         updateHorizontalScroll(currentZoom);
         updateVerticalScrollbar();
         
+        // 初始化滚动位置跟踪器以更新计数指示器
+        if (totalFilteredItems.length > 0) {
+            initScrollPositionTracker();
+            
+            // 显示初始位置
+            updateCountIndicator(1, totalFilteredItems.length);
+            
+            // 设置懒加载监听器
+            setupLazyLoadScrollListener();
+        }
+        
         // 恢复transition
         setTimeout(() => {
             oldContainer.style.transition = '';
@@ -1057,6 +1068,14 @@ function displaySelectedItemsInContainer(items, container, useAnimation = true) 
     if (filteredItems.length === 0) {
         container.innerHTML = '<p class="no-images">当前选择中没有支持的图片格式<br>支持的格式：JPG、JPEG、PNG、GIF、WEBP</p>';
         return;
+    }
+    
+    // 更新全局筛选项目数组 - 修复刷新后图片总数不更新的问题
+    if (container.id === 'temp-image-container') {
+        totalFilteredItems = filteredItems;
+        
+        // 更新计数指示器
+        updateCountIndicator(1, totalFilteredItems.length);
     }
     
     // 1. 立即处理前300张图片
