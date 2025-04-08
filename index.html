@@ -63,35 +63,19 @@
             left: 50%;
             top: 0;
             transform-origin: top center !important;
-            transform: translateX(-50%); /* 水平居中定位 */
+            transform: translateX(-50%);
             display: flex;
             flex-direction: column;
             align-items: center;
-            width: 100%; /* 确保宽度为100% */
-            padding: 0; /* 确保没有内边距 */
+            width: 100%;
+            padding: 0;
             user-select: none;
             will-change: transform;
             backface-visibility: hidden;
-            transition: opacity 0.2s ease; /* 淡入淡出过渡效果 */
-            opacity: 1; /* 默认完全不透明 */
-        }
-        
-        /* 淡入淡出效果状态类 */
-        #image-container.fading-out {
-            opacity: 0.2; /* 淡出状态的不透明度 */
-        }
-        
-        #image-container.fading-in {
-            opacity: 1;
-            transition: opacity 0.3s ease-in; /* 平滑淡入效果 */
-        }
-        
-        #image-container.draggable {
-            cursor: default; /* 可拖动状态使用默认箭头光标 */
         }
         
         .image-wrapper {
-            width: 100%; /* 容器宽度设为100% */
+            width: 100%;
             display: flex;
             justify-content: center;
             align-items: flex-start;
@@ -101,15 +85,15 @@
         }
         
         .seamless-image {
-            width: 100%; /* 图片宽度为100%，完全填充容器 */
-            max-width: 100%; /* 限制最大宽度也为100% */
-            height: auto; /* 高度自动按比例缩放 */
+            width: 100%;
+            max-width: 100%;
+            height: auto;
             display: block;
             margin: 0 auto;
             padding: 0;
         }
         
-        /* 图片分割线和占位符样式 */
+        /* 图片分割线样式 */
         .image-divider {
             width: 100%;
             height: 1px;

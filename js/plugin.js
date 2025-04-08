@@ -11,8 +11,8 @@ let isFirstLoad = true; // 标记是否是首次加载，用于控制动画效�
 
 // 动画控制参数配置区
 const AnimationConfig = {
-    FADE_OUT_DURATION: 800,    // 淡出动画持续时间(毫秒)
-    FADE_IN_DURATION: 800,     // 淡入动画持续时间(毫秒)
+    FADE_OUT_DURATION: 500,    // 淡出动画持续时间(毫秒)
+    FADE_IN_DURATION: 500,     // 淡入动画持续时间(毫秒)
     FADE_OVERLAP: 500,         // 淡入淡出重叠时间(毫秒)
     SCROLLBAR_HIDE_DELAY: 500, // 滚动条自动隐藏延迟时间(毫秒)
     SCROLL_END_DELAY: 150      // 滚动结束检测延迟时间(毫秒)
@@ -918,83 +918,39 @@ function loadSelectedItems() {
             container.innerHTML = '<p class="no-images">获取选中项目时出错，请重试</p>';
         });
     } else {
-        // 非首次加载（刷新），使用重叠淡入淡出动画
+        // 非首次加载（刷新），使用淡入淡出动画
         
-        // 添加淡出类使旧内容开始淡出
-        container.classList.add('fading-out');
+        // 开始淡出动画
+        container.style.transition = `opacity ${AnimationConfig.FADE_OUT_DURATION}ms ease-out`;
+        container.style.opacity = '0';
         
-        // 创建一个临时容器用于显示新内容
-        const tempContainer = document.createElement('div');
-        tempContainer.id = 'temp-image-container';
-        tempContainer.className = 'image-container';
-        
-        // 重要：不要立即设置opacity为0，这样会导致旧内容不可见
-        // 我们希望旧内容淡出时同时新内容淡入
-        tempContainer.style.position = 'absolute';
-        tempContainer.style.top = '0';
-        tempContainer.style.left = '0';
-        tempContainer.style.width = '100%';
-        tempContainer.style.opacity = '0'; // 初始不可见
-        tempContainer.style.zIndex = '5'; // 确保在旧内容上方
-        tempContainer.innerHTML = '<div class="loading-message"><div class="spinner"></div>正在加载图片...</div>';
-        
-        // 将临时容器添加到视口
-        const viewport = document.querySelector('#viewport');
-        if (viewport) {
-            viewport.appendChild(tempContainer);
-        }
-        
-        // 在淡出过程开始后延迟开始加载新内容
+        // 等待淡出完成后加载新内容
         setTimeout(() => {
             // 获取Eagle中选中的图片
             eagle.item.getSelected().then(items => {
                 if (!items || items.length === 0) {
-                    tempContainer.innerHTML = '<p class="no-images">请先在Eagle中选择一个或多个图片</p>';
-                    finishRefreshAnimation(container, tempContainer);
+                    container.innerHTML = '<p class="no-images">请先在Eagle中选择一个或多个图片</p>';
                     return;
                 }
                 
-                // 在临时容器中显示新内容
-                displaySelectedItemsInContainer(items, tempContainer, true);
+                // 清空旧内容并加载新内容
+                container.innerHTML = '';
+                displaySelectedItems(items, true);
                 
-                // 内容加载后，开始执行淡入动画
+                // 开始淡入动画
+                container.style.transition = `opacity ${AnimationConfig.FADE_IN_DURATION}ms ease-in`;
+                container.style.opacity = '1';
+                
+                // 动画完成后清理
                 setTimeout(() => {
-                    // 确保旧内容正在淡出
-                    container.style.opacity = '0';
-                    container.style.transition = `opacity ${AnimationConfig.FADE_OUT_DURATION}ms ease-out`;
-                    
-                    // 新内容开始淡入
-                    tempContainer.style.opacity = '1';
-                    tempContainer.style.transition = `opacity ${AnimationConfig.FADE_IN_DURATION}ms ease-in`;
-                    
-                    // 动画完成后清理
-                    setTimeout(() => {
-                        // 转移内容并移除临时容器
-                        container.innerHTML = tempContainer.innerHTML;
-                        container.style.transition = 'none';
-                        container.style.opacity = '1';
-                        container.classList.remove('fading-out');
-                        
-                        // 移除临时容器
-                        tempContainer.remove();
-                        
-                        // 更新滚动条
-                        updateHorizontalScroll(currentZoom);
-                        updateVerticalScrollbar();
-                        
-                        // 恢复transition
-                        setTimeout(() => {
-                            container.style.transition = '';
-                        }, 50);
-                    }, Math.max(AnimationConfig.FADE_OUT_DURATION, AnimationConfig.FADE_IN_DURATION));
-                }, 100); // 给内容加载一点时间
+                    container.style.transition = '';
+                }, AnimationConfig.FADE_IN_DURATION);
                 
             }).catch(err => {
                 console.error('获取选中项目时出错:', err);
-                tempContainer.innerHTML = '<p class="no-images">获取选中项目时出错，请重试</p>';
-                finishRefreshAnimation(container, tempContainer);
+                container.innerHTML = '<p class="no-images">获取选中项目时出错，请重试</p>';
             });
-        }, AnimationConfig.FADE_OUT_DURATION * 0.3); // 在旧内容淡出过程中开始加载新内容
+        }, AnimationConfig.FADE_OUT_DURATION);
     }
 }
 
