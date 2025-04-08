@@ -960,7 +960,6 @@ function loadSelectedItems() {
 				setTimeout(() => {
 					container.style.transition = '';
 				}, AnimationConfig.FADE_IN_DURATION);
-				
 			}).catch(err => {
 				console.error('获取选中项目时出错:', err);
 				container.innerHTML = '<p class="no-images">获取选中项目时出错，请重试</p>';
@@ -2515,13 +2514,27 @@ function initPinButton() {
             pinImage.src = './resources/pin-active.png';
             pinImage.title = '取消固定窗口';
             // 设置窗口置顶
-            eagle.window.setAlwaysOnTop(true);
+            eagle.window.setAlwaysOnTop(true)
+                .then(() => {
+                    // 确保窗口获得焦点
+                    return eagle.window.focus();
+                })
+                .catch(err => {
+                    console.error('设置窗口置顶失败:', err);
+                });
         } else {
             pinButton.classList.remove('active');
             pinImage.src = './resources/pin-deactive.png';
             pinImage.title = '固定窗口在最前端';
             // 取消窗口置顶
-            eagle.window.setAlwaysOnTop(false);
+            eagle.window.setAlwaysOnTop(false)
+                .then(() => {
+                    // 确保窗口获得焦点
+                    return eagle.window.focus();
+                })
+                .catch(err => {
+                    console.error('取消窗口置顶失败:', err);
+                });
         }
     });
 }
@@ -2534,6 +2547,11 @@ document.addEventListener('keydown', (event) => {
 			const pinButton = document.getElementById('pin-button');
 			if (pinButton) {
 					pinButton.click(); // 触发固定按钮的点击事件
+					
+					// 确保窗口获得焦点，防止窗口隐藏到后台
+					if (typeof eagle !== 'undefined' && eagle.window && typeof eagle.window.focus === 'function') {
+						eagle.window.focus();
+					}
 			}
 	}
 });
