@@ -1683,43 +1683,6 @@ function calculateAndApplyBestZoom() {
 	}
 }
 
-// 确保在文档加载完成后调用
-document.addEventListener('DOMContentLoaded', () => {
-	// 初始化缩放功能
-	initZoomFeature();
-	
-	// 初始化自定义滚动条
-	initCustomScrollbar();
-	
-	// 设置图片固定尺寸
-	setImageFixedSize();
-	
-	// 显示初始缩放级别
-	showZoomLevel(currentZoom);
-	
-	// 初始化垂直滚动条
-	initVerticalScrollbar();
-	
-	// 设置滚动条可见性
-	setupScrollbarVisibility();
-	
-	// 初始化刷新按钮
-	initRefreshButton();
-	
-	// 初始化键盘快捷键
-	initKeyboardShortcuts();
-	
-	// 初始化完成后检查并处理滚动条状态
-	setTimeout(() => {
-		// 检查并更新垂直滚动条状态
-		updateVerticalScrollbar();
-		
-		// 立即重置滚动条隐藏计时器，确保滚动条能自动隐藏
-		resetVerticalScrollbarHideTimer();
-		resetHorizontalScrollbarHideTimer();
-	}, 500);
-});
-
 // 初始化垂直滚动条函数
 function initVerticalScrollbar() {
 	const viewport = document.querySelector('#viewport');
@@ -2250,6 +2213,12 @@ function initRefreshButton() {
 	});
 }
 
+// 滚动条隐藏延迟（毫秒）
+const SCROLLBAR_HIDE_DELAY = 1000;
+
+// 用于跟踪UI组件可见性状态
+let uiComponentsVisible = true;
+
 // 初始化键盘快捷键
 function initKeyboardShortcuts() {
 	document.addEventListener('keydown', (event) => {
@@ -2289,6 +2258,44 @@ function initKeyboardShortcuts() {
 			
 			// 同时显示水平和垂直滚动条
 			showScrollbars();
+		}
+		
+		// F键：进入全屏
+		if (event.key.toLowerCase() === 'f') {
+			event.preventDefault();
+			if (!document.fullscreenElement) {
+				document.documentElement.requestFullscreen();
+			}
+		}
+		
+		// Esc键：退出全屏
+		if (event.key === 'Escape') {
+			if (document.fullscreenElement) {
+				document.exitFullscreen();
+			}
+		}
+		
+		// H键：隐藏/显示UI组件（刷新按钮和固定按钮）
+		if (event.key.toLowerCase() === 'h') {
+			event.preventDefault();
+			
+			uiComponentsVisible = !uiComponentsVisible;
+			
+			// 获取UI组件
+			const refreshButton = document.getElementById('refresh-button');
+			const pinButton = document.getElementById('pin-button');
+			
+			// 切换可见性
+			if (refreshButton) {
+				refreshButton.style.display = uiComponentsVisible ? 'flex' : 'none';
+			}
+			
+			if (pinButton) {
+				pinButton.style.display = uiComponentsVisible ? 'flex' : 'none';
+			}
+			
+			// 在控制台输出当前状态
+			console.log(`UI组件已${uiComponentsVisible ? '显示' : '隐藏'}`);
 		}
 		
 		// Ctrl+W：退出窗口
@@ -2482,4 +2489,85 @@ function throttle(func, limit) {
         }
     };
 }
+
+// 初始化固定按钮功能
+function initPinButton() {
+    const pinButton = document.getElementById('pin-button');
+    const pinImage = pinButton.querySelector('img');
+    let isPinned = false;
+
+    // 点击事件处理
+    pinButton.addEventListener('click', () => {
+        isPinned = !isPinned;
+        
+        // 更新按钮状态和图标
+        if (isPinned) {
+            pinButton.classList.add('active');
+            pinImage.src = './resources/pin-active.png';
+            pinImage.title = '取消固定窗口';
+            // 设置窗口置顶
+            eagle.window.setAlwaysOnTop(true);
+        } else {
+            pinButton.classList.remove('active');
+            pinImage.src = './resources/pin-deactive.png';
+            pinImage.title = '固定窗口在最前端';
+            // 取消窗口置顶
+            eagle.window.setAlwaysOnTop(false);
+        }
+    });
+}
+
+// 在初始化函数中添加键盘事件监听
+document.addEventListener('keydown', (event) => {
+	// 检查是否按下了P键
+	if (event.key.toLowerCase() === 'p') {
+			event.preventDefault(); // 防止默认行为
+			const pinButton = document.getElementById('pin-button');
+			if (pinButton) {
+					pinButton.click(); // 触发固定按钮的点击事件
+			}
+	}
+});
+
+
+
+// 确保在文档加载完成后调用
+document.addEventListener('DOMContentLoaded', () => {
+    // 初始化缩放功能
+    initZoomFeature();
+    
+    // 初始化自定义滚动条
+    initCustomScrollbar();
+    
+    // 设置图片固定尺寸
+    setImageFixedSize();
+    
+    // 显示初始缩放级别
+    showZoomLevel(currentZoom);
+    
+    // 初始化垂直滚动条
+    initVerticalScrollbar();
+    
+    // 设置滚动条可见性
+    setupScrollbarVisibility();
+    
+    // 初始化刷新按钮
+    initRefreshButton();
+    
+    // 初始化键盘快捷键
+    initKeyboardShortcuts();
+
+    // 初始化固定按钮
+    initPinButton();
+    
+    // 初始化完成后检查并处理滚动条状态
+    setTimeout(() => {
+        // 检查并更新垂直滚动条状态
+        updateVerticalScrollbar();
+        
+        // 立即重置滚动条隐藏计时器，确保滚动条能自动隐藏
+        resetVerticalScrollbarHideTimer();
+        resetHorizontalScrollbarHideTimer();
+    }, 500);
+});
 

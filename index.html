@@ -309,6 +309,45 @@
         body.dragging #vertical-scrollbar-handle {
             background-color: rgba(200, 200, 200, 1);
         }
+
+        /* 固定按钮样式 */
+        #pin-button {
+            position: fixed;
+            right: 10px;
+            top: 45px; /* 位于缩放信息显示器下方 */
+            width: 40px;
+            height: 40px;
+            background-color: rgba(30, 30, 30, 0.3);
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            z-index: 1000;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            transition: all 0.2s ease;
+            opacity: 0.5;
+        }
+        
+        #pin-button:hover {
+            background-color: rgba(50, 50, 50, 0.9);
+            transform: scale(1.05);
+            opacity: 1;
+        }
+        
+        #pin-button:active {
+            transform: scale(0.95);
+        }
+        
+        #pin-button img {
+            width: 24px;
+            height: 24px;
+        }
+
+        #pin-button.active {
+            background-color: rgba(50, 50, 50, 0.9);
+            opacity: 1;
+        }
     </style>
 </head>
 <body>
@@ -329,6 +368,11 @@
     <!-- 添加刷新按钮 -->
     <div id="refresh-button">
         <img src="./resources/refresh.png" alt="刷新" title="刷新图片" />
+    </div>
+
+    <!-- 添加固定按钮 -->
+    <div id="pin-button">
+        <img src="./resources/pin-deactive.png" alt="固定" title="固定窗口在最前端" />
     </div>
     
     <script src="js/plugin.js"></script>
