@@ -28,6 +28,10 @@ const customScrollbarContainer = document.getElementById('custom-scrollbar-conta
 
 // 添加全局变量记录初始窗口宽度
 let initialWindowWidth = null;
+// 标准宽度固定为1000像素，避免依赖窗口大小
+const STANDARD_MANGA_WIDTH = 800;
+// 是否已经初始化过图片尺寸
+let hasInitializedImageSize = false;
 
 // 使用模块模式组织缩放功能相关代码
 const ZoomModule = {
@@ -882,76 +886,87 @@ function applyZoom(zoomLevel) {
 
 // 修改 loadSelectedItems 函数，添加淡入淡出动画效果
 function loadSelectedItems() {
-    // 获取容器元素
-    const container = document.querySelector('#image-container');
-    if (!container) return;
+	console.log('loadSelectedItems');
+	
+	// 设置加载状态
+	showLoading(true);
+	
+	// 确保全局变量初始化
+	if (initialWindowWidth === null) {
+		initialWindowWidth = STANDARD_MANGA_WIDTH;
+		hasInitializedImageSize = true;
+	}
+	
+	// 获取容器元素
+	const container = document.querySelector('#image-container');
+	if (!container) return;
+	
+	// 获取刷新按钮并添加旋转动画
+	const refreshButton = document.getElementById('refresh-button');
+	if (refreshButton) {
+		refreshButton.classList.add('refreshing');
+		setTimeout(() => {
+			refreshButton.classList.remove('refreshing');
+		}, 500);
+	}
+	
+	// 判断是否为首次加载
+	if (isFirstLoad) {
+		// 首次加载，不使用淡入淡出动画
+		container.innerHTML = '<div class="loading-message"><div class="spinner"></div>正在加载图片...</div>';
+		
+		// 获取Eagle中选中的图片
+		eagle.item.getSelected().then(items => {
+			if (!items || items.length === 0) {
+				container.innerHTML = '<p class="no-images">请先在Eagle中选择一个或多个图片</p>';
+				return;
+			}
+			
+			// 更新首次加载标记
+			isFirstLoad = false;
+			
+			// 启动分块处理
+			displaySelectedItems(items, false); // 传入false表示不使用动画
+			
+		}).catch(err => {
+			console.error('获取选中项目时出错:', err);
+			container.innerHTML = '<p class="no-images">获取选中项目时出错，请重试</p>';
+		});
+	} else {
+		// 非首次加载（刷新），使用淡入淡出动画
+		
+		// 开始淡出动画
+		container.style.transition = `opacity ${AnimationConfig.FADE_OUT_DURATION}ms ease-out`;
+		container.style.opacity = '0';
+		
+		// 等待淡出完成后加载新内容
+		setTimeout(() => {
+			// 获取Eagle中选中的图片
+			eagle.item.getSelected().then(items => {
+				if (!items || items.length === 0) {
+					container.innerHTML = '<p class="no-images">请先在Eagle中选择一个或多个图片</p>';
+					return;
+				}
+				
+				// 清空旧内容并加载新内容
+				container.innerHTML = '';
+				displaySelectedItems(items, true);
+				
+				// 开始淡入动画
+				container.style.transition = `opacity ${AnimationConfig.FADE_IN_DURATION}ms ease-in`;
+				container.style.opacity = '1';
     
-    // 获取刷新按钮并添加旋转动画
-    const refreshButton = document.getElementById('refresh-button');
-    if (refreshButton) {
-        refreshButton.classList.add('refreshing');
-        setTimeout(() => {
-            refreshButton.classList.remove('refreshing');
-        }, 500);
-    }
-    
-    // 判断是否为首次加载
-    if (isFirstLoad) {
-        // 首次加载，不使用淡入淡出动画
-        container.innerHTML = '<div class="loading-message"><div class="spinner"></div>正在加载图片...</div>';
-        
-        // 获取Eagle中选中的图片
-        eagle.item.getSelected().then(items => {
-            if (!items || items.length === 0) {
-                container.innerHTML = '<p class="no-images">请先在Eagle中选择一个或多个图片</p>';
-                return;
-            }
-            
-            // 更新首次加载标记
-            isFirstLoad = false;
-            
-            // 启动分块处理
-            displaySelectedItems(items, false); // 传入false表示不使用动画
-            
-        }).catch(err => {
-            console.error('获取选中项目时出错:', err);
-            container.innerHTML = '<p class="no-images">获取选中项目时出错，请重试</p>';
-        });
-    } else {
-        // 非首次加载（刷新），使用淡入淡出动画
-        
-        // 开始淡出动画
-        container.style.transition = `opacity ${AnimationConfig.FADE_OUT_DURATION}ms ease-out`;
-        container.style.opacity = '0';
-        
-        // 等待淡出完成后加载新内容
-        setTimeout(() => {
-            // 获取Eagle中选中的图片
-            eagle.item.getSelected().then(items => {
-                if (!items || items.length === 0) {
-                    container.innerHTML = '<p class="no-images">请先在Eagle中选择一个或多个图片</p>';
-                    return;
-                }
-                
-                // 清空旧内容并加载新内容
-                container.innerHTML = '';
-                displaySelectedItems(items, true);
-                
-                // 开始淡入动画
-                container.style.transition = `opacity ${AnimationConfig.FADE_IN_DURATION}ms ease-in`;
-                container.style.opacity = '1';
-                
-                // 动画完成后清理
-                setTimeout(() => {
-                    container.style.transition = '';
-                }, AnimationConfig.FADE_IN_DURATION);
-                
-            }).catch(err => {
-                console.error('获取选中项目时出错:', err);
-                container.innerHTML = '<p class="no-images">获取选中项目时出错，请重试</p>';
-            });
-        }, AnimationConfig.FADE_OUT_DURATION);
-    }
+				// 动画完成后清理
+				setTimeout(() => {
+					container.style.transition = '';
+				}, AnimationConfig.FADE_IN_DURATION);
+				
+			}).catch(err => {
+				console.error('获取选中项目时出错:', err);
+				container.innerHTML = '<p class="no-images">获取选中项目时出错，请重试</p>';
+			});
+		}, AnimationConfig.FADE_OUT_DURATION);
+	}
 }
 
 // 修改完成刷新动画的辅助函数
@@ -1049,20 +1064,16 @@ function displaySelectedItemsInContainer(items, container, useAnimation = true) 
             // 创建图片容器
             const imgContainer = document.createElement('div');
             imgContainer.className = 'image-wrapper';
-            // 使用初始窗口宽度（如果已设置）
-            if (initialWindowWidth) {
-                imgContainer.style.width = `${initialWindowWidth}px`;
-            }
+            // 使用标准漫画宽度
+            imgContainer.style.width = `${STANDARD_MANGA_WIDTH}px`;
             
             // 创建图片元素
             const img = document.createElement('img');
             img.className = 'seamless-image';
             img.alt = item.name || '未命名';
-            // 使用初始窗口宽度（如果已设置）
-            if (initialWindowWidth) {
-                img.style.width = `${initialWindowWidth}px`;
-                img.style.maxWidth = `${initialWindowWidth}px`;
-            }
+            // 使用标准漫画宽度
+            img.style.width = `${STANDARD_MANGA_WIDTH}px`;
+            img.style.maxWidth = `${STANDARD_MANGA_WIDTH}px`;
             img.style.height = 'auto';
             
             // 图片加载完成事件
@@ -1194,20 +1205,16 @@ function displaySelectedItems(items, useAnimation = true) {
             // 创建图片容器
             const imgContainer = document.createElement('div');
             imgContainer.className = 'image-wrapper';
-            // 使用初始窗口宽度（如果已设置）
-            if (initialWindowWidth) {
-                imgContainer.style.width = `${initialWindowWidth}px`;
-            }
+            // 使用标准漫画宽度
+            imgContainer.style.width = `${STANDARD_MANGA_WIDTH}px`;
             
             // 创建图片元素
             const img = document.createElement('img');
             img.className = 'seamless-image';
             img.alt = item.name || '未命名';
-            // 使用初始窗口宽度（如果已设置）
-            if (initialWindowWidth) {
-                img.style.width = `${initialWindowWidth}px`;
-                img.style.maxWidth = `${initialWindowWidth}px`;
-            }
+            // 使用标准漫画宽度
+            img.style.width = `${STANDARD_MANGA_WIDTH}px`;
+            img.style.maxWidth = `${STANDARD_MANGA_WIDTH}px`;
             img.style.height = 'auto';
             
             // 图片加载完成事件
@@ -1589,8 +1596,8 @@ function setImageFixedSize() {
 	const images = document.querySelectorAll('.seamless-image');
 	if (images.length === 0) return;
 	
-    // 使用保存的初始窗口宽度
-	const uniformWidth = initialWindowWidth;
+    // 始终使用标准漫画宽度，不依赖窗口大小
+	const uniformWidth = STANDARD_MANGA_WIDTH;
 	
 	// 应用统一宽度到所有图片
 	images.forEach(img => {
@@ -1624,9 +1631,11 @@ function initializePlugin() {
 	const container = document.querySelector('#image-container');
 	if (container) {
         // 只在首次初始化时设置固定宽度
-        if (initialWindowWidth === null) {
-            initialWindowWidth = window.innerWidth;
-		setImageFixedSize();
+        if (!hasInitializedImageSize) {
+            // 使用固定的标准宽度而不是窗口宽度
+            initialWindowWidth = STANDARD_MANGA_WIDTH;
+            hasInitializedImageSize = true;
+            setImageFixedSize();
         }
 		
         // 更新滚动条
