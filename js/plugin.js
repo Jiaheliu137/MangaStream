@@ -1426,13 +1426,16 @@ function loadImageBatch(count) {
         // 创建图片容器元素
         const imgContainer = document.createElement('div');
         imgContainer.className = 'image-wrapper';
-        imgContainer.style.width = '100%';
-        
+        // 使用标准漫画宽度
+        imgContainer.style.width = `${STANDARD_MANGA_WIDTH}px`;
+
         // 创建图片元素
         const img = document.createElement('img');
         img.className = 'seamless-image';
         img.alt = item.name || '未命名';
-        img.style.width = '100%';
+        // 使用标准漫画宽度
+        img.style.width = `${STANDARD_MANGA_WIDTH}px`;
+        img.style.maxWidth = `${STANDARD_MANGA_WIDTH}px`;
         img.style.height = 'auto';
         img.dataset.index = currentLoadedIndex + index; // 添加索引便于追踪
         
