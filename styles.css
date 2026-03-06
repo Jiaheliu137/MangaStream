@@ -154,15 +154,54 @@ body.resizing #image-container {
     left: 10px;
     background-color: rgba(0, 0, 0, 0.7);
     color: white;
-    padding: 5px 10px;
-    border-radius: 4px;
+    padding: 6px 12px;
+    border-radius: 6px;
     z-index: 1000;
-    transition: opacity 0.5s ease;
-    pointer-events: none;
+    transition: all 0.3s ease;
     font-size: 14px;
     font-weight: bold;
     opacity: 0.8;
     user-select: none;
+    cursor: pointer;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+#total-count-indicator:hover {
+    background-color: rgba(30, 144, 255, 0.9);
+    opacity: 1;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+#total-count-text::after {
+    content: " ✎";
+    font-size: 13px;
+    opacity: 0.6;
+    margin-left: 4px;
+    transition: all 0.3s ease;
+}
+
+#total-count-indicator:hover #total-count-text::after {
+    content: " ✎ 输入指定页码跳转";
+    opacity: 1;
+}
+
+#page-jump-input {
+    background: transparent;
+    border: none;
+    color: white;
+    font-size: 14px;
+    font-weight: bold;
+    outline: none;
+    width: 60px;
+    text-align: center;
+}
+
+/* 隐藏 number input 的原生上下箭头 */
+#page-jump-input::-webkit-outer-spin-button,
+#page-jump-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
 }
 
 /* ==================== 自定义滚动条 ==================== */

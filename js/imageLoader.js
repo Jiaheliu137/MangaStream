@@ -289,26 +289,104 @@ function renderVisibleItems() {
     }
 }
 
-// ==================== 位置指示器 ====================
+// ==================== 位置指示器与快速跳转 ====================
+
+let isJumpInputFocused = false;
 
 function updateCurrentPositionIndicator() {
-    if (!viewportEl || totalFilteredItems.length === 0) return;
+    if (!viewportEl || totalFilteredItems.length === 0 || isJumpInputFocused) return;
+
     const zoom = getCurrentZoom();
     const scrollTop = viewportEl.scrollTop;
     const viewportHeight = viewportEl.clientHeight;
+    // 使用视口中心点来判断当前看到的是哪一张图
     const unscaledCenter = (scrollTop + viewportHeight / 2) / zoom;
+
     const currentIndex = findIndexByOffset(unscaledCenter) + 1;
     updateCountIndicator(currentIndex, totalFilteredItems.length);
 }
 
 function updateCountIndicator(currentIndex, totalCount) {
-    let el = document.getElementById('total-count-indicator');
-    if (!el) {
-        el = document.createElement('div');
-        el.id = 'total-count-indicator';
-        document.body.appendChild(el);
+    let container = document.getElementById('total-count-indicator');
+
+    // 初始化 DOM 和事件绑定（仅一次）
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'total-count-indicator';
+        container.title = '输入指定页码跳转';
+
+        const textSpan = document.createElement('span');
+        textSpan.id = 'total-count-text';
+
+        const inputField = document.createElement('input');
+        inputField.id = 'page-jump-input';
+        inputField.type = 'number';
+        inputField.min = 1;
+        inputField.style.display = 'none';
+        // 屏蔽键盘快捷键的冒泡（比如按 f 键不会全屏）
+        inputField.addEventListener('keydown', e => e.stopPropagation());
+
+        container.appendChild(textSpan);
+        container.appendChild(inputField);
+        document.body.appendChild(container);
+
+        // 绑定点击进入输入模式
+        container.addEventListener('click', () => {
+            if (isJumpInputFocused) return;
+            textSpan.style.display = 'none';
+            inputField.style.display = 'inline-block';
+            inputField.value = textSpan.dataset.currentIndex || 1;
+            inputField.max = textSpan.dataset.totalCount || 1;
+            inputField.focus();
+            inputField.select();
+            isJumpInputFocused = true;
+        });
+
+        // 执行跳转的逻辑
+        const executeJump = () => {
+            if (!isJumpInputFocused) return;
+            isJumpInputFocused = false;
+
+            inputField.style.display = 'none';
+            textSpan.style.display = 'inline-block';
+
+            let targetPage = parseInt(inputField.value, 10);
+            const maxPage = parseInt(textSpan.dataset.totalCount, 10);
+
+            if (isNaN(targetPage) || targetPage < 1) targetPage = 1;
+            if (targetPage > maxPage) targetPage = maxPage;
+
+            // O(1) 前缀和高度极致精准定位
+            if (viewportEl) {
+                const targetIndex = targetPage - 1;
+                const targetOffset = getOffsetForIndex(targetIndex);
+                viewportEl.scrollTop = targetOffset * getCurrentZoom();
+            }
+        };
+
+        inputField.addEventListener('blur', executeJump);
+        inputField.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                inputField.blur(); // 借用 blur 事件触发 executeJump
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                isJumpInputFocused = false;
+                inputField.style.display = 'none';
+                textSpan.style.display = 'inline-block';
+            }
+        });
     }
-    el.textContent = `${currentIndex}/${totalCount}`;
+
+    // 更新显示的文字（如果不是在输入状态）
+    if (!isJumpInputFocused) {
+        const textSpan = container.querySelector('#total-count-text');
+        if (textSpan) {
+            textSpan.textContent = `${currentIndex} / ${totalCount}`;
+            textSpan.dataset.currentIndex = currentIndex;
+            textSpan.dataset.totalCount = totalCount;
+        }
+    }
 }
 
 // ==================== 滚动事件处理 ====================
