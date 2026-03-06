@@ -247,6 +247,12 @@ export function initKeyboardShortcuts() {
             }
         }
 
+        // Ctrl+R：刷新内容
+        if (event.ctrlKey && (event.key === 'r' || event.key === 'R')) {
+            event.preventDefault();
+            loadSelectedItems();
+        }
+
         // Ctrl+E：导出PDF
         if (event.ctrlKey && event.key === 'e') {
             event.preventDefault();
