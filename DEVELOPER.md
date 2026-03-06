@@ -87,8 +87,9 @@ js/
 - jumpToPage(): 程序化跳转到指定页码（支持所有模式）
 - captureCurrentIndexForModeSwitch(): 切换模式前捕获当前页码
 - loadSelectedItems(): 加载选中的图片
-- displaySelectedItems(): 显示选中的图片（含模式切换进度恢复逻辑）
-- getCurrentImages(): 获取当前图片列表（供PDF导出使用）
+- `displaySelectedItems()`: 显示选中的图片（含首次加载、获取数据、格式过滤等完整流程）
+- `reloadForModeSwitch()`: (v1.5 新增) **海量图片模式切换终极优化（快速路径）**。针对 10w+ 级别图片数量设计。该函数跳过了耗时的 `eagle.item.getSelected()` API 调用、格式过滤遍历。直接复用内存中已有的 `totalFilteredItems` 数组，重新进行前缀和算术计算并立即重建虚拟 DOM（自带 500ms CSS 过渡动画），实现了十万图片级别下的“瞬时”无缝模式切换体验。
+- `getCurrentImages()`: 获取当前图片列表（供PDF导出使用）
 ```
 
 #### 6. `modeManager.js` - 阅读模式管理 (v1.5.0 新增)
@@ -110,9 +111,9 @@ js/
 **多模式阅读架构 (v1.5.0) - 模式无关虚拟滚动：**
 - `modeManager.js` 统一管理模式状态，通过 CSS 类名切换布局方向
 - `imageLoader.js` 的 `precalculateSizes()` 根据当前模式动态计算主轴尺寸（竖屏算高度，横屏算宽度）
-- 模式切换时通过 `captureCurrentIndexForModeSwitch()` 捕获进度，重建 DOM 后先设置滚动偏移再渲染，实现零闪烁
+- 模式切换时通过快速路径 `reloadForModeSwitch()` 重新渲染，`captureCurrentIndexForModeSwitch()` 捕获进度，保证零闪烁瞬时响应。
 
-#### 6. `drag.js` - 拖动功能
+#### 7. `drag.js` - 拖动功能
 ```javascript
 - initDragFeature(): 初始化拖动功能
 - updateCursorStyle(): 更新光标样式
