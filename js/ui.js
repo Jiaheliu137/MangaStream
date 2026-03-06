@@ -256,14 +256,22 @@ export function initKeyboardShortcuts() {
 }
 
 // 显示 Toast 消息（通用）
-export function showToast(message, type = 'success', duration = 3000) {
+export function showToast(message, type = 'success', duration = 3000, id = null) {
+    if (id) {
+        const existingToast = document.getElementById(id);
+        if (existingToast) existingToast.remove();
+    }
+
     const toast = document.createElement('div');
-    toast.className = `toast-message ${type}`;
+    toast.className = `toast-message ${type} ${id ? id : ''}`;
+    if (id) toast.id = id;
     toast.textContent = message;
     document.body.appendChild(toast);
 
     setTimeout(() => {
-        toast.remove();
+        if (document.body.contains(toast)) {
+            toast.remove();
+        }
     }, duration);
 }
 

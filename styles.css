@@ -523,3 +523,17 @@ body.dragging #vertical-scrollbar-handle {
     background-color: #4CAF50;
     transition: width 0.3s;
 }
+
+/* ==================== 单个专属模式提示 ==================== */
+.toast-message.mode-toast {
+    top: 60px;
+    bottom: auto;
+    background-color: rgba(30, 30, 30, 0.85);
+    color: #e0e0e0;
+    font-size: 14px;
+    padding: 10px 20px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+    pointer-events: none;
+    border-radius: 20px;
+}

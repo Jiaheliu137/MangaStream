@@ -2,7 +2,8 @@
 // 负责处理竖向(Vertical)和横向(Horizontal)阅读模式的切换和状态管理
 
 import { READING_MODES, STANDARD_MANGA_WIDTH, STANDARD_MANGA_HEIGHT } from './constants.js';
-import { loadSelectedItems, captureCurrentIndexForModeSwitch } from './imageLoader.js'; // 重新加载需要
+import { loadSelectedItems, captureCurrentIndexForModeSwitch, reloadForModeSwitch } from './imageLoader.js';
+import { showToast } from './ui.js';
 
 let currentMode = READING_MODES.VERTICAL;
 
@@ -39,8 +40,8 @@ export function setReadingMode(mode) {
             document.body.classList.add('horizontal-mode'); // Keep base horizontal styles
         }
 
-        // 重新渲染当前漫画内容
-        loadSelectedItems();
+        // 快速路径：复用已有数据，跳过 Eagle API 调用
+        reloadForModeSwitch();
     }
 }
 
@@ -51,6 +52,15 @@ export function toggleReadingMode() {
 
     captureCurrentIndexForModeSwitch();
     setReadingMode(newMode);
+
+    let modeName = '';
+    switch (newMode) {
+        case READING_MODES.VERTICAL: modeName = '竖屏瀑布流'; break;
+        case READING_MODES.HORIZONTAL_LTR: modeName = '横屏 (左到右)'; break;
+        case READING_MODES.HORIZONTAL_RTL: modeName = '横屏 (右到左)'; break;
+    }
+    showToast(`当前模式: ${modeName}`, 'info', 1500, 'mode-toast');
+
     return newMode;
 }
 
