@@ -8,6 +8,25 @@ import { ZoomConfig } from './constants.js';
 // UI组件可见性状态
 let uiComponentsVisible = true;
 
+// 主题状态
+const themes = ['theme-dark', 'theme-pure-black', 'theme-light'];
+let currentThemeIndex = 0;
+
+export function toggleTheme() {
+    document.body.classList.remove(themes[currentThemeIndex]);
+    currentThemeIndex = (currentThemeIndex + 1) % themes.length;
+    document.body.classList.add(themes[currentThemeIndex]);
+
+    const iconData = ['◐', '✰', '☀'];
+    const themeButton = document.getElementById('theme-button');
+    if (themeButton) {
+        const iconSpan = themeButton.querySelector('.theme-icon');
+        if (iconSpan) {
+            iconSpan.textContent = iconData[currentThemeIndex];
+        }
+    }
+}
+
 // 初始化刷新按钮
 export function initRefreshButton() {
     const refreshButton = document.getElementById('refresh-button');
@@ -100,6 +119,7 @@ export function initKeyboardShortcuts() {
             const refreshButton = document.getElementById('refresh-button');
             const pinButton = document.getElementById('pin-button');
             const exportButton = document.getElementById('export-pdf-button');
+            const themeButton = document.getElementById('theme-button');
 
             if (refreshButton) {
                 refreshButton.style.display = uiComponentsVisible ? 'flex' : 'none';
@@ -112,6 +132,16 @@ export function initKeyboardShortcuts() {
             if (exportButton) {
                 exportButton.style.display = uiComponentsVisible ? 'flex' : 'none';
             }
+
+            if (themeButton) {
+                themeButton.style.display = uiComponentsVisible ? 'flex' : 'none';
+            }
+        }
+
+        // T键：切换主题
+        if (!isInputFocused && event.key.toLowerCase() === 't') {
+            event.preventDefault();
+            toggleTheme();
         }
 
         // P键：切换固定窗口
@@ -142,6 +172,43 @@ export function initKeyboardShortcuts() {
         if (event.ctrlKey && event.key === 'r') {
             event.preventDefault();
             loadSelectedItems();
+        }
+
+        // 键盘滚动控制 (W/S, Up/Down, Space)
+        if (!isInputFocused && !event.ctrlKey && !event.altKey && !event.metaKey) {
+            const viewportEl = document.getElementById('viewport');
+            if (viewportEl) {
+                const scrollAmount = 150; // 每次方向键/WS滚动的像素
+                const pageScrollAmount = viewportEl.clientHeight * 0.8; // 空格键翻页量（80%视口高度）
+
+                let handled = false;
+                switch (event.key) {
+                    case 'ArrowDown':
+                    case 's':
+                    case 'S':
+                        viewportEl.scrollBy({ top: scrollAmount, behavior: 'auto' });
+                        handled = true;
+                        break;
+                    case 'ArrowUp':
+                    case 'w':
+                    case 'W':
+                        viewportEl.scrollBy({ top: -scrollAmount, behavior: 'auto' });
+                        handled = true;
+                        break;
+                    case ' ': // Space
+                        if (event.shiftKey) {
+                            viewportEl.scrollBy({ top: -pageScrollAmount, behavior: 'auto' });
+                        } else {
+                            viewportEl.scrollBy({ top: pageScrollAmount, behavior: 'auto' });
+                        }
+                        handled = true;
+                        break;
+                }
+
+                if (handled) {
+                    event.preventDefault();
+                }
+            }
         }
 
         // Ctrl+E：导出PDF
@@ -191,4 +258,12 @@ export function hideExportProgress() {
     if (progressIndicator) {
         progressIndicator.remove();
     }
+}
+
+// 初始化主题切换按钮
+export function initThemeButton() {
+    const themeButton = document.getElementById('theme-button');
+    if (!themeButton) return;
+
+    themeButton.addEventListener('click', toggleTheme);
 }

@@ -13,13 +13,15 @@ import { initDragFeature, updateCursorStyle } from './drag.js';
 import {
     initKeyboardShortcuts,
     initRefreshButton,
-    initPinButton
+    initPinButton,
+    initThemeButton
 } from './ui.js';
 import { initPDFExportButton } from './pdfExport.js';
 import { debounce } from './utils.js';
 
 // 初始化插件
 function initializePlugin() {
+    initThemeButton();
     const container = document.querySelector('#image-container');
     if (container) {
         setImageFixedSize();

@@ -103,7 +103,9 @@ js/
 ```javascript
 - initRefreshButton(): 初始化刷新按钮
 - initPinButton(): 初始化固定按钮
-- initKeyboardShortcuts(): 初始化键盘快捷键
+- initThemeButton(): 初始化沉浸模式主题切换按钮
+- toggleTheme(): 切换背景颜色逻辑
+- initKeyboardShortcuts(): 注册全局快捷键 (包含自动滚动、功能拨片等)
 - addStyles(): 添加样式
 ```
 

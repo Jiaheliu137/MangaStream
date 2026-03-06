@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
     <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
     <div id="viewport">
         <div id="image-container"></div>
@@ -19,7 +21,12 @@
             <div id="vertical-scrollbar-handle"></div>
         </div>
     </div>
-    
+
+    <!-- 主题切换按钮 -->
+    <div id="theme-button" class="action-button" title="切换背景颜色 (深灰/纯黑/白色)">
+        <span class="theme-icon">◐</span>
+    </div>
+
     <!-- 刷新按钮 -->
     <div id="refresh-button" class="action-button">
         <img src="./resources/refresh.png" alt="刷新" title="刷新图片" />
@@ -29,7 +36,8 @@
     <div id="pin-button" class="action-button">
         <img src="./resources/pin-deactive.png" alt="固定" title="固定窗口在最前端" />
     </div>
-    
+
     <script type="module" src="js/plugin.js"></script>
 </body>
+
 </html>

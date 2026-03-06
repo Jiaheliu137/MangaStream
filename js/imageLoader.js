@@ -313,7 +313,6 @@ function updateCountIndicator(currentIndex, totalCount) {
     if (!container) {
         container = document.createElement('div');
         container.id = 'total-count-indicator';
-        container.title = '输入指定页码跳转';
 
         const textSpan = document.createElement('span');
         textSpan.id = 'total-count-text';

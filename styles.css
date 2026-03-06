@@ -4,16 +4,44 @@
 body {
     margin: 0;
     padding: 0;
-    background-color: #1e1e1e;
-    color: #fff;
-    font-family: Arial, sans-serif;
     overflow: hidden;
+    background-color: #1e1e1e;
+    color: white;
+    font-family: Arial, sans-serif;
+    transition: background-color 0.3s ease;
     height: 100vh;
     width: 100vw;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: flex-start;
+}
+
+/* 主题颜色变量 */
+body.theme-dark {
+    background-color: #1e1e1e;
+}
+
+body.theme-pure-black {
+    background-color: #000000;
+}
+
+body.theme-light {
+    background-color: #f5f5f5;
+    color: #333;
+}
+
+body.theme-light #total-count-indicator {
+    background-color: rgba(255, 255, 255, 0.8);
+    color: black;
+}
+
+body.theme-light .action-button {
+    background-color: rgba(200, 200, 200, 0.8);
+}
+
+body.theme-light #page-jump-input {
+    color: black;
 }
 
 /* ==================== 视口容器 ==================== */
@@ -182,7 +210,7 @@ body.resizing #image-container {
 }
 
 #total-count-indicator:hover #total-count-text::after {
-    content: " ✎ 输入指定页码跳转";
+    content: " ✎ 输入指定页码回车跳转";
     opacity: 1;
 }
 
@@ -309,6 +337,7 @@ body.dragging #vertical-scrollbar-handle {
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
     transition: all 0.2s ease;
     opacity: 0.5;
+    user-select: none;
 }
 
 .action-button:hover {
@@ -341,6 +370,13 @@ body.dragging #vertical-scrollbar-handle {
 #pin-button.active {
     background-color: rgba(50, 50, 50, 0.9);
     opacity: 1;
+}
+
+/* 主题切换按钮 */
+#theme-button {
+    right: 10px;
+    top: 90px;
+    font-size: 20px;
 }
 
 /* PDF导出按钮 */
