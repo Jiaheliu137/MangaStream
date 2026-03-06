@@ -2,19 +2,25 @@
 import { getCurrentZoom, getCurrentOffset, setCurrentOffset, applyContentPosition } from './zoom.js';
 import { showHorizontalScrollbar, showVerticalScrollbar, updateScrollbarPosition } from './scrollbar.js';
 
+import { isHorizontalMode, getStandardSizeValue } from './modeManager.js';
+
 // 拖动状态
 let isDragging = false;
 let lastMouseX = 0;
 let lastMouseY = 0;
 
-// 检查是否应该启用水平拖动
-function shouldEnableHorizontalDrag() {
+// 检查是否应该启用副轴拖拽（垂直模式下为水平，水平模式下为垂直）
+function shouldEnableCrossAxisDrag() {
     const imageWrapper = document.querySelector('.image-wrapper');
     if (!imageWrapper) return false;
 
-    const containerWidth = imageWrapper.offsetWidth * getCurrentZoom();
-    const windowWidth = window.innerWidth;
-    return containerWidth > windowWidth;
+    if (isHorizontalMode()) {
+        const containerHeight = getStandardSizeValue() * getCurrentZoom();
+        return containerHeight > window.innerHeight;
+    } else {
+        const containerWidth = getStandardSizeValue() * getCurrentZoom();
+        return containerWidth > window.innerWidth;
+    }
 }
 
 // 更新光标样式
@@ -24,7 +30,7 @@ function updateCursorStyle() {
 
     container.style.cursor = 'default';
 
-    if (shouldEnableHorizontalDrag()) {
+    if (shouldEnableCrossAxisDrag()) {
         container.classList.add('draggable');
     } else {
         container.classList.remove('draggable');
@@ -66,22 +72,47 @@ export function initDragFeature() {
         const dx = e.clientX - lastMouseX;
         const dy = e.clientY - lastMouseY;
 
-        const horizontalEnabled = shouldEnableHorizontalDrag();
+        const crossAxisEnabled = shouldEnableCrossAxisDrag();
 
-        let hasHorizontalMovement = false;
-        let hasVerticalMovement = false;
+        let hasCrossMovement = false;
+        let hasMainMovement = false;
 
-        // 更新水平偏移量
-        if (horizontalEnabled && dx !== 0) {
-            hasHorizontalMovement = true;
+        if (isHorizontalMode()) {
+            // 主轴是 X，副轴是 Y
+            if (dx !== 0) {
+                const viewport = document.querySelector('#viewport');
+                if (viewport) {
+                    viewport.scrollBy(-dx, 0);
+                    showHorizontalScrollbar();
+                    hasMainMovement = true;
+                }
+            }
+            if (crossAxisEnabled && dy !== 0) {
+                hasCrossMovement = true;
+                const { x: currentOffsetY } = getCurrentOffset(); // Wait, we still use x/y offset in zoom.js? zoom.js currently uses currentOffsetX.
+                // It's still called currentOffsetX, so let's reuse it logically as CrossAxisOffset.
+                const newOffsetX = currentOffsetY + dy;
 
-            const imageWrapper = document.querySelector('.image-wrapper');
-            if (imageWrapper) {
+                const windowHeight = window.innerHeight;
+                const contentHeight = getStandardSizeValue() * getCurrentZoom();
+                const totalScrollableHeight = contentHeight - windowHeight;
+
+                const minOffset = -totalScrollableHeight / 2;
+                const maxOffset = totalScrollableHeight / 2;
+
+                const clampedOffset = Math.max(minOffset, Math.min(maxOffset, newOffsetX));
+                setCurrentOffset(clampedOffset, undefined);
+                showVerticalScrollbar();
+            }
+        } else {
+            // 主轴是 Y，副轴是 X
+            if (crossAxisEnabled && dx !== 0) {
+                hasCrossMovement = true;
                 const { x: currentOffsetX } = getCurrentOffset();
                 const newOffsetX = currentOffsetX + dx;
 
                 const windowWidth = window.innerWidth;
-                const contentWidth = imageWrapper.offsetWidth * getCurrentZoom();
+                const contentWidth = getStandardSizeValue() * getCurrentZoom();
                 const totalScrollableWidth = contentWidth - windowWidth;
 
                 const minOffset = -totalScrollableWidth / 2;
@@ -92,22 +123,20 @@ export function initDragFeature() {
 
                 showHorizontalScrollbar();
             }
-        }
 
-        // 使用垂直滚动
-        if (dy !== 0) {
-            hasVerticalMovement = true;
-
-            const viewport = document.querySelector('#viewport');
-            if (viewport) {
-                viewport.scrollBy(0, -dy);
-                showVerticalScrollbar();
+            if (dy !== 0) {
+                hasMainMovement = true;
+                const viewport = document.querySelector('#viewport');
+                if (viewport) {
+                    viewport.scrollBy(0, -dy);
+                    showVerticalScrollbar();
+                }
             }
         }
 
         applyContentPosition();
 
-        if (hasHorizontalMovement) {
+        if (hasCrossMovement) {
             updateScrollbarPosition();
         }
 
@@ -125,7 +154,7 @@ export function initDragFeature() {
         container.style.cursor = 'default';
         document.body.classList.remove('dragging');
 
-        if (!shouldEnableHorizontalDrag()) {
+        if (!shouldEnableCrossAxisDrag()) {
             setCurrentOffset(0, undefined);
             applyContentPosition();
         }

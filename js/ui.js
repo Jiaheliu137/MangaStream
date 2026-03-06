@@ -12,6 +12,8 @@ let uiComponentsVisible = true;
 const themes = ['theme-dark', 'theme-pure-black', 'theme-light'];
 let currentThemeIndex = 0;
 
+import { toggleReadingMode, isHorizontalMode, isHorizontalLTRMode, isHorizontalRTLMode } from './modeManager.js';
+
 export function toggleTheme() {
     document.body.classList.remove(themes[currentThemeIndex]);
     currentThemeIndex = (currentThemeIndex + 1) % themes.length;
@@ -120,6 +122,7 @@ export function initKeyboardShortcuts() {
             const pinButton = document.getElementById('pin-button');
             const exportButton = document.getElementById('export-pdf-button');
             const themeButton = document.getElementById('theme-button');
+            const modeButton = document.getElementById('mode-button');
 
             if (refreshButton) {
                 refreshButton.style.display = uiComponentsVisible ? 'flex' : 'none';
@@ -136,6 +139,17 @@ export function initKeyboardShortcuts() {
             if (themeButton) {
                 themeButton.style.display = uiComponentsVisible ? 'flex' : 'none';
             }
+
+            if (modeButton) {
+                modeButton.style.display = uiComponentsVisible ? 'flex' : 'none';
+            }
+        }
+
+        // M键：切换排版模式
+        if (!isInputFocused && event.key.toLowerCase() === 'm') {
+            event.preventDefault();
+            toggleReadingMode();
+            updateModeButtonIcon();
         }
 
         // T键：切换主题
@@ -174,33 +188,55 @@ export function initKeyboardShortcuts() {
             loadSelectedItems();
         }
 
-        // 键盘滚动控制 (W/S, Up/Down, Space)
+        // 键盘滚动控制 (W/S/A/D, Up/Down/Left/Right, Space)
         if (!isInputFocused && !event.ctrlKey && !event.altKey && !event.metaKey) {
             const viewportEl = document.getElementById('viewport');
             if (viewportEl) {
-                const scrollAmount = 150; // 每次方向键/WS滚动的像素
-                const pageScrollAmount = viewportEl.clientHeight * 0.8; // 空格键翻页量（80%视口高度）
+                const scrollAmount = 150; // 每次方向键滚动的像素
+                const horizontal = isHorizontalMode();
+                const rtl = isHorizontalRTLMode();
+                const pageScrollAmount = (horizontal ? viewportEl.clientWidth : viewportEl.clientHeight) * 0.8; // 空格键翻页量（80%视口大小）
 
                 let handled = false;
+
+                // RTL flips the horizontal direction: Next page (Right/Down) effectively moves the scroll left (negative delta)
+                const getHDelta = (baseAmount) => rtl ? -baseAmount : baseAmount;
+
                 switch (event.key) {
                     case 'ArrowDown':
                     case 's':
                     case 'S':
-                        viewportEl.scrollBy({ top: scrollAmount, behavior: 'auto' });
+                        if (horizontal) viewportEl.scrollBy({ left: getHDelta(scrollAmount), behavior: 'auto' });
+                        else viewportEl.scrollBy({ top: scrollAmount, behavior: 'auto' });
                         handled = true;
+                        break;
+                    case 'ArrowRight':
+                    case 'd':
+                    case 'D':
+                        if (horizontal) {
+                            viewportEl.scrollBy({ left: getHDelta(scrollAmount), behavior: 'auto' });
+                            handled = true;
+                        }
                         break;
                     case 'ArrowUp':
                     case 'w':
                     case 'W':
-                        viewportEl.scrollBy({ top: -scrollAmount, behavior: 'auto' });
+                        if (horizontal) viewportEl.scrollBy({ left: getHDelta(-scrollAmount), behavior: 'auto' });
+                        else viewportEl.scrollBy({ top: -scrollAmount, behavior: 'auto' });
                         handled = true;
                         break;
-                    case ' ': // Space
-                        if (event.shiftKey) {
-                            viewportEl.scrollBy({ top: -pageScrollAmount, behavior: 'auto' });
-                        } else {
-                            viewportEl.scrollBy({ top: pageScrollAmount, behavior: 'auto' });
+                    case 'ArrowLeft':
+                    case 'a':
+                    case 'A':
+                        if (horizontal) {
+                            viewportEl.scrollBy({ left: getHDelta(-scrollAmount), behavior: 'auto' });
+                            handled = true;
                         }
+                        break;
+                    case ' ': // Space
+                        const delta = event.shiftKey ? -pageScrollAmount : pageScrollAmount;
+                        if (horizontal) viewportEl.scrollBy({ left: getHDelta(delta), behavior: 'auto' });
+                        else viewportEl.scrollBy({ top: delta, behavior: 'auto' });
                         handled = true;
                         break;
                 }
@@ -266,4 +302,36 @@ export function initThemeButton() {
     if (!themeButton) return;
 
     themeButton.addEventListener('click', toggleTheme);
+}
+
+// 初始化排版模式切换按钮
+export function initModeButton() {
+    const modeButton = document.getElementById('mode-button');
+    if (!modeButton) return;
+
+    // Remove old explicit logic if there was any, we handle it in toggleReadingMode now
+    modeButton.addEventListener('click', () => {
+        toggleReadingMode();
+        updateModeButtonIcon();
+    });
+
+    updateModeButtonIcon();
+}
+
+export function updateModeButtonIcon() {
+    const modeButton = document.getElementById('mode-button');
+    if (!modeButton) return;
+    const iconSpan = modeButton.querySelector('.mode-icon');
+    if (!iconSpan) return;
+
+    if (isHorizontalLTRMode()) {
+        iconSpan.textContent = '⇒';
+        modeButton.title = '切换排版模式: 当前横向从左到右 (点击切换为横向从右到左)';
+    } else if (isHorizontalRTLMode()) {
+        iconSpan.textContent = '⇐';
+        modeButton.title = '切换排版模式: 当前横向从右到左 (点击切换为竖向)';
+    } else {
+        iconSpan.textContent = '⇕';
+        modeButton.title = '切换排版模式: 当前竖向 (点击切换为横向从左到右)';
+    }
 }

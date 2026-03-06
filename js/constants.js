@@ -1,7 +1,14 @@
 // 常量定义模块
 
-// 标准漫画宽度固定为800像素
+// 标准漫画尺寸固定为800像素
 export const STANDARD_MANGA_WIDTH = 800;
+export const STANDARD_MANGA_HEIGHT = 800; // 横向模式下的默认高度
+
+export const READING_MODES = {
+    VERTICAL: 'vertical',
+    HORIZONTAL_LTR: 'horizontal_ltr',
+    HORIZONTAL_RTL: 'horizontal_rtl'
+};
 
 // 动画配置参数
 export const AnimationConfig = {

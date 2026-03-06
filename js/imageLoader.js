@@ -1,7 +1,8 @@
 // 图片加载模块 - 预计算精确高度虚拟滚动 + 增量DOM更新 + 对象级预解码复用
 // 核心突破：预加载器创建的 Image 对象在 decode() 完成后，
 //           直接被塞进 DOM —— 同一个JS对象，零重复解码。
-import { STANDARD_MANGA_WIDTH, SUPPORTED_IMAGE_FORMATS, AnimationConfig } from './constants.js';
+import { SUPPORTED_IMAGE_FORMATS, AnimationConfig } from './constants.js';
+import { isHorizontalMode, isHorizontalRTLMode, getStandardSizeValue } from './modeManager.js';
 import { resetContentPosition, applyContentPosition, getCurrentZoom } from './zoom.js';
 import { updateHorizontalScroll, updateVerticalScrollbar } from './scrollbar.js';
 import { throttle } from './utils.js';
@@ -9,13 +10,13 @@ import { throttle } from './utils.js';
 // ==================== 常量 ====================
 const RENDER_BUFFER = 15;
 const PRELOAD_AHEAD = 50;
-const DIVIDER_HEIGHT = 1;
+let DIVIDER_SIZE = 1;
 
 // ==================== 模块状态 ====================
 let totalFilteredItems = [];
 let isFirstLoad = true;
 
-let heightPrefixSum = [];
+let sizePrefixSum = [];
 let renderedRange = { start: -1, end: -1 };
 let containerEl = null;
 let viewportEl = null;
@@ -32,6 +33,15 @@ let isRendering = false;
 let decodedImageCache = new Map();
 let lastPreloadCenter = -1;
 
+export let pendingModeSwitchIndex = -1;
+
+export function captureCurrentIndexForModeSwitch() {
+    const textSpan = document.getElementById('total-count-text');
+    if (textSpan && textSpan.dataset.currentIndex) {
+        pendingModeSwitchIndex = parseInt(textSpan.dataset.currentIndex, 10);
+    }
+}
+
 // ==================== 公共工具函数 ====================
 
 export function getImagePath(item) {
@@ -46,30 +56,38 @@ function isSupportedFormat(imagePath) {
     return SUPPORTED_IMAGE_FORMATS.some(format => fileName.endsWith(format));
 }
 
-// ==================== 预计算高度与前缀和 ====================
+// ==================== 预计算主轴尺寸与前缀和 ====================
 
-function precalculateHeights() {
+function precalculateSizes() {
     const n = totalFilteredItems.length;
-    heightPrefixSum = new Array(n + 1);
-    heightPrefixSum[0] = 0;
+    sizePrefixSum = new Array(n + 1);
+    sizePrefixSum[0] = 0;
+
+    const stdSize = getStandardSizeValue();
 
     for (let i = 0; i < n; i++) {
         const item = totalFilteredItems[i];
-        let displayHeight = 1000;
-        if (item.width && item.height && item.width > 0) {
-            displayHeight = item.height * (STANDARD_MANGA_WIDTH / item.width);
+        let displaySize = 1000;
+
+        if (item.width && item.height) {
+            if (isHorizontalMode() && item.height > 0) {
+                displaySize = item.width * (stdSize / item.height);
+            } else if (!isHorizontalMode() && item.width > 0) {
+                displaySize = item.height * (stdSize / item.width);
+            }
         }
-        const divider = (i < n - 1) ? DIVIDER_HEIGHT : 0;
-        heightPrefixSum[i + 1] = heightPrefixSum[i] + displayHeight + divider;
+
+        const divider = (i < n - 1) ? DIVIDER_SIZE : 0;
+        sizePrefixSum[i + 1] = sizePrefixSum[i] + displaySize + divider;
     }
 }
 
-function getTotalHeight() {
-    return heightPrefixSum[totalFilteredItems.length] || 0;
+function getTotalSize() {
+    return sizePrefixSum[totalFilteredItems.length] || 0;
 }
 
 function getOffsetForIndex(index) {
-    return heightPrefixSum[index] || 0;
+    return sizePrefixSum[index] || 0;
 }
 
 function findIndexByOffset(offset) {
@@ -77,7 +95,7 @@ function findIndexByOffset(offset) {
     let low = 0, high = totalFilteredItems.length - 1;
     while (low < high) {
         const mid = (low + high) >> 1;
-        if (heightPrefixSum[mid + 1] <= offset) {
+        if (sizePrefixSum[mid + 1] <= offset) {
             low = mid + 1;
         } else {
             high = mid;
@@ -107,14 +125,25 @@ function preloadImages(centerIndex) {
         const imagePath = getImagePath(item);
         if (!imagePath) continue;
 
-        const itemHeight = getOffsetForIndex(i + 1) - getOffsetForIndex(i) - (i < totalFilteredItems.length - 1 ? DIVIDER_HEIGHT : 0);
+        const itemSpan = getOffsetForIndex(i + 1) - getOffsetForIndex(i) - (i < totalFilteredItems.length - 1 ? DIVIDER_SIZE : 0);
 
         // 创建一个完整配置好的 img 元素，后续可以直接塞进 DOM
         const img = new Image();
         img.className = 'seamless-image';
         img.alt = item.name || '未命名';
-        img.style.width = `${STANDARD_MANGA_WIDTH}px`;
-        img.style.height = `${itemHeight}px`;
+
+        if (isHorizontalMode()) {
+            img.style.height = `${getStandardSizeValue()}px`;
+            img.style.width = `${itemSpan}px`;
+            img.style.maxHeight = `${getStandardSizeValue()}px`;
+            img.style.maxWidth = 'none';
+        } else {
+            img.style.width = `${getStandardSizeValue()}px`;
+            img.style.height = `${itemSpan}px`;
+            img.style.maxWidth = `${getStandardSizeValue()}px`;
+            img.style.maxHeight = 'none';
+        }
+
         img.dataset.index = i;
         img.loading = 'eager';
         img.src = `file://${imagePath}`;
@@ -149,14 +178,19 @@ function createImageElement(item, index) {
 
     const imgContainer = document.createElement('div');
     imgContainer.className = 'image-wrapper';
-    imgContainer.style.width = `${STANDARD_MANGA_WIDTH}px`;
     imgContainer.dataset.virtualIndex = index;
 
-    const itemHeight = getOffsetForIndex(index + 1) - getOffsetForIndex(index) - (index < totalFilteredItems.length - 1 ? DIVIDER_HEIGHT : 0);
-    imgContainer.style.height = `${itemHeight}px`;
+    const stdSize = getStandardSizeValue();
+    const itemSize = getOffsetForIndex(index + 1) - getOffsetForIndex(index) - (index < totalFilteredItems.length - 1 ? DIVIDER_SIZE : 0);
 
-    if (index < totalFilteredItems.length - 1) {
-        imgContainer.style.marginBottom = `${DIVIDER_HEIGHT}px`;
+    if (isHorizontalMode()) {
+        imgContainer.style.height = `${stdSize}px`;
+        imgContainer.style.width = `${itemSize}px`;
+        if (index < totalFilteredItems.length - 1) imgContainer.style.marginRight = `${DIVIDER_SIZE}px`;
+    } else {
+        imgContainer.style.width = `${stdSize}px`;
+        imgContainer.style.height = `${itemSize}px`;
+        if (index < totalFilteredItems.length - 1) imgContainer.style.marginBottom = `${DIVIDER_SIZE}px`;
     }
 
     // ★ 核心：优先从预解码缓存中取出已经 decode 好的 Image 对象
@@ -169,10 +203,21 @@ function createImageElement(item, index) {
         img = document.createElement('img');
         img.className = 'seamless-image';
         img.alt = item.name || '未命名';
-        img.style.width = `${STANDARD_MANGA_WIDTH}px`;
-        img.style.height = `${itemHeight}px`;
         img.dataset.index = index;
         img.loading = 'eager';
+
+        if (isHorizontalMode()) {
+            img.style.height = `${stdSize}px`;
+            img.style.width = `${itemSize}px`;
+            img.style.maxHeight = `${stdSize}px`;
+            img.style.maxWidth = 'none';
+        } else {
+            img.style.width = `${stdSize}px`;
+            img.style.height = `${itemSize}px`;
+            img.style.maxWidth = `${stdSize}px`;
+            img.style.maxHeight = 'none';
+        }
+
         img.src = `file://${imagePath}`;
     }
 
@@ -186,17 +231,23 @@ function createImageElement(item, index) {
 
 // ==================== 虚拟滚动核心 ====================
 
+// 获取当前可见的图片索引范围
 function getVisibleRange() {
     if (!viewportEl || totalFilteredItems.length === 0) {
         return { start: 0, end: 0 };
     }
 
     const zoom = getCurrentZoom();
-    const scrollTop = viewportEl.scrollTop / zoom;
-    const viewportHeight = viewportEl.clientHeight / zoom;
+    // Use Math.abs for horizontal scrollLeft so RTL negative coordinate natively maps to positive distance
+    const rawScrollLeft = Math.abs(viewportEl.scrollLeft);
+    const scrollPos = isHorizontalMode() ? rawScrollLeft : viewportEl.scrollTop;
+    const clientSize = isHorizontalMode() ? viewportEl.clientWidth : viewportEl.clientHeight;
 
-    const firstVisible = findIndexByOffset(scrollTop);
-    const lastVisible = findIndexByOffset(scrollTop + viewportHeight);
+    const topOffset = scrollPos / zoom;
+    const bottomOffset = (scrollPos + clientSize) / zoom;
+
+    const firstVisible = findIndexByOffset(topOffset);
+    let lastVisible = findIndexByOffset(bottomOffset);
 
     const start = Math.max(0, firstVisible - RENDER_BUFFER);
     const end = Math.min(totalFilteredItems.length, lastVisible + RENDER_BUFFER + 1);
@@ -238,14 +289,14 @@ function renderVisibleItems() {
             // 有重叠：只动边缘
 
             // 1. 从顶部移除
-            let removeFromTop = Math.max(0, start - oldStart);
+            let removeFromTop = Math.max(0, start - oldStart); // Corrected logic for removing from top
             while (removeFromTop > 0 && contentWrapperEl.firstElementChild) {
                 contentWrapperEl.removeChild(contentWrapperEl.firstElementChild);
                 removeFromTop--;
             }
 
             // 2. 从底部移除
-            let removeFromBottom = Math.max(0, oldEnd - end);
+            let removeFromBottom = Math.max(0, oldEnd - end); // Corrected logic for removing from bottom
             while (removeFromBottom > 0 && contentWrapperEl.lastElementChild) {
                 contentWrapperEl.removeChild(contentWrapperEl.lastElementChild);
                 removeFromBottom--;
@@ -276,10 +327,20 @@ function renderVisibleItems() {
 
         renderedRange = { start, end };
 
-        const topHeight = getOffsetForIndex(start);
-        const bottomHeight = getTotalHeight() - getOffsetForIndex(end);
-        spacerTopEl.style.height = `${Math.max(0, topHeight)}px`;
-        spacerBottomEl.style.height = `${Math.max(0, bottomHeight)}px`;
+        const topSize = getOffsetForIndex(start);
+        const bottomSize = getTotalSize() - getOffsetForIndex(end);
+
+        if (isHorizontalMode()) {
+            spacerTopEl.style.width = `${Math.max(0, topSize)}px`;
+            spacerBottomEl.style.width = `${Math.max(0, bottomSize)}px`;
+            spacerTopEl.style.height = `${getStandardSizeValue()}px`;
+            spacerBottomEl.style.height = `${getStandardSizeValue()}px`;
+        } else {
+            spacerTopEl.style.height = `${Math.max(0, topSize)}px`;
+            spacerBottomEl.style.height = `${Math.max(0, bottomSize)}px`;
+            spacerTopEl.style.width = `${getStandardSizeValue()}px`;
+            spacerBottomEl.style.width = `${getStandardSizeValue()}px`;
+        }
 
         updateCurrentPositionIndicator();
     } finally {
@@ -297,10 +358,10 @@ function updateCurrentPositionIndicator() {
     if (!viewportEl || totalFilteredItems.length === 0 || isJumpInputFocused) return;
 
     const zoom = getCurrentZoom();
-    const scrollTop = viewportEl.scrollTop;
-    const viewportHeight = viewportEl.clientHeight;
+    const scrollPos = isHorizontalMode() ? Math.abs(viewportEl.scrollLeft) : viewportEl.scrollTop;
+    const clientSize = isHorizontalMode() ? viewportEl.clientWidth : viewportEl.clientHeight;
     // 使用视口中心点来判断当前看到的是哪一张图
-    const unscaledCenter = (scrollTop + viewportHeight / 2) / zoom;
+    const unscaledCenter = (scrollPos + clientSize / 2) / zoom;
 
     const currentIndex = findIndexByOffset(unscaledCenter) + 1;
     updateCountIndicator(currentIndex, totalFilteredItems.length);
@@ -355,12 +416,7 @@ function updateCountIndicator(currentIndex, totalCount) {
             if (isNaN(targetPage) || targetPage < 1) targetPage = 1;
             if (targetPage > maxPage) targetPage = maxPage;
 
-            // O(1) 前缀和高度极致精准定位
-            if (viewportEl) {
-                const targetIndex = targetPage - 1;
-                const targetOffset = getOffsetForIndex(targetIndex);
-                viewportEl.scrollTop = targetOffset * getCurrentZoom();
-            }
+            jumpToPage(targetPage);
         };
 
         inputField.addEventListener('blur', executeJump);
@@ -390,12 +446,51 @@ function updateCountIndicator(currentIndex, totalCount) {
 
 // ==================== 滚动事件处理 ====================
 
+export function jumpToPage(pageNumber) {
+    if (pageNumber < 1 || pageNumber > totalFilteredItems.length || !viewportEl) return;
+
+    // pageNumber 是 1-based, 转换为 0-based
+    const index = pageNumber - 1;
+
+    // 获取该索引在虚拟列表中的主轴偏移量
+    const targetOffset = getOffsetForIndex(index);
+    const zoom = getCurrentZoom();
+
+    // 缩放后的绝对像素偏移
+    const scaledOffset = targetOffset * zoom;
+
+    // 提前撑开虚拟 DOM 高/宽，防止浏览器因当前 DOM 高度不足而将 scrollLeft/scrollTop 强制截断 (Clamp to 0)
+    if (spacerBottomEl) {
+        const totalSize = getTotalSize() * zoom;
+        if (isHorizontalMode()) {
+            spacerBottomEl.style.width = `${totalSize}px`;
+            // 强制触发浏览器同步重排 (Reflow)，更新底层 ScrollWidth 边界
+            void viewportEl.scrollWidth;
+        } else {
+            spacerBottomEl.style.height = `${totalSize}px`;
+            // 强制触发重排，更新 ScrollHeight 边界
+            void viewportEl.scrollHeight;
+        }
+    }
+
+    if (isHorizontalMode()) {
+        const rtlMultiplier = isHorizontalRTLMode() ? -1 : 1;
+        viewportEl.scrollLeft = scaledOffset * rtlMultiplier;
+    } else {
+        viewportEl.scrollTop = scaledOffset;
+    }
+
+    // 同步渲染确保立刻显示 DOM 切片，而不是等待节流后的 scroll 事件
+    renderVisibleItems();
+}
+
 const throttledScrollHandler = throttle(function () {
     renderVisibleItems();
 
     if (viewportEl && totalFilteredItems.length > 0) {
         const zoom = getCurrentZoom();
-        const centerIndex = findIndexByOffset(viewportEl.scrollTop / zoom);
+        const scrollPos = isHorizontalMode() ? Math.abs(viewportEl.scrollLeft) : viewportEl.scrollTop;
+        const centerIndex = findIndexByOffset(scrollPos / zoom);
         preloadImages(centerIndex);
     }
 }, 50);
@@ -417,11 +512,29 @@ function detachScrollListener() {
 export function setImageFixedSize() {
     const wrappers = document.querySelectorAll('.image-wrapper');
     const images = document.querySelectorAll('.seamless-image');
-    wrappers.forEach(wrap => wrap.style.width = `${STANDARD_MANGA_WIDTH}px`);
-    images.forEach(img => {
-        img.style.width = `${STANDARD_MANGA_WIDTH}px`;
-        img.style.maxWidth = `${STANDARD_MANGA_WIDTH}px`;
-    });
+    const stdSize = getStandardSizeValue();
+
+    if (isHorizontalMode()) {
+        wrappers.forEach(wrap => {
+            wrap.style.height = `${stdSize}px`;
+        });
+        images.forEach(img => {
+            img.style.height = `${stdSize}px`;
+            img.style.maxHeight = `${stdSize}px`;
+            img.style.width = 'auto';
+            img.style.maxWidth = 'none';
+        });
+    } else {
+        wrappers.forEach(wrap => {
+            wrap.style.width = `${stdSize}px`;
+        });
+        images.forEach(img => {
+            img.style.width = `${stdSize}px`;
+            img.style.maxWidth = `${stdSize}px`;
+            img.style.height = 'auto';
+            img.style.maxHeight = 'none';
+        });
+    }
 }
 
 export function displaySelectedItems(items, useAnimation = true) {
@@ -454,40 +567,83 @@ export function displaySelectedItems(items, useAnimation = true) {
 
     totalFilteredItems = filteredItems;
 
-    precalculateHeights();
+    precalculateSizes();
 
     // 立即预加载开头的图片
     preloadImages(0);
 
+    const stdSize = getStandardSizeValue();
+
     spacerTopEl = document.createElement('div');
     spacerTopEl.id = 'virtual-spacer-top';
-    spacerTopEl.style.width = `${STANDARD_MANGA_WIDTH}px`;
 
     contentWrapperEl = document.createElement('div');
     contentWrapperEl.id = 'virtual-content';
-    contentWrapperEl.style.width = '100%';
+    contentWrapperEl.style.width = isHorizontalMode() ? 'auto' : '100%';
+    contentWrapperEl.style.height = isHorizontalMode() ? '100%' : 'auto';
     contentWrapperEl.style.display = 'flex';
-    contentWrapperEl.style.flexDirection = 'column';
+    contentWrapperEl.style.flexDirection = isHorizontalMode() ? 'row' : 'column';
     contentWrapperEl.style.alignItems = 'center';
     contentWrapperEl.style.overflowAnchor = 'none';
 
     spacerBottomEl = document.createElement('div');
     spacerBottomEl.id = 'virtual-spacer-bottom';
-    spacerBottomEl.style.width = `${STANDARD_MANGA_WIDTH}px`;
+
+    if (isHorizontalMode()) {
+        spacerTopEl.style.height = `${stdSize}px`;
+        spacerBottomEl.style.height = `${stdSize}px`;
+    } else {
+        spacerTopEl.style.width = `${stdSize}px`;
+        spacerBottomEl.style.width = `${stdSize}px`;
+    }
 
     containerEl.appendChild(spacerTopEl);
     containerEl.appendChild(contentWrapperEl);
     containerEl.appendChild(spacerBottomEl);
 
     resetContentPosition();
-    applyContentPosition();
-    updateHorizontalScroll(getCurrentZoom());
 
-    renderVisibleItems();
+    // 先附加监听器，让后续操作生效
     attachScrollListener();
 
+    const targetJumpIndex = pendingModeSwitchIndex;
+    pendingModeSwitchIndex = -1;
+
+    // 如果是模式切换，在渲染前就把滚动位置设到目标页面
+    // 这样 renderVisibleItems 会直接计算出目标页附近的可见范围，无需闪烁跳转
+    if (targetJumpIndex !== -1) {
+        const jumpIndex = targetJumpIndex - 1; // 1-based → 0-based
+        const targetOffset = getOffsetForIndex(jumpIndex);
+
+        // 先撑开虚拟 DOM 的主轴尺寸，确保浏览器允许设置滚动位置
+        const totalSize = getTotalSize();
+        if (isHorizontalMode()) {
+            spacerBottomEl.style.width = `${totalSize}px`;
+            void viewportEl.scrollWidth; // 强制同步重排
+            const rtl = isHorizontalRTLMode() ? -1 : 1;
+            viewportEl.scrollLeft = targetOffset * rtl;
+        } else {
+            spacerBottomEl.style.height = `${totalSize}px`;
+            void viewportEl.scrollHeight; // 强制同步重排
+            viewportEl.scrollTop = targetOffset;
+        }
+    }
+
+    // 渲染当前滚动位置的可见图片（如果已跳转，则直接渲染目标页附近）
+    renderVisibleItems();
+
+    // 解决切换模式/重载后需要缩放或拖拽才应用 transform 约束的问题。
+    requestAnimationFrame(() => {
+        applyContentPosition();
+        updateHorizontalScroll(getCurrentZoom());
+    });
+
     setTimeout(() => updateVerticalScrollbar(), 100);
-    updateCountIndicator(1, totalFilteredItems.length);
+
+    // 初始化页码指示器（仅首次创建时）
+    if (document.getElementById('total-count-text') == null) {
+        updateCountIndicator(1, totalFilteredItems.length);
+    }
 
     if (useAnimation) {
         setTimeout(() => {

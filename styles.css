@@ -93,10 +93,46 @@ body.resizing #image-container {
     flex-direction: column;
     align-items: center;
     width: 100%;
+    height: auto;
     padding: 0;
     user-select: none;
     will-change: transform;
     backface-visibility: hidden;
+}
+
+/* 横向画卷模式样式覆盖 */
+body.horizontal-mode #viewport {
+    overflow: hidden;
+}
+
+body.horizontal-rtl-mode #viewport {
+    direction: rtl;
+    /* 利用原生 CSS RTL 实现自右向左 */
+}
+
+body.horizontal-mode #image-container {
+    flex-direction: row;
+    left: 0;
+    top: 50%;
+    transform-origin: left center !important;
+    transform: translateY(-50%);
+    width: auto;
+    height: 100%;
+    align-items: center;
+    /* 纵向居中 */
+}
+
+body.horizontal-rtl-mode #image-container {
+    left: auto;
+    right: 0;
+    transform-origin: right center !important;
+}
+
+body.horizontal-mode .image-divider {
+    width: 40px;
+    /* 横向间距更加宽阔 */
+    height: 100%;
+    background-color: transparent;
 }
 
 #image-container.fading-out {
@@ -376,6 +412,13 @@ body.dragging #vertical-scrollbar-handle {
 #theme-button {
     right: 10px;
     top: 90px;
+    font-size: 20px;
+}
+
+/* 排版模式切换按钮 */
+#mode-button {
+    right: 10px;
+    top: 135px;
     font-size: 20px;
 }
 

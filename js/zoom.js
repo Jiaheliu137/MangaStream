@@ -3,6 +3,8 @@ import { ZoomConfig } from './constants.js';
 import { updateHorizontalScroll, updateVerticalScrollbar, showScrollbars } from './scrollbar.js';
 
 // 全局缩放状态
+import { isHorizontalMode, isHorizontalRTLMode, getStandardSizeValue } from './modeManager.js';
+
 let currentZoom = ZoomConfig.DEFAULT_ZOOM;
 let zoomLevelTimeout = null;
 let currentOffsetX = 0;
@@ -26,10 +28,44 @@ export function setCurrentOffset(x, y) {
 
 // 应用内容的位置和缩放变换
 export function applyContentPosition() {
-    const container = document.querySelector('#image-container');
-    if (!container) return;
+    const imageWrapper = document.querySelector('.image-wrapper');
+    const viewport = document.querySelector('#viewport');
+    if (!imageWrapper || !viewport) return;
 
-    container.style.transform = `translateX(calc(-50% + ${currentOffsetX}px)) scale(${currentZoom})`;
+    const windowSize = isHorizontalMode() ? window.innerHeight : window.innerWidth;
+
+    if (isHorizontalMode()) {
+        const STANDARD_MANGA_HEIGHT = getStandardSizeValue();
+        const contentHeight = STANDARD_MANGA_HEIGHT * currentZoom;
+        const maxOffsetY = Math.max(0, (contentHeight - windowSize) / 2);
+
+        // Y轴边界限制 (因为 currentOffsetX 被我们在水平模式下复用为纵向交叉轴！)
+        let clampedOffsetY = Math.max(-maxOffsetY, Math.min(maxOffsetY, currentOffsetX));
+        currentOffsetX = clampedOffsetY; // 写回
+
+        const container = document.querySelector('#image-container');
+        if (container) {
+            container.style.transform = `translateY(calc(-50% + ${currentOffsetX}px)) scale(${currentZoom})`;
+
+            // 重要：RTL必须从 right center 缩放
+            container.style.transformOrigin = document.body.classList.contains('horizontal-rtl-mode') ? 'right center' : 'left center';
+        }
+    } else {
+        const STANDARD_MANGA_WIDTH = getStandardSizeValue(); // Assuming this is how STANDARD_MANGA_WIDTH is obtained
+        const contentWidth = STANDARD_MANGA_WIDTH * currentZoom;
+        const maxOffsetX = Math.max(0, (contentWidth - windowSize) / 2);
+
+        // X轴边界限制
+        let clampedOffsetX = Math.max(-maxOffsetX, Math.min(maxOffsetX, currentOffsetX));
+        currentOffsetX = clampedOffsetX;
+
+        const container = document.querySelector('#image-container');
+        if (container) {
+            container.style.transform = `translateX(calc(-50% + ${currentOffsetX}px)) scale(${currentZoom})`;
+        }
+    }
+
+    updateHorizontalScroll(currentZoom);
 }
 
 // 重置内容位置到水平居中状态
@@ -59,26 +95,24 @@ export function showZoomLevel(zoomLevel) {
 
 // 以鼠标位置为中心应用缩放变换
 export function applyZoomWithMouseCenter(newZoom, oldZoom) {
-    const container = document.querySelector('#image-container');
-    if (!container) return;
-
-    document.body.classList.add('scaling');
+    if (Math.abs(newZoom - oldZoom) < 0.001) return;
 
     const viewport = document.querySelector('#viewport');
-    const scrollTop = viewport ? viewport.scrollTop : 0;
 
-    const scaleRatio = newZoom / oldZoom;
-    currentOffsetX = currentOffsetX * scaleRatio;
-    currentZoom = newZoom;
-
-    applyContentPosition();
-    updateHorizontalScroll(newZoom);
-
-    if (viewport) {
+    if (isHorizontalMode()) {
+        const scrollLeft = viewport ? viewport.scrollLeft : 0;
+        const scaleRatio = newZoom / oldZoom;
+        const newScrollLeft = scrollLeft * scaleRatio;
+        if (viewport) viewport.scrollLeft = newScrollLeft;
+    } else {
+        const scrollTop = viewport ? viewport.scrollTop : 0;
+        const scaleRatio = newZoom / oldZoom;
         const newScrollTop = scrollTop * scaleRatio;
-        viewport.scrollTop = newScrollTop;
+        if (viewport) viewport.scrollTop = newScrollTop;
     }
 
+    currentZoom = newZoom;
+    applyContentPosition();
     updateVerticalScrollbar();
     showZoomLevel(newZoom);
     showScrollbars();
@@ -113,6 +147,13 @@ export function initZoomFeature() {
             }
 
             applyZoomWithMouseCenter(newZoom, oldZoom);
+        } else if (isHorizontalMode() && !event.shiftKey) {
+            const viewport = document.getElementById('viewport');
+            if (viewport && event.deltaY !== 0) {
+                const delta = isHorizontalRTLMode() ? -event.deltaY : event.deltaY;
+                viewport.scrollLeft += delta;
+                event.preventDefault(); // 阻止原生的垂直滚动
+            }
         }
     }, { passive: false });
 

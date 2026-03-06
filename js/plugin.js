@@ -14,7 +14,8 @@ import {
     initKeyboardShortcuts,
     initRefreshButton,
     initPinButton,
-    initThemeButton
+    initThemeButton,
+    initModeButton
 } from './ui.js';
 import { initPDFExportButton } from './pdfExport.js';
 import { debounce } from './utils.js';
@@ -22,6 +23,7 @@ import { debounce } from './utils.js';
 // 初始化插件
 function initializePlugin() {
     initThemeButton();
+    initModeButton();
     const container = document.querySelector('#image-container');
     if (container) {
         setImageFixedSize();
@@ -86,6 +88,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 初始化PDF导出按钮
     initPDFExportButton();
+
+    // 初始化模式与主题按钮
+    initThemeButton();
+    initModeButton();
 
     // 初始化完成后检查并处理滚动条状态
     setTimeout(() => {
