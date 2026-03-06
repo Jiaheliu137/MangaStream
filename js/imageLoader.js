@@ -614,6 +614,10 @@ export function displaySelectedItems(items, useAnimation = true) {
     if (targetJumpIndex !== -1) {
         const jumpIndex = targetJumpIndex - 1; // 1-based → 0-based
         const targetOffset = getOffsetForIndex(jumpIndex);
+        // 页码指示器使用视口中心点判断当前页，所以跳转时也要把目标页的中心对准视口中心
+        const pageSize = getOffsetForIndex(Math.min(jumpIndex + 1, totalFilteredItems.length)) - targetOffset;
+        const clientSize = isHorizontalMode() ? viewportEl.clientWidth : viewportEl.clientHeight;
+        const centeredOffset = Math.max(0, targetOffset + pageSize / 2 - clientSize / 2);
 
         // 先撑开虚拟 DOM 的主轴尺寸，确保浏览器允许设置滚动位置
         const totalSize = getTotalSize();
@@ -621,11 +625,11 @@ export function displaySelectedItems(items, useAnimation = true) {
             spacerBottomEl.style.width = `${totalSize}px`;
             void viewportEl.scrollWidth; // 强制同步重排
             const rtl = isHorizontalRTLMode() ? -1 : 1;
-            viewportEl.scrollLeft = targetOffset * rtl;
+            viewportEl.scrollLeft = centeredOffset * rtl;
         } else {
             spacerBottomEl.style.height = `${totalSize}px`;
             void viewportEl.scrollHeight; // 强制同步重排
-            viewportEl.scrollTop = targetOffset;
+            viewportEl.scrollTop = centeredOffset;
         }
     }
 

@@ -299,7 +299,8 @@ export function hideExportProgress() {
 // 初始化主题切换按钮
 export function initThemeButton() {
     const themeButton = document.getElementById('theme-button');
-    if (!themeButton) return;
+    if (!themeButton || themeButton._initialized) return;
+    themeButton._initialized = true;
 
     themeButton.addEventListener('click', toggleTheme);
 }
@@ -307,9 +308,9 @@ export function initThemeButton() {
 // 初始化排版模式切换按钮
 export function initModeButton() {
     const modeButton = document.getElementById('mode-button');
-    if (!modeButton) return;
+    if (!modeButton || modeButton._initialized) return;
+    modeButton._initialized = true;
 
-    // Remove old explicit logic if there was any, we handle it in toggleReadingMode now
     modeButton.addEventListener('click', () => {
         toggleReadingMode();
         updateModeButtonIcon();
