@@ -97,8 +97,6 @@ export function applyZoom(zoomLevel) {
 export function initZoomFeature() {
     resetContentPosition();
 
-    let wheelEndTimer = null;
-
     // 监听滚轮事件
     document.addEventListener('wheel', (event) => {
         if (event.ctrlKey) {
@@ -120,7 +118,7 @@ export function initZoomFeature() {
 
     // Ctrl+0 重置缩放
     document.addEventListener('keydown', (event) => {
-        if (event.ctrlKey && (event.key === '0' || event.keyCode === 48)) {
+        if (event.ctrlKey && event.key === '0') {
             event.preventDefault();
             const oldZoom = currentZoom;
             currentOffsetX = 0;

@@ -10,8 +10,9 @@
 2. [核心概念](#核心概念)
 3. [插件结构](#插件结构)
 4. [API 完整参考](#api-完整参考)
-5. [实用示例代码](#实用示例代码)
-6. [最佳实践](#最佳实践)
+5. [最佳实践与性能优化](#最佳实践与性能优化)
+6. [实用示例代码](#实用示例代码)
+7. [部署与分发](#部署与分发)
 
 ---
 
@@ -602,6 +603,51 @@ eagle.shell.showItemInFolder('/path/to/file');
 ```javascript
 eagle.shell.openPath('/path/to/file.pdf');
 ```
+
+### 最新性能优化补充方案：处理十万级海量图片的虚拟滚动方案
+
+如果目标插件需要在一个可滚动的容器内渲染 `100,000+` 乃至 `200,000+` 项元素（如瀑布流相册、漫画无缝长卷等），传统的生成原生 DOM + 懒加载 (Lazy Load) 会引发大量 `<div>` 挤压内存导致应用崩溃，同时 Image 异步加载也会引入可怕的累积布局偏移（CLS）。
+
+#### 破局之道：预计算精确高度的纯虚拟滚动 (Pre-calculated Virtual Scrolling)
+
+在 Eagle 插件拥有独一无二的优势：通过 API `eagle.item.getSelected()` 或 `getAll()` 取到的元数据中，**原生包含该张图片的 `width` 与 `height` 分辨率属性。**
+我们可以像 Chrome 浏览器的 PDF Viewer 那样，根据视口宽度缩放比例提前算好**这张图片将要在你的瀑布流中展现出的绝对像素级高度**。
+
+**关键步骤设计：**
+
+1. **预知未来 (Precalculate Prefix Sum)**
+   利用每张图原始宽高和你的标准列宽，预算出它在网页显示的标准高度。将所有高度累加获得一张**前缀和数组 (Prefix Sum)**。有了这张表，十万张图片垒起来究竟多高，哪张图片处于什么绝对 Y 轴像素位置，都可以做到 $O(1)$ 时间获得。
+2. **纯粹虚拟按需挂载 (Mount by binary search)**
+   无论当前列表中包含多少张海量图片，DOM 树上永远只挂载你**视口上方、屏幕中、视口下方缓冲期**组成的几十个图片 Node。当拿到 `$viewport.scrollTop` 时，通过**二分查找法** $O(\log N)$（不到 0.1 毫秒内）反推出此时当前应当看到第几张图及其下方的 20 张图。
+3. **彻底切断 CLS (Layout Shift 为 0)**
+   给每个包装的 `<div class="image-wrapper">` 内联样式写死你刚才算精确的 `style.height`。图片即便网速再慢，也不会在成功加载瞬间对同级图片的位置产生**任何**像素级顶动。
+4. **防范底层陷阱：干掉 Scroll Anchoring (关键盲点)**
+   大量同学实现虚拟滚动往下滑行时都会碰到一个鬼畜问题："松手了画面还在自动飞滚"。这是由于 Chrome / Chromium 内核一个叫"滚动锚定(Scroll Anchoring)"的功能在作祟。当顶层不可见的缓冲 DOM 节点被剥离去顶部的垫片 Spacer 融合时，浏览器自作主张帮你改变了 `scrollTop`。
+   **你必须为包含海量流节点的最外层容器增加如下 CSS 彻底把浏览器的权限拿回来：**
+   ```css
+   #virtual-content {
+       overflow-anchor: none;
+   }
+   ```
+5. **纯增量边缘 DOM 更新（不要全量 innerHTML 重建）**
+   每次滚动范围变化时，只在容器的**首尾增删节点**，中间已有的节点**完全不碰**。如果每次都 `innerHTML = ''` 全部重建，Chrome 会取消正在解码的图片任务，导致用户看到"空白→加载"的闪烁。
+6. **预解码对象复用（终极武器）**
+   Chrome 对 `file://` URL **不会在不同 HTMLImageElement 实例之间共享解码位图**。即使 URL 完全相同，两个 `new Image()` 也各自独立解码。因此"创建一个隐藏 Image 预加载，再创建一个新 img 放进 DOM"的传统预加载方案对 `file://` 完全无效。
+   正确做法：**预加载器创建的 Image 对象，调用 `img.decode()` 后存入缓存。当 DOM 需要该索引的图片时，直接把缓存中的同一个 JS 对象 `appendChild` 到容器里。** 因为是完全相同的 JavaScript 对象引用，解码后的位图数据仍在内存中，浏览器零延迟绘制。
+   ```javascript
+   // 预加载
+   const img = new Image();
+   img.src = `file://${path}`;
+   img.decode();
+   cache.set(index, img);
+
+   // 创建 DOM 节点时
+   let img = cache.get(index); // 同一个对象！零解码！
+   if (!img) img = new Image(); // 未命中才回退
+   wrapper.appendChild(img);
+   ```
+
+有了这 6 点，Eagle 插件就能用网页套壳做出媲美原生 C++ 图片处理软件那般丝滑抗造的海量文件阅读器体验。
 
 ---
 

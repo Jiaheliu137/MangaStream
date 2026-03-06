@@ -15,13 +15,6 @@ export const AnimationConfig = {
 // 支持的图片格式白名单
 export const SUPPORTED_IMAGE_FORMATS = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
 
-// 懒加载配置
-export const LazyLoadConfig = {
-    INITIAL_LOAD_COUNT: 300,   // 初始加载300张
-    BATCH_LOAD_COUNT: 30,      // 每批次加载30张
-    LOAD_THRESHOLD: 2000       // 距底部2000像素时触发加载
-};
-
 // 缩放限制
 export const ZoomConfig = {
     MIN_ZOOM: 0.2,

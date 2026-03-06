@@ -9,12 +9,11 @@ import {
     updateVerticalScrollbar
 } from './scrollbar.js';
 import { loadSelectedItems, setImageFixedSize } from './imageLoader.js';
-import { initDragFeature } from './drag.js';
+import { initDragFeature, updateCursorStyle } from './drag.js';
 import {
     initKeyboardShortcuts,
     initRefreshButton,
-    initPinButton,
-    addStyles
+    initPinButton
 } from './ui.js';
 import { initPDFExportButton } from './pdfExport.js';
 import { debounce } from './utils.js';
@@ -28,20 +27,13 @@ function initializePlugin() {
         updateVerticalScrollbar();
     }
 
-    if (window.updateAfterZoom) {
-        window.updateAfterZoom();
-    }
+    updateCursorStyle();
 }
 
 // Eagle插件生命周期钩子
 eagle.onPluginCreate((plugin) => {
     console.log('eagle.onPluginCreate');
-
-    // 初始化缩放功能
-    initZoomFeature();
-
-    // 初始化自定义滚动条
-    initCustomScrollbar();
+    // 初始化由 DOMContentLoaded 统一处理，避免重复注册事件监听器
 });
 
 eagle.onPluginRun(() => {
@@ -65,9 +57,6 @@ eagle.onPluginBeforeExit((event) => {
 // 文档加载完成后初始化
 document.addEventListener('DOMContentLoaded', () => {
     console.log('DOMContentLoaded - 初始化所有功能');
-
-    // 添加样式
-    addStyles();
 
     // 初始化缩放功能
     initZoomFeature();

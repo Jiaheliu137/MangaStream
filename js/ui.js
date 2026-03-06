@@ -21,6 +21,7 @@ export function initRefreshButton() {
 // 初始化固定按钮
 export function initPinButton() {
     const pinButton = document.getElementById('pin-button');
+    if (!pinButton) return;
     const pinImage = pinButton.querySelector('img');
     let isPinned = false;
 
@@ -48,8 +49,11 @@ export function initPinButton() {
 // 初始化键盘快捷键
 export function initKeyboardShortcuts() {
     document.addEventListener('keydown', (event) => {
+        // 检查是否在输入框中，避免误触发
+        const isInputFocused = event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA' || event.target.isContentEditable;
+
         // Ctrl+加号或等号(+/=)：放大
-        if (event.ctrlKey && (event.key === '+' || event.key === '=' || event.keyCode === 187)) {
+        if (event.ctrlKey && (event.key === '+' || event.key === '=')) {
             event.preventDefault();
 
             const oldZoom = getCurrentZoom();
@@ -61,7 +65,7 @@ export function initKeyboardShortcuts() {
         }
 
         // Ctrl+减号(-)：缩小
-        if (event.ctrlKey && (event.key === '-' || event.keyCode === 189)) {
+        if (event.ctrlKey && event.key === '-') {
             event.preventDefault();
 
             const oldZoom = getCurrentZoom();
@@ -73,7 +77,7 @@ export function initKeyboardShortcuts() {
         }
 
         // F键：进入全屏
-        if (event.key.toLowerCase() === 'f') {
+        if (!isInputFocused && event.key.toLowerCase() === 'f') {
             event.preventDefault();
             if (!document.fullscreenElement) {
                 document.documentElement.requestFullscreen();
@@ -88,7 +92,7 @@ export function initKeyboardShortcuts() {
         }
 
         // H键：隐藏/显示UI组件
-        if (event.key.toLowerCase() === 'h') {
+        if (!isInputFocused && event.key.toLowerCase() === 'h') {
             event.preventDefault();
 
             uiComponentsVisible = !uiComponentsVisible;
@@ -111,7 +115,7 @@ export function initKeyboardShortcuts() {
         }
 
         // P键：切换固定窗口
-        if (event.key.toLowerCase() === 'p') {
+        if (!isInputFocused && event.key.toLowerCase() === 'p') {
             event.preventDefault();
             const pinButton = document.getElementById('pin-button');
             if (pinButton) {
@@ -124,7 +128,7 @@ export function initKeyboardShortcuts() {
         }
 
         // Ctrl+W：关闭窗口
-        if (event.ctrlKey && (event.key === 'w' || event.keyCode === 87)) {
+        if (event.ctrlKey && event.key === 'w') {
             event.preventDefault();
 
             if (typeof eagle !== 'undefined' && eagle.window && typeof eagle.window.hide === 'function') {
@@ -135,80 +139,56 @@ export function initKeyboardShortcuts() {
         }
 
         // Ctrl+R：刷新
-        if (event.ctrlKey && (event.key === 'r' || event.keyCode === 82)) {
+        if (event.ctrlKey && event.key === 'r') {
             event.preventDefault();
             loadSelectedItems();
         }
 
         // Ctrl+E：导出PDF
-        if (event.ctrlKey && (event.key === 'e' || event.keyCode === 69)) {
+        if (event.ctrlKey && event.key === 'e') {
             event.preventDefault();
             exportCurrentImagesToPDF();
         }
     });
 }
 
-// 添加样式
-export function addStyles() {
-    const style = document.createElement('style');
-    style.textContent = `
-        @keyframes lazy-spin {
-            to { transform: rotate(360deg); }
-        }
+// 显示 Toast 消息（通用）
+export function showToast(message, type = 'success', duration = 3000) {
+    const toast = document.createElement('div');
+    toast.className = `toast-message ${type}`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
 
-        .loading-message {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 40px;
-            color: #888;
-            text-align: center;
-            width: 100%;
-            font-size: 16px;
-        }
+    setTimeout(() => {
+        toast.remove();
+    }, duration);
+}
 
-        .loading-message .spinner {
-            width: 24px;
-            height: 24px;
-            margin-right: 12px;
-            border: 2px solid rgba(120, 120, 120, 0.3);
-            border-top-color: #888;
-            border-radius: 50%;
-            animation: lazy-spin 1s linear infinite;
-        }
+// 显示导出进度
+export function showExportProgress(current, total, message = '正在导出PDF...') {
+    let progressIndicator = document.getElementById('export-progress-indicator');
 
-        #image-container.fading-out {
-            opacity: 0;
-            transition: opacity 500ms ease-out;
-        }
+    if (!progressIndicator) {
+        progressIndicator = document.createElement('div');
+        progressIndicator.id = 'export-progress-indicator';
+        document.body.appendChild(progressIndicator);
+    }
 
-        #image-container.fading-in {
-            opacity: 1;
-            transition: opacity 500ms ease-in;
-        }
-
-        #total-count-indicator {
-            position: fixed;
-            top: 10px;
-            left: 10px;
-            background-color: rgba(0, 0, 0, 0.7);
-            color: white;
-            padding: 5px 10px;
-            border-radius: 4px;
-            z-index: 1000;
-            transition: opacity 0.5s ease;
-            pointer-events: none;
-            font-size: 14px;
-            font-weight: bold;
-            opacity: 0.8;
-            user-select: none;
-        }
-
-        /* 懒加载图片占位 */
-        .lazy-image {
-            background-color: #2a2a2a;
-            min-height: 200px;
-        }
+    const percentage = Math.round((current / total) * 100);
+    progressIndicator.innerHTML = `
+        <div style="margin-bottom: 15px;">${message}</div>
+        <div style="font-size: 24px; font-weight: bold;">${percentage}%</div>
+        <div style="margin-top: 10px; font-size: 14px; color: #aaa;">${current} / ${total}</div>
+        <div class="progress-bar-container">
+            <div class="progress-bar-fill" style="width: ${percentage}%;"></div>
+        </div>
     `;
-    document.head.appendChild(style);
+}
+
+// 隐藏导出进度
+export function hideExportProgress() {
+    const progressIndicator = document.getElementById('export-progress-indicator');
+    if (progressIndicator) {
+        progressIndicator.remove();
+    }
 }

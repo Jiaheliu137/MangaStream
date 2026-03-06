@@ -133,9 +133,6 @@ export function initDragFeature() {
 
     document.addEventListener('mouseup', endDrag);
     document.addEventListener('mouseleave', endDrag);
-
-    // 全局API，供缩放后调用
-    window.updateAfterZoom = updateCursorStyle;
 }
 
 // 导出更新光标样式函数

@@ -1,97 +1,7 @@
 // PDF导出功能模块 - 每张图片独立页面，统一宽度，无留白
-import { getCurrentImages } from './imageLoader.js';
+import { getCurrentImages, getImagePath } from './imageLoader.js';
 import { STANDARD_MANGA_WIDTH } from './constants.js';
-
-// 显示导出进度
-function showExportProgress(current, total, message = '正在导出PDF...') {
-    let progressIndicator = document.getElementById('export-progress-indicator');
-
-    if (!progressIndicator) {
-        progressIndicator = document.createElement('div');
-        progressIndicator.id = 'export-progress-indicator';
-        progressIndicator.style.cssText = `
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background-color: rgba(0, 0, 0, 0.9);
-            color: white;
-            padding: 30px 50px;
-            border-radius: 10px;
-            z-index: 10000;
-            font-size: 18px;
-            text-align: center;
-            min-width: 300px;
-        `;
-        document.body.appendChild(progressIndicator);
-    }
-
-    const percentage = Math.round((current / total) * 100);
-    progressIndicator.innerHTML = `
-        <div style="margin-bottom: 15px;">${message}</div>
-        <div style="font-size: 24px; font-weight: bold;">${percentage}%</div>
-        <div style="margin-top: 10px; font-size: 14px; color: #aaa;">${current} / ${total}</div>
-        <div style="margin-top: 15px; width: 100%; height: 8px; background-color: #333; border-radius: 4px; overflow: hidden;">
-            <div style="width: ${percentage}%; height: 100%; background-color: #4CAF50; transition: width 0.3s;"></div>
-        </div>
-    `;
-}
-
-// 隐藏导出进度
-function hideExportProgress() {
-    const progressIndicator = document.getElementById('export-progress-indicator');
-    if (progressIndicator) {
-        progressIndicator.remove();
-    }
-}
-
-// 显示错误消息
-function showErrorMessage(message) {
-    const errorBox = document.createElement('div');
-    errorBox.style.cssText = `
-        position: fixed;
-        top: 20px;
-        left: 50%;
-        transform: translateX(-50%);
-        background-color: rgba(244, 67, 54, 0.95);
-        color: white;
-        padding: 15px 30px;
-        border-radius: 5px;
-        z-index: 10001;
-        font-size: 16px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-    `;
-    errorBox.textContent = message;
-    document.body.appendChild(errorBox);
-
-    setTimeout(() => {
-        errorBox.remove();
-    }, 3000);
-}
-
-// 显示成功消息
-function showSuccessMessage(message) {
-    const successBox = document.createElement('div');
-    successBox.style.cssText = `
-        position: fixed;
-        top: 20px;
-        left: 50%;
-        transform: translateX(-50%);
-        background-color: rgba(76, 175, 80, 0.95);
-        color: white;
-        padding: 15px 30px;
-        border-radius: 5px;
-        z-index: 10001;
-        font-size: 16px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-    `;
-    successBox.textContent = message;
-    document.body.appendChild(successBox);
-
-    setTimeout(() => {
-        successBox.remove();
-    }, 3000);
-}
+import { showToast, showExportProgress, hideExportProgress } from './ui.js';
 
 // 加载图片并缩放到统一宽度
 async function loadAndResizeImage(imagePath, targetWidth) {
@@ -100,17 +10,14 @@ async function loadAndResizeImage(imagePath, targetWidth) {
         img.crossOrigin = 'Anonymous';
 
         img.onload = () => {
-            // 计算缩放比例
             const scale = targetWidth / img.width;
             const scaledHeight = img.height * scale;
 
-            // 创建canvas，使用缩放后的尺寸
             const canvas = document.createElement('canvas');
             canvas.width = targetWidth;
             canvas.height = scaledHeight;
 
             const ctx = canvas.getContext('2d');
-            // 将图片绘制到canvas上，自动缩放
             ctx.drawImage(img, 0, 0, targetWidth, scaledHeight);
 
             try {
@@ -133,111 +40,97 @@ async function loadAndResizeImage(imagePath, targetWidth) {
     });
 }
 
-// 导出PDF
+// 确保 jsPDF 库已加载
+async function ensureJsPDFLoaded() {
+    if (typeof window.jspdf !== 'undefined') return;
+
+    // 优先尝试从本地加载
+    const localPath = './js/vendor/jspdf.umd.min.js';
+    const cdnPath = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+
+    const script = document.createElement('script');
+
+    await new Promise((resolve, reject) => {
+        script.onload = resolve;
+        script.onerror = () => {
+            // 本地加载失败，尝试CDN
+            console.warn('本地jsPDF加载失败，尝试从CDN加载...');
+            const cdnScript = document.createElement('script');
+            cdnScript.src = cdnPath;
+            cdnScript.onload = resolve;
+            cdnScript.onerror = () => reject(new Error('无法加载PDF库（本地和CDN均失败）'));
+            document.head.appendChild(cdnScript);
+        };
+        script.src = localPath;
+        document.head.appendChild(script);
+    });
+
+    // 等待库初始化
+    await new Promise(resolve => setTimeout(resolve, 200));
+}
+
+// 导出PDF - 流式处理，逐张添加图片后释放内存 (#12)
 async function exportToPDF(images) {
     try {
-        // 动态加载jsPDF库
-        if (typeof window.jspdf === 'undefined') {
-            showExportProgress(0, images.length, '正在加载PDF库...');
-
-            const script = document.createElement('script');
-            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
-
-            await new Promise((resolve, reject) => {
-                script.onload = resolve;
-                script.onerror = () => reject(new Error('无法加载PDF库'));
-                document.head.appendChild(script);
-            });
-
-            await new Promise(resolve => setTimeout(resolve, 500));
-        }
+        showExportProgress(0, images.length, '正在加载PDF库...');
+        await ensureJsPDFLoaded();
 
         const { jsPDF } = window.jspdf;
+        const targetWidth = STANDARD_MANGA_WIDTH;
+        const pxToMm = 25.4 / 96;
 
         showExportProgress(0, images.length, '正在处理图片...');
 
-        // 统一宽度（与插件一致）
-        const targetWidth = STANDARD_MANGA_WIDTH; // 800px
+        // 流式处理：逐张加载、添加到 PDF、释放 (#12)
+        let pdf = null;
 
-        // 预加载并缩放所有图片到统一宽度
-        const processedImages = [];
         for (let i = 0; i < images.length; i++) {
             const item = images[i];
-            const imagePath = item.filePath || item.path ||
-                (item.url && item.url.startsWith('file://') ? item.url.replace('file://', '') : '');
+            const imagePath = getImagePath(item); // 使用共享的 getImagePath (#3)
 
             if (!imagePath) continue;
 
             try {
                 showExportProgress(i + 1, images.length, '正在处理图片...');
-                // 加载并缩放图片到统一宽度
                 const imgData = await loadAndResizeImage(imagePath, targetWidth);
-                processedImages.push(imgData);
+
+                const widthMM = imgData.width * pxToMm;
+                const heightMM = imgData.height * pxToMm;
+
+                if (!pdf) {
+                    // 创建第一个PDF页面
+                    pdf = new jsPDF({
+                        orientation: widthMM > heightMM ? 'landscape' : 'portrait',
+                        unit: 'mm',
+                        format: [widthMM, heightMM]
+                    });
+                } else {
+                    // 添加新页面
+                    pdf.addPage(
+                        [widthMM, heightMM],
+                        widthMM > heightMM ? 'landscape' : 'portrait'
+                    );
+                }
+
+                pdf.addImage(
+                    imgData.base64,
+                    'JPEG',
+                    0,
+                    0,
+                    widthMM,
+                    heightMM,
+                    undefined,
+                    'FAST'
+                );
+
+                // imgData 在此循环结束后自动释放引用
             } catch (err) {
                 console.error(`处理图片失败 (${i + 1}/${images.length}):`, err);
             }
         }
 
-        if (processedImages.length === 0) {
+        if (!pdf) {
             throw new Error('没有成功处理的图片');
-        }
-
-        showExportProgress(0, processedImages.length, '正在生成PDF...');
-
-        // 像素转毫米的转换比例
-        // 使用96 DPI（更常见的屏幕DPI）
-        const pxToMm = 25.4 / 96;
-
-        // 创建第一个PDF页面
-        const firstImg = processedImages[0];
-        const firstWidthMM = firstImg.width * pxToMm;
-        const firstHeightMM = firstImg.height * pxToMm;
-
-        let pdf = new jsPDF({
-            orientation: firstWidthMM > firstHeightMM ? 'landscape' : 'portrait',
-            unit: 'mm',
-            format: [firstWidthMM, firstHeightMM]
-        });
-
-        // 添加第一张图片
-        pdf.addImage(
-            firstImg.base64,
-            'JPEG',
-            0,
-            0,
-            firstWidthMM,
-            firstHeightMM,
-            undefined,
-            'FAST'
-        );
-
-        showExportProgress(1, processedImages.length, '正在生成PDF...');
-
-        // 添加剩余的图片
-        for (let i = 1; i < processedImages.length; i++) {
-            showExportProgress(i + 1, processedImages.length, '正在生成PDF...');
-
-            const imgData = processedImages[i];
-            const widthMM = imgData.width * pxToMm;
-            const heightMM = imgData.height * pxToMm;
-
-            // 添加新页面，页面尺寸等于图片尺寸
-            pdf.addPage(
-                [widthMM, heightMM],
-                widthMM > heightMM ? 'landscape' : 'portrait'
-            );
-
-            // 添加图片，填满整个页面
-            pdf.addImage(
-                imgData.base64,
-                'JPEG',
-                0,
-                0,
-                widthMM,
-                heightMM,
-                undefined,
-                'FAST'
-            );
         }
 
         hideExportProgress();
@@ -246,15 +139,13 @@ async function exportToPDF(images) {
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
         const filename = `manga_${timestamp}.pdf`;
 
-        // 保存PDF
         pdf.save(filename);
-
-        showSuccessMessage(`PDF导出成功！共 ${processedImages.length} 张图片`);
+        showToast(`PDF导出成功！共 ${images.length} 张图片`, 'success');
 
     } catch (err) {
         hideExportProgress();
         console.error('导出PDF失败:', err);
-        showErrorMessage('导出PDF失败: ' + err.message);
+        showToast('导出PDF失败: ' + err.message, 'error');
     }
 }
 
@@ -263,11 +154,10 @@ export async function exportCurrentImagesToPDF() {
     const images = getCurrentImages();
 
     if (!images || images.length === 0) {
-        showErrorMessage('没有可导出的图片');
+        showToast('没有可导出的图片', 'error');
         return;
     }
 
-    // 确认导出
     const confirmed = confirm(`确定要将当前 ${images.length} 张图片导出为PDF吗？\n\n所有图片将统一宽度为800px，高度按比例缩放。\n每张图片独立成页，无留白。\n\n这可能需要一些时间，请耐心等待。`);
 
     if (!confirmed) {
@@ -279,9 +169,9 @@ export async function exportCurrentImagesToPDF() {
 
 // 初始化PDF导出按钮
 export function initPDFExportButton() {
-    // 创建导出按钮
     const exportButton = document.createElement('div');
     exportButton.id = 'export-pdf-button';
+    exportButton.className = 'action-button'; // 使用统一的按钮样式
     exportButton.innerHTML = `
         <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
             <path d="M19 12v7H5v-7H3v7c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7h-2z"/>
@@ -289,46 +179,7 @@ export function initPDFExportButton() {
         </svg>
     `;
     exportButton.title = '导出为PDF';
-    exportButton.style.cssText = `
-        position: fixed;
-        right: 20px;
-        bottom: 70px;
-        width: 40px;
-        height: 40px;
-        background-color: rgba(30, 30, 30, 0.3);
-        border-radius: 50%;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        cursor: pointer;
-        z-index: 1000;
-        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-        transition: all 0.2s ease;
-        opacity: 0.5;
-    `;
 
-    // 悬停效果
-    exportButton.addEventListener('mouseenter', () => {
-        exportButton.style.backgroundColor = 'rgba(50, 50, 50, 0.9)';
-        exportButton.style.transform = 'scale(1.05)';
-        exportButton.style.opacity = '1';
-    });
-
-    exportButton.addEventListener('mouseleave', () => {
-        exportButton.style.backgroundColor = 'rgba(30, 30, 30, 0.3)';
-        exportButton.style.transform = 'scale(1)';
-        exportButton.style.opacity = '0.5';
-    });
-
-    exportButton.addEventListener('mousedown', () => {
-        exportButton.style.transform = 'scale(0.95)';
-    });
-
-    exportButton.addEventListener('mouseup', () => {
-        exportButton.style.transform = 'scale(1.05)';
-    });
-
-    // 点击事件
     exportButton.addEventListener('click', exportCurrentImagesToPDF);
 
     document.body.appendChild(exportButton);

@@ -1,102 +1,126 @@
-// 滚动条管理模块
+// 滚动条管理模块 - 重构版本：抽象通用逻辑，减少重复代码 (#8)
 import { AnimationConfig } from './constants.js';
 import { getCurrentZoom, getCurrentOffset, setCurrentOffset, applyContentPosition } from './zoom.js';
 
-// 滚动条状态
-let isDraggingScrollbar = false;
-let scrollbarStartX = 0;
-let scrollbarStartY = 0;
-let scrollbarHideTimer = null;
-let horizontalScrollbarHideTimer = null;
-let verticalScrollbarHideTimer = null;
+// ==================== 通用滚动条控制器 ====================
 
-// 显示所有滚动条
-export function showScrollbars() {
-    const horizontalContainer = document.getElementById('custom-scrollbar-container');
-    const verticalContainer = document.getElementById('vertical-scrollbar-container');
+/**
+ * 创建滚动条控制器实例
+ * @param {string} containerSelector - 滚动条容器选择器
+ * @param {string} barSelector - 滚动条选择器
+ * @param {string} handleSelector - 滚动条手柄选择器
+ */
+function createScrollbarController(containerSelector, barSelector, handleSelector) {
+    let hideTimer = null;
 
-    if (horizontalContainer) horizontalContainer.classList.add('active');
-    if (verticalContainer) verticalContainer.classList.add('active');
+    function getElements() {
+        return {
+            container: document.getElementById(containerSelector),
+            bar: document.getElementById(barSelector),
+            handle: document.getElementById(handleSelector)
+        };
+    }
 
-    resetScrollbarHideTimer();
-}
-
-// 显示水平滚动条
-export function showHorizontalScrollbar() {
-    const horizontalContainer = document.getElementById('custom-scrollbar-container');
-    if (horizontalContainer) {
-        horizontalContainer.classList.add('active');
-        if (horizontalScrollbarHideTimer) {
-            clearTimeout(horizontalScrollbarHideTimer);
-            horizontalScrollbarHideTimer = null;
+    function show() {
+        const { container } = getElements();
+        if (container) {
+            container.classList.add('active');
+            clearHideTimer();
         }
     }
+
+    function hide() {
+        const { container } = getElements();
+        if (container) container.classList.remove('active');
+    }
+
+    function clearHideTimer() {
+        if (hideTimer) {
+            clearTimeout(hideTimer);
+            hideTimer = null;
+        }
+    }
+
+    function resetHideTimer() {
+        clearHideTimer();
+        hideTimer = setTimeout(hide, AnimationConfig.SCROLLBAR_HIDE_DELAY);
+    }
+
+    function setDisplay(visible) {
+        const { container } = getElements();
+        if (container) {
+            container.style.display = visible ? 'block' : 'none';
+            if (!visible) {
+                container.classList.remove('active');
+                clearHideTimer();
+            }
+        }
+    }
+
+    function enablePointerEvents() {
+        const { container, bar, handle } = getElements();
+        if (container) container.style.pointerEvents = 'auto';
+        if (bar) bar.style.pointerEvents = 'auto';
+        if (handle) handle.style.pointerEvents = 'auto';
+    }
+
+    return { getElements, show, hide, clearHideTimer, resetHideTimer, setDisplay, enablePointerEvents };
 }
 
-// 显示垂直滚动条
-export function showVerticalScrollbar() {
-    const verticalContainer = document.getElementById('vertical-scrollbar-container');
-    const viewport = document.querySelector('#viewport');
+// ==================== 创建水平/垂直滚动条实例 ====================
 
-    if (!verticalContainer || !viewport) return;
+const horizontalScrollbar = createScrollbarController(
+    'custom-scrollbar-container',
+    'custom-scrollbar',
+    'custom-scrollbar-handle'
+);
+
+const verticalScrollbar = createScrollbarController(
+    'vertical-scrollbar-container',
+    'vertical-scrollbar',
+    'vertical-scrollbar-handle'
+);
+
+// ==================== 导出的显示/隐藏函数 ====================
+
+export function showScrollbars() {
+    horizontalScrollbar.show();
+    verticalScrollbar.show();
+
+    // 统一隐藏定时器
+    horizontalScrollbar.resetHideTimer();
+    verticalScrollbar.resetHideTimer();
+}
+
+export function showHorizontalScrollbar() {
+    horizontalScrollbar.show();
+}
+
+export function showVerticalScrollbar() {
+    const viewport = document.querySelector('#viewport');
+    if (!viewport) return;
 
     const contentHeight = viewport.scrollHeight;
     const viewportHeight = viewport.clientHeight;
 
     if (contentHeight > viewportHeight) {
-        verticalContainer.style.display = 'block';
-        verticalContainer.classList.add('active');
-
-        if (verticalScrollbarHideTimer) {
-            clearTimeout(verticalScrollbarHideTimer);
-            verticalScrollbarHideTimer = null;
-        }
+        verticalScrollbar.setDisplay(true);
+        verticalScrollbar.show();
     } else {
-        verticalContainer.style.display = 'none';
-        verticalContainer.classList.remove('active');
+        verticalScrollbar.setDisplay(false);
     }
 }
 
-// 隐藏所有滚动条
-function hideScrollbars() {
-    const horizontalContainer = document.getElementById('custom-scrollbar-container');
-    const verticalContainer = document.getElementById('vertical-scrollbar-container');
-
-    if (horizontalContainer) horizontalContainer.classList.remove('active');
-    if (verticalContainer) verticalContainer.classList.remove('active');
-}
-
-// 隐藏水平滚动条
-function hideHorizontalScrollbar() {
-    const horizontalContainer = document.getElementById('custom-scrollbar-container');
-    if (horizontalContainer) horizontalContainer.classList.remove('active');
-}
-
-// 隐藏垂直滚动条
-function hideVerticalScrollbar() {
-    const verticalContainer = document.getElementById('vertical-scrollbar-container');
-    if (verticalContainer) verticalContainer.classList.remove('active');
-}
-
-// 重置滚动条隐藏计时器
-function resetScrollbarHideTimer() {
-    if (scrollbarHideTimer) clearTimeout(scrollbarHideTimer);
-    scrollbarHideTimer = setTimeout(hideScrollbars, AnimationConfig.SCROLLBAR_HIDE_DELAY);
-}
-
-// 重置水平滚动条隐藏计时器
 export function resetHorizontalScrollbarHideTimer() {
-    if (horizontalScrollbarHideTimer) clearTimeout(horizontalScrollbarHideTimer);
-    horizontalScrollbarHideTimer = setTimeout(hideHorizontalScrollbar, AnimationConfig.SCROLLBAR_HIDE_DELAY);
+    horizontalScrollbar.resetHideTimer();
 }
 
-// 重置垂直滚动条隐藏计时器
 export function resetVerticalScrollbarHideTimer() {
-    if (verticalScrollbarHideTimer) clearTimeout(verticalScrollbarHideTimer);
-    verticalScrollbarHideTimer = setTimeout(hideVerticalScrollbar, AnimationConfig.SCROLLBAR_HIDE_DELAY);
+    verticalScrollbar.resetHideTimer();
 }
 
-// 更新水平滚动条
+// ==================== 水平滚动条逻辑 ====================
+
 export function updateHorizontalScroll(zoomLevel) {
     const imageWrapper = document.querySelector('.image-wrapper');
     if (!imageWrapper) return;
@@ -105,71 +129,46 @@ export function updateHorizontalScroll(zoomLevel) {
     const contentWidth = imageWrapper.offsetWidth * zoomLevel;
 
     if (contentWidth > windowWidth) {
-        const scrollbarContainer = document.getElementById('custom-scrollbar-container');
-        if (scrollbarContainer) {
-            scrollbarContainer.style.display = 'block';
-        }
+        horizontalScrollbar.setDisplay(true);
 
         const viewport = document.querySelector('#viewport');
-        if (viewport) {
-            viewport.classList.add('has-scrollbar');
-        }
+        if (viewport) viewport.classList.add('has-scrollbar');
 
-        showCustomScrollbar(imageWrapper, contentWidth, windowWidth);
+        updateScrollbarDimensions(contentWidth, windowWidth);
+        updateScrollbarPosition();
     } else {
         hideCustomScrollbar();
     }
 }
 
-// 显示自定义水平滚动条
-function showCustomScrollbar(container, contentWidth, windowWidth) {
-    const scrollbarContainer = document.getElementById('custom-scrollbar-container');
-    const scrollbar = document.getElementById('custom-scrollbar');
-    const viewport = document.querySelector('#viewport');
-
-    if (!scrollbarContainer || !scrollbar) return;
-
-    scrollbarContainer.style.display = 'block';
-
-    if (viewport) {
-        viewport.classList.add('has-scrollbar');
-    }
-
-    updateScrollbarDimensions(container, contentWidth, windowWidth);
-    updateScrollbarPosition();
-}
-
-// 更新滚动条尺寸
-function updateScrollbarDimensions(container, contentWidth, windowWidth) {
-    const scrollbar = document.getElementById('custom-scrollbar');
-    if (!scrollbar) return;
+function updateScrollbarDimensions(contentWidth, windowWidth) {
+    const { bar } = horizontalScrollbar.getElements();
+    if (!bar) return;
 
     const ratio = windowWidth / contentWidth;
     const scrollbarWidth = Math.max(30, windowWidth * ratio);
-    scrollbar.style.width = `${scrollbarWidth}px`;
+    bar.style.width = `${scrollbarWidth}px`;
 }
 
-// 更新滚动条位置
 export function updateScrollbarPosition() {
     const imageWrapper = document.querySelector('.image-wrapper');
-    const scrollbar = document.getElementById('custom-scrollbar');
-    const scrollbarContainer = document.getElementById('custom-scrollbar-container');
+    const { bar, container } = horizontalScrollbar.getElements();
 
-    if (!imageWrapper || !scrollbar || !scrollbarContainer) return;
+    if (!imageWrapper || !bar || !container) return;
 
     const windowWidth = window.innerWidth;
     const contentWidth = imageWrapper.offsetWidth * getCurrentZoom();
 
     if (contentWidth <= windowWidth) {
-        scrollbarContainer.style.display = 'none';
+        container.style.display = 'none';
         return;
     }
 
-    scrollbarContainer.style.display = 'block';
+    container.style.display = 'block';
 
     const ratio = windowWidth / contentWidth;
     const scrollbarWidth = Math.max(30, windowWidth * ratio);
-    scrollbar.style.width = `${scrollbarWidth}px`;
+    bar.style.width = `${scrollbarWidth}px`;
 
     const totalScrollableWidth = contentWidth - windowWidth;
     const { x: currentOffsetX } = getCurrentOffset();
@@ -177,85 +176,77 @@ export function updateScrollbarPosition() {
     const clampedRatio = Math.max(0, Math.min(1, scrollRatio));
     const scrollbarMaxMove = windowWidth - scrollbarWidth;
 
-    scrollbar.style.left = `${clampedRatio * scrollbarMaxMove}px`;
+    bar.style.left = `${clampedRatio * scrollbarMaxMove}px`;
 }
 
-// 隐藏自定义水平滚动条
 function hideCustomScrollbar() {
-    const scrollbarContainer = document.getElementById('custom-scrollbar-container');
+    horizontalScrollbar.setDisplay(false);
     const viewport = document.querySelector('#viewport');
-
-    if (scrollbarContainer) {
-        scrollbarContainer.style.display = 'none';
-    }
-
-    if (viewport) {
-        viewport.classList.remove('has-scrollbar');
-    }
+    if (viewport) viewport.classList.remove('has-scrollbar');
 }
 
-// 更新垂直滚动条
+// ==================== 垂直滚动条逻辑 ====================
+
 export function updateVerticalScrollbar() {
     const viewport = document.querySelector('#viewport');
-    const verticalScrollbar = document.getElementById('vertical-scrollbar');
-    const verticalScrollbarContainer = document.getElementById('vertical-scrollbar-container');
+    const { bar: verticalBar, container: verticalContainer } = verticalScrollbar.getElements();
 
-    if (!viewport || !verticalScrollbar || !verticalScrollbarContainer) return;
+    if (!viewport || !verticalBar || !verticalContainer) return;
 
     const contentHeight = viewport.scrollHeight;
     const viewportHeight = viewport.clientHeight;
 
     if (contentHeight <= viewportHeight) {
-        verticalScrollbarContainer.style.display = 'none';
-        verticalScrollbarContainer.classList.remove('active');
-        if (verticalScrollbarHideTimer) {
-            clearTimeout(verticalScrollbarHideTimer);
-            verticalScrollbarHideTimer = null;
-        }
+        verticalScrollbar.setDisplay(false);
         return;
     }
 
-    verticalScrollbarContainer.style.display = 'block';
+    verticalContainer.style.display = 'block';
 
     const ratio = viewportHeight / contentHeight;
     const scrollbarHeight = Math.max(30, viewportHeight * ratio);
-    verticalScrollbar.style.height = `${scrollbarHeight}px`;
+    verticalBar.style.height = `${scrollbarHeight}px`;
 
     const scrollRatio = viewport.scrollTop / (contentHeight - viewportHeight);
     const maxScrollbarOffset = viewportHeight - scrollbarHeight;
     const scrollbarTop = scrollRatio * maxScrollbarOffset;
 
-    verticalScrollbar.style.top = `${scrollbarTop}px`;
+    verticalBar.style.top = `${scrollbarTop}px`;
 
     const isDragging = document.body.classList.contains('dragging');
     if (!isDragging) {
-        verticalScrollbarContainer.classList.add('active');
-        resetVerticalScrollbarHideTimer();
+        verticalScrollbar.show();
+        verticalScrollbar.resetHideTimer();
     }
 }
 
-// 处理滚动条拖动
+// ==================== 滚动条拖动处理 ====================
+
+let isDraggingScrollbar = false;
+let scrollbarStartX = 0;
+let scrollbarStartY = 0;
+
 function handleScrollbarDrag(e) {
     if (!isDraggingScrollbar) return;
 
-    showHorizontalScrollbar();
+    horizontalScrollbar.show();
 
     const imageWrapper = document.querySelector('.image-wrapper');
-    const scrollbar = document.getElementById('custom-scrollbar');
+    const { bar } = horizontalScrollbar.getElements();
 
-    if (!imageWrapper || !scrollbar) return;
+    if (!imageWrapper || !bar) return;
 
     const windowWidth = window.innerWidth;
     const contentWidth = imageWrapper.offsetWidth * getCurrentZoom();
-    const scrollbarWidth = parseInt(scrollbar.style.width);
+    const scrollbarWidth = parseInt(bar.style.width);
     const scrollbarMaxMove = windowWidth - scrollbarWidth;
 
     const dragDistance = e.clientX - scrollbarStartX;
-    let currentScrollbarLeft = parseInt(scrollbar.style.left || '0');
+    let currentScrollbarLeft = parseInt(bar.style.left || '0');
     let newScrollbarLeft = currentScrollbarLeft + dragDistance;
 
     newScrollbarLeft = Math.max(0, Math.min(scrollbarMaxMove, newScrollbarLeft));
-    scrollbar.style.left = `${newScrollbarLeft}px`;
+    bar.style.left = `${newScrollbarLeft}px`;
 
     const scrollRatio = newScrollbarLeft / scrollbarMaxMove;
     const totalScrollableWidth = contentWidth - windowWidth;
@@ -267,32 +258,27 @@ function handleScrollbarDrag(e) {
     scrollbarStartX = e.clientX;
 }
 
-// 结束滚动条拖动
 function endScrollbarDrag() {
     if (!isDraggingScrollbar) return;
 
     isDraggingScrollbar = false;
     document.body.classList.remove('dragging');
-    resetHorizontalScrollbarHideTimer();
+    horizontalScrollbar.resetHideTimer();
 }
 
-// 初始化自定义滚动条
-export function initCustomScrollbar() {
-    const scrollbarContainer = document.getElementById('custom-scrollbar-container');
-    const scrollbar = document.getElementById('custom-scrollbar');
-    const scrollbarHandle = document.getElementById('custom-scrollbar-handle');
+// ==================== 初始化函数 ====================
 
-    if (!scrollbarContainer || !scrollbar || !scrollbarHandle) {
+export function initCustomScrollbar() {
+    const { container, bar, handle } = horizontalScrollbar.getElements();
+
+    if (!container || !bar || !handle) {
         console.error('找不到水平滚动条元素');
         return;
     }
 
-    scrollbarContainer.style.pointerEvents = 'auto';
-    scrollbar.style.pointerEvents = 'auto';
-    scrollbarHandle.style.pointerEvents = 'auto';
+    horizontalScrollbar.enablePointerEvents();
 
-    // 滚动条手柄拖动
-    scrollbarHandle.addEventListener('mousedown', (e) => {
+    handle.addEventListener('mousedown', (e) => {
         e.stopPropagation();
         e.preventDefault();
 
@@ -300,23 +286,19 @@ export function initCustomScrollbar() {
         scrollbarStartX = e.clientX;
 
         document.body.classList.add('dragging');
-
-        if (horizontalScrollbarHideTimer) clearTimeout(horizontalScrollbarHideTimer);
-        showHorizontalScrollbar();
+        horizontalScrollbar.clearHideTimer();
+        horizontalScrollbar.show();
     });
 
     document.addEventListener('mousemove', handleScrollbarDrag);
     document.addEventListener('mouseup', endScrollbarDrag);
 }
 
-// 初始化垂直滚动条
 export function initVerticalScrollbar() {
     const viewport = document.querySelector('#viewport');
-    const verticalScrollbarContainer = document.getElementById('vertical-scrollbar-container');
-    const verticalScrollbar = document.getElementById('vertical-scrollbar');
-    const verticalScrollbarHandle = document.getElementById('vertical-scrollbar-handle');
+    const { container, bar, handle } = verticalScrollbar.getElements();
 
-    if (!viewport || !verticalScrollbarContainer || !verticalScrollbar || !verticalScrollbarHandle) {
+    if (!viewport || !container || !bar || !handle) {
         console.error('找不到垂直滚动条元素');
         return;
     }
@@ -326,14 +308,11 @@ export function initVerticalScrollbar() {
     viewport.addEventListener('scroll', updateVerticalScrollbar);
     window.addEventListener('resize', updateVerticalScrollbar);
 
-    verticalScrollbarContainer.style.pointerEvents = 'auto';
-    verticalScrollbar.style.pointerEvents = 'auto';
-    verticalScrollbarHandle.style.pointerEvents = 'auto';
+    verticalScrollbar.enablePointerEvents();
 
     let isDraggingVerticalScrollbar = false;
 
-    // 垂直滚动条手柄拖动
-    verticalScrollbarHandle.addEventListener('mousedown', (e) => {
+    handle.addEventListener('mousedown', (e) => {
         e.stopPropagation();
         e.preventDefault();
 
@@ -344,7 +323,6 @@ export function initVerticalScrollbar() {
         showScrollbars();
     });
 
-    // 处理垂直滚动条拖动
     function handleVerticalScrollbarDrag(e) {
         if (!isDraggingVerticalScrollbar) return;
 
@@ -356,30 +334,25 @@ export function initVerticalScrollbar() {
         const dragDistance = e.clientY - scrollbarStartY;
         const contentHeight = viewport.scrollHeight;
         const viewportHeight = viewport.clientHeight;
-        const currentScrollTop = viewport.scrollTop;
 
         const scrollRatio = dragDistance / viewportHeight;
         const scrollDelta = scrollRatio * (contentHeight - viewportHeight);
-        const newScrollTop = currentScrollTop + scrollDelta;
-
-        viewport.scrollTop = newScrollTop;
+        viewport.scrollTop += scrollDelta;
         scrollbarStartY = e.clientY;
     }
 
-    // 结束垂直滚动条拖动
     function endVerticalScrollbarDrag() {
         if (!isDraggingVerticalScrollbar) return;
 
         isDraggingVerticalScrollbar = false;
         document.body.classList.remove('dragging');
-        resetVerticalScrollbarHideTimer();
+        verticalScrollbar.resetHideTimer();
     }
 
     document.addEventListener('mousemove', handleVerticalScrollbarDrag);
     document.addEventListener('mouseup', endVerticalScrollbarDrag);
 }
 
-// 设置滚动条可见性
 export function setupScrollbarVisibility() {
     let scrollEndTimer = null;
 
@@ -393,7 +366,7 @@ export function setupScrollbarVisibility() {
             }
 
             scrollEndTimer = setTimeout(() => {
-                resetVerticalScrollbarHideTimer();
+                verticalScrollbar.resetHideTimer();
                 scrollEndTimer = null;
             }, AnimationConfig.SCROLL_END_DELAY);
         });

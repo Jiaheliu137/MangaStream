@@ -1,2 +1,23 @@
-# Claude Code
+# Claude Code / OpenCode
 .claude/
+.opencode/
+opencode.jsonc
+
+# Backups
+*.backup
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Node
+node_modules/
+
+# Build artifacts
+*.log
