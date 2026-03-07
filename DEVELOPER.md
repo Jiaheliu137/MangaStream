@@ -84,11 +84,11 @@ js/
 - getVisibleRange(): 二分查找当前可视图片范围
 - renderVisibleItems(): 纯增量边缘 DOM 更新（只动首尾，不碰中间）
 - createImageElement(): 优先从预解码缓存取已解码 Image 对象
-- jumpToPage(): 程序化跳转到指定页码（支持所有模式）
-- captureCurrentIndexForModeSwitch(): 切换模式前捕获当前页码
-- loadSelectedItems(): 加载选中的图片
+- `jumpToPage()`: 程序化跳转到指定页码（支持所有模式），v1.5.0 重构了坐标映射数学模型，确保任何缩放比例下最终呈现的像素绝对中心都完美对齐视口中心。
+- `captureCurrentIndexForModeSwitch()`: 切换模式前捕获当前页码
+- `loadSelectedItems()`: 加载选中的图片
 - `displaySelectedItems()`: 显示选中的图片（含首次加载、获取数据、格式过滤等完整流程）
-- `reloadForModeSwitch()`: (v1.5 新增) **海量图片模式切换终极优化（快速路径）**。针对 10w+ 级别图片数量设计。该函数跳过了耗时的 `eagle.item.getSelected()` API 调用、格式过滤遍历。直接复用内存中已有的 `totalFilteredItems` 数组，重新进行前缀和算术计算并立即重建虚拟 DOM（自带 500ms CSS 过渡动画），实现了十万图片级别下的“瞬时”无缝模式切换体验。
+- `reloadForModeSwitch()`: (v1.5.0 新增) **海量图片模式切换终极优化（快速路径）**。针对 10w+ 级别图片数量设计。该函数跳过了耗时的 API 调用和格式过滤，直接复用内存中已有的 `totalFilteredItems` 数组，重新进行前缀和算术计算。并且引入了**异步遮蔽机制**：执行 500ms 的淡出黑屏动画，在纯黑状态下静默完成 CSS 排版方向重建、虚拟 DOM 销毁重建、计算精确对齐坐标并调用 `jumpToPage`，最后淡入，提供电影级无缝转场体验。
 - `getCurrentImages()`: 获取当前图片列表（供PDF导出使用）
 ```
 
@@ -98,7 +98,8 @@ js/
 - isHorizontalMode(): 是否为横向模式（LTR 或 RTL）
 - isHorizontalLTRMode(): 是否为左到右横向模式
 - isHorizontalRTLMode(): 是否为右到左横向模式
-- setReadingMode(): 设置阅读模式（切换 CSS 类名 + 触发重新渲染）
+- applyBodyModeClasses(): 将决定排版方向的底层 CSS 切换逻辑独立出，供延时消隐黑屏时调用防穿帮
+- setReadingMode(): 设置阅读模式
 - toggleReadingMode(): 在三种模式间循环切换（含进度捕获）
 - getStandardSizeValue(): 根据当前模式返回标准尺寸
 ```

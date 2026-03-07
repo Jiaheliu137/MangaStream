@@ -23,6 +23,18 @@ export function isHorizontalRTLMode() {
     return currentMode === READING_MODES.HORIZONTAL_RTL;
 }
 
+export function applyBodyModeClasses() {
+    // 切换视图 body class，由 CSS 处理 flex-direction
+    document.body.classList.remove('horizontal-mode', 'horizontal-rtl-mode');
+
+    if (isHorizontalLTRMode()) {
+        document.body.classList.add('horizontal-mode');
+    } else if (isHorizontalRTLMode()) {
+        document.body.classList.add('horizontal-rtl-mode');
+        document.body.classList.add('horizontal-mode'); // Keep base horizontal styles
+    }
+}
+
 export function setReadingMode(mode) {
     if (Object.values(READING_MODES).includes(mode)) {
         if (currentMode === mode) return; // 无变化
@@ -30,17 +42,8 @@ export function setReadingMode(mode) {
         currentMode = mode;
         console.log('[ModeManager] 已切换阅读模式到:', currentMode);
 
-        // 切换视图 body class，由 CSS 处理 flex-direction
-        document.body.classList.remove('horizontal-mode', 'horizontal-rtl-mode');
-
-        if (isHorizontalLTRMode()) {
-            document.body.classList.add('horizontal-mode');
-        } else if (isHorizontalRTLMode()) {
-            document.body.classList.add('horizontal-rtl-mode');
-            document.body.classList.add('horizontal-mode'); // Keep base horizontal styles
-        }
-
         // 快速路径：复用已有数据，跳过 Eagle API 调用
+        // 注意：不在这里直接调用 applyBodyModeClasses，交由 reloadForModeSwitch 在黑屏后异步执行，防止穿帮。
         reloadForModeSwitch();
     }
 }

@@ -341,12 +341,12 @@ export function updateModeButtonIcon() {
 
     if (isHorizontalLTRMode()) {
         iconSpan.textContent = '⇒';
-        modeButton.title = '切换排版模式: 当前横向从左到右 (点击切换为横向从右到左)';
+        modeButton.title = '切换排版模式 (M): 当前横向从左到右 (点击切换为横排向从右到左)';
     } else if (isHorizontalRTLMode()) {
         iconSpan.textContent = '⇐';
-        modeButton.title = '切换排版模式: 当前横向从右到左 (点击切换为竖向)';
+        modeButton.title = '切换排版模式 (M): 当前横向从右到左 (点击切换为竖向)';
     } else {
         iconSpan.textContent = '⇕';
-        modeButton.title = '切换排版模式: 当前竖向 (点击切换为横向从左到右)';
+        modeButton.title = '切换排版模式 (M): 当前竖向 (点击切换为横排向从左到右)';
     }
 }

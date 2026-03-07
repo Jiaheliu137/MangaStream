@@ -2,7 +2,7 @@
 // 核心突破：预加载器创建的 Image 对象在 decode() 完成后，
 //           直接被塞进 DOM —— 同一个JS对象，零重复解码。
 import { SUPPORTED_IMAGE_FORMATS, AnimationConfig } from './constants.js';
-import { isHorizontalMode, isHorizontalRTLMode, getStandardSizeValue } from './modeManager.js';
+import { isHorizontalMode, isHorizontalRTLMode, getStandardSizeValue, applyBodyModeClasses } from './modeManager.js';
 import { resetContentPosition, applyContentPosition, getCurrentZoom } from './zoom.js';
 import { updateHorizontalScroll, updateVerticalScrollbar } from './scrollbar.js';
 import { throttle } from './utils.js';
@@ -359,6 +359,7 @@ function updateCurrentPositionIndicator() {
 
     const zoom = getCurrentZoom();
     const scrollPos = isHorizontalMode() ? Math.abs(viewportEl.scrollLeft) : viewportEl.scrollTop;
+
     const clientSize = isHorizontalMode() ? viewportEl.clientWidth : viewportEl.clientHeight;
     // 使用视口中心点来判断当前看到的是哪一张图
     const unscaledCenter = (scrollPos + clientSize / 2) / zoom;
@@ -456,12 +457,22 @@ export function jumpToPage(pageNumber) {
     const targetOffset = getOffsetForIndex(index);
     const zoom = getCurrentZoom();
 
-    // 缩放后的绝对像素偏移
-    const scaledOffset = targetOffset * zoom;
+    // 计算目标图片的整体主轴范围（高度/宽度）
+    const pageSize = getOffsetForIndex(Math.min(index + 1, totalFilteredItems.length)) - targetOffset;
+
+    // 视口的物理尺寸（屏幕大小，不受 zoom 影响）
+    const clientSize = isHorizontalMode() ? viewportEl.clientWidth : viewportEl.clientHeight;
+
+    // 核心物理运算：图片在虚拟空间的中心坐标 * 放大倍率 - 屏幕的一半 = 最终需要卷动的物理像素
+    // 这样能保证指定序号的图片中心恰好落在屏幕中心
+    const unscaledCenter = targetOffset + pageSize / 2;
+    const centeredOffset = Math.max(0, unscaledCenter * zoom - clientSize / 2);
 
     // 提前撑开虚拟 DOM 高/宽，防止浏览器因当前 DOM 高度不足而将 scrollLeft/scrollTop 强制截断 (Clamp to 0)
     if (spacerBottomEl) {
-        const totalSize = getTotalSize() * zoom;
+        // 重要修正：spacerBottomEl 在 image-container 内部，外层已经有 scale(zoom)
+        // 绝对不能再乘 zoom，否则总长度会变成 totalSize * zoom^2，在高度不够时导致 scrollTop 强制归零到第1页！
+        const totalSize = getTotalSize();
         if (isHorizontalMode()) {
             spacerBottomEl.style.width = `${totalSize}px`;
             // 强制触发浏览器同步重排 (Reflow)，更新底层 ScrollWidth 边界
@@ -475,9 +486,9 @@ export function jumpToPage(pageNumber) {
 
     if (isHorizontalMode()) {
         const rtlMultiplier = isHorizontalRTLMode() ? -1 : 1;
-        viewportEl.scrollLeft = scaledOffset * rtlMultiplier;
+        viewportEl.scrollLeft = centeredOffset * rtlMultiplier;
     } else {
-        viewportEl.scrollTop = scaledOffset;
+        viewportEl.scrollTop = centeredOffset;
     }
 
     // 同步渲染确保立刻显示 DOM 切片，而不是等待节流后的 scroll 事件
@@ -543,7 +554,8 @@ export function setImageFixedSize() {
 
 export function reloadForModeSwitch() {
     if (totalFilteredItems.length === 0) {
-        // 首次加载还没有数据，走正常流程
+        // 首次加载还没有数据或者没图片，确保基础样式应用后走正常流程
+        applyBodyModeClasses();
         loadSelectedItems();
         return;
     }
@@ -552,92 +564,94 @@ export function reloadForModeSwitch() {
     viewportEl = document.querySelector('#viewport');
     if (!containerEl || !viewportEl) return;
 
-    detachScrollListener();
-    containerEl.innerHTML = '';
-    renderedRange = { start: -1, end: -1 };
-    isRendering = false;
-    decodedImageCache.clear();
-    lastPreloadCenter = -1;
-
-    // 用新模式的主轴方向重新计算前缀和（纯算术，10w 张 < 50ms）
-    precalculateSizes();
-    preloadImages(0);
-
-    const stdSize = getStandardSizeValue();
-
-    spacerTopEl = document.createElement('div');
-    spacerTopEl.id = 'virtual-spacer-top';
-
-    contentWrapperEl = document.createElement('div');
-    contentWrapperEl.id = 'virtual-content';
-    contentWrapperEl.style.width = isHorizontalMode() ? 'auto' : '100%';
-    contentWrapperEl.style.height = isHorizontalMode() ? '100%' : 'auto';
-    contentWrapperEl.style.display = 'flex';
-    contentWrapperEl.style.flexDirection = isHorizontalMode() ? 'row' : 'column';
-    contentWrapperEl.style.alignItems = 'center';
-    contentWrapperEl.style.overflowAnchor = 'none';
-
-    spacerBottomEl = document.createElement('div');
-    spacerBottomEl.id = 'virtual-spacer-bottom';
-
-    if (isHorizontalMode()) {
-        spacerTopEl.style.height = `${stdSize}px`;
-        spacerBottomEl.style.height = `${stdSize}px`;
-    } else {
-        spacerTopEl.style.width = `${stdSize}px`;
-        spacerBottomEl.style.width = `${stdSize}px`;
-    }
-
-    containerEl.appendChild(spacerTopEl);
-    containerEl.appendChild(contentWrapperEl);
-    containerEl.appendChild(spacerBottomEl);
-
-    resetContentPosition();
-    attachScrollListener();
-
-    const targetJumpIndex = pendingModeSwitchIndex;
-    pendingModeSwitchIndex = -1;
-
-    if (targetJumpIndex !== -1) {
-        const jumpIndex = targetJumpIndex - 1;
-        const targetOffset = getOffsetForIndex(jumpIndex);
-        const pageSize = getOffsetForIndex(Math.min(jumpIndex + 1, totalFilteredItems.length)) - targetOffset;
-        const clientSize = isHorizontalMode() ? viewportEl.clientWidth : viewportEl.clientHeight;
-        const centeredOffset = Math.max(0, targetOffset + pageSize / 2 - clientSize / 2);
-
-        const totalSize = getTotalSize();
-        if (isHorizontalMode()) {
-            spacerBottomEl.style.width = `${totalSize}px`;
-            void viewportEl.scrollWidth;
-            const rtl = isHorizontalRTLMode() ? -1 : 1;
-            viewportEl.scrollLeft = centeredOffset * rtl;
-        } else {
-            spacerBottomEl.style.height = `${totalSize}px`;
-            void viewportEl.scrollHeight;
-            viewportEl.scrollTop = centeredOffset;
-        }
-    }
-
-    renderVisibleItems();
-
-    requestAnimationFrame(() => {
-        applyContentPosition();
-        updateHorizontalScroll(getCurrentZoom());
-    });
-
-    setTimeout(() => updateVerticalScrollbar(), 100);
-
-    // 动画：淡出完成后执行内容切换，然后淡入
+    // 先开始淡出（隐式遮蔽后续的跳动）
+    containerEl.classList.remove('fading-in'); // 防止之前的动画未结束
     containerEl.classList.add('fading-out');
 
+    // 延迟到淡出完成（屏幕变黑）后，再进行破坏性的 DOM 重建和页面跳转
     setTimeout(() => {
-        containerEl.classList.remove('fading-out');
-        containerEl.classList.add('fading-in');
+        // 在屏幕变黑时，切换真实的基础排版 CSS 属性（原从 setReadingMode 抽离）
+        applyBodyModeClasses();
 
-        // 淡入后清理class
-        setTimeout(() => {
-            containerEl.classList.remove('fading-in');
-        }, AnimationConfig.FADE_IN_DURATION);
+        detachScrollListener();
+        containerEl.innerHTML = '';
+        renderedRange = { start: -1, end: -1 };
+        isRendering = false;
+        decodedImageCache.clear();
+        lastPreloadCenter = -1;
+
+        // 用新模式的主轴方向重新计算前缀和（纯算术，10w 张 < 50ms）
+        precalculateSizes();
+        preloadImages(0);
+
+        const stdSize = getStandardSizeValue();
+
+        spacerTopEl = document.createElement('div');
+        spacerTopEl.id = 'virtual-spacer-top';
+
+        contentWrapperEl = document.createElement('div');
+        contentWrapperEl.id = 'virtual-content';
+        contentWrapperEl.style.width = isHorizontalMode() ? 'auto' : '100%';
+        contentWrapperEl.style.height = isHorizontalMode() ? '100%' : 'auto';
+        contentWrapperEl.style.display = 'flex';
+        contentWrapperEl.style.flexDirection = isHorizontalMode() ? 'row' : 'column';
+        contentWrapperEl.style.alignItems = 'center';
+        contentWrapperEl.style.overflowAnchor = 'none';
+
+        spacerBottomEl = document.createElement('div');
+        spacerBottomEl.id = 'virtual-spacer-bottom';
+
+        if (isHorizontalMode()) {
+            spacerTopEl.style.height = `${stdSize}px`;
+            spacerBottomEl.style.height = `${stdSize}px`;
+        } else {
+            spacerTopEl.style.width = `${stdSize}px`;
+            spacerBottomEl.style.width = `${stdSize}px`;
+        }
+
+        containerEl.appendChild(spacerTopEl);
+        containerEl.appendChild(contentWrapperEl);
+        containerEl.appendChild(spacerBottomEl);
+
+        resetContentPosition();
+        attachScrollListener();
+
+        const targetJumpIndex = pendingModeSwitchIndex;
+        pendingModeSwitchIndex = -1;
+
+        // 先渲染当前滚动位置的可见图片 (通常是0)
+        renderVisibleItems();
+
+        requestAnimationFrame(() => {
+            applyContentPosition();
+            updateHorizontalScroll(getCurrentZoom());
+
+            if (targetJumpIndex !== -1) {
+                // 核心修复：必须等待 applyContentPosition 构建了 transform: scale(zoom) 容器，
+                // 且浏览器重排完毕后，才能设置 scrollLeft / scrollTop，否则会被物理边界错误截断回第一页。
+                setTimeout(() => {
+                    jumpToPage(targetJumpIndex);
+
+                    // 跳转安稳落地后，开始淡入
+                    containerEl.classList.remove('fading-out');
+                    containerEl.classList.add('fading-in');
+                    setTimeout(() => {
+                        containerEl.classList.remove('fading-in');
+                    }, AnimationConfig.FADE_IN_DURATION);
+
+                }, 0);
+            } else {
+                // 如果没有跳转目标，也执行淡入
+                containerEl.classList.remove('fading-out');
+                containerEl.classList.add('fading-in');
+                setTimeout(() => {
+                    containerEl.classList.remove('fading-in');
+                }, AnimationConfig.FADE_IN_DURATION);
+            }
+        });
+
+        setTimeout(() => updateVerticalScrollbar(), 100);
+
     }, AnimationConfig.FADE_OUT_DURATION);
 }
 
@@ -713,37 +727,20 @@ export function displaySelectedItems(items, useAnimation = true) {
     const targetJumpIndex = pendingModeSwitchIndex;
     pendingModeSwitchIndex = -1;
 
-    // 如果是模式切换，在渲染前就把滚动位置设到目标页面
-    // 这样 renderVisibleItems 会直接计算出目标页附近的可见范围，无需闪烁跳转
-    if (targetJumpIndex !== -1) {
-        const jumpIndex = targetJumpIndex - 1; // 1-based → 0-based
-        const targetOffset = getOffsetForIndex(jumpIndex);
-        // 页码指示器使用视口中心点判断当前页，所以跳转时也要把目标页的中心对准视口中心
-        const pageSize = getOffsetForIndex(Math.min(jumpIndex + 1, totalFilteredItems.length)) - targetOffset;
-        const clientSize = isHorizontalMode() ? viewportEl.clientWidth : viewportEl.clientHeight;
-        const centeredOffset = Math.max(0, targetOffset + pageSize / 2 - clientSize / 2);
-
-        // 先撑开虚拟 DOM 的主轴尺寸，确保浏览器允许设置滚动位置
-        const totalSize = getTotalSize();
-        if (isHorizontalMode()) {
-            spacerBottomEl.style.width = `${totalSize}px`;
-            void viewportEl.scrollWidth; // 强制同步重排
-            const rtl = isHorizontalRTLMode() ? -1 : 1;
-            viewportEl.scrollLeft = centeredOffset * rtl;
-        } else {
-            spacerBottomEl.style.height = `${totalSize}px`;
-            void viewportEl.scrollHeight; // 强制同步重排
-            viewportEl.scrollTop = centeredOffset;
-        }
-    }
-
-    // 渲染当前滚动位置的可见图片（如果已跳转，则直接渲染目标页附近）
+    // 先渲染当前滚动位置的可见图片 (通常是0)
     renderVisibleItems();
 
     // 解决切换模式/重载后需要缩放或拖拽才应用 transform 约束的问题。
     requestAnimationFrame(() => {
         applyContentPosition();
         updateHorizontalScroll(getCurrentZoom());
+
+        if (targetJumpIndex !== -1) {
+            // 核心修复：必须等待 DOM 彻底应用新排版后，再物理滚回用户看到的页面。
+            setTimeout(() => {
+                jumpToPage(targetJumpIndex);
+            }, 0);
+        }
     });
 
     setTimeout(() => updateVerticalScrollbar(), 100);

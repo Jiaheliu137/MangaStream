@@ -138,11 +138,13 @@ body.horizontal-mode .image-divider {
 #image-container.fading-out {
     opacity: 0;
     transition: opacity 500ms ease-out;
+    pointer-events: none;
 }
 
 #image-container.fading-in {
     opacity: 1;
     transition: opacity 500ms ease-in;
+    pointer-events: none;
 }
 
 .image-wrapper {
