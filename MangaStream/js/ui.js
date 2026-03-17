@@ -33,9 +33,19 @@ export function toggleTheme() {
 export function initRefreshButton() {
     const refreshButton = document.getElementById('refresh-button');
     if (!refreshButton) return;
+    const refreshIcon = refreshButton.querySelector('.refresh-icon');
 
     refreshButton.addEventListener('click', () => {
+        // 添加旋转动画类
+        refreshButton.classList.add('refreshing');
+        
+        // 执行刷新操作
         loadSelectedItems();
+        
+        // 动画完成后移除类
+        setTimeout(() => {
+            refreshButton.classList.remove('refreshing');
+        }, 500);
     });
 }
 
@@ -43,7 +53,7 @@ export function initRefreshButton() {
 export function initPinButton() {
     const pinButton = document.getElementById('pin-button');
     if (!pinButton) return;
-    const pinImage = pinButton.querySelector('img');
+    const pinIcon = pinButton.querySelector('.pin-icon');
     let isPinned = false;
 
     pinButton.addEventListener('click', () => {
@@ -51,15 +61,15 @@ export function initPinButton() {
 
         if (isPinned) {
             pinButton.classList.add('active');
-            pinImage.src = './resources/pin-active.png';
-            pinImage.title = '取消固定窗口';
+            pinIcon.textContent = '📌';
+            pinButton.title = '取消固定窗口';
             eagle.window.setAlwaysOnTop(true)
                 .then(() => eagle.window.focus())
                 .catch(err => console.error('设置窗口置顶失败:', err));
         } else {
             pinButton.classList.remove('active');
-            pinImage.src = './resources/pin-deactive.png';
-            pinImage.title = '固定窗口在最前端';
+            pinIcon.textContent = '📌';
+            pinButton.title = '固定窗口在最前端';
             eagle.window.setAlwaysOnTop(false)
                 .then(() => eagle.window.focus())
                 .catch(err => console.error('取消窗口置顶失败:', err));

@@ -4,7 +4,7 @@
     "platform": "all",
     "arch": "all",
     "name": "MangaStream",
-    "logo": "/logo.png",
+    "logo": "logo.png",
     "keywords": [],
     "devTools": false,
     "main": {
