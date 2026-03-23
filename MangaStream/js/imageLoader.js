@@ -815,13 +815,19 @@ async function getFolderImages() {
         const allFolderIds = await getAllSubFolderIds(rootFolder.id);
         console.log(`找到 ${allFolderIds.length} 个文件夹`);
         
-        // 逐个文件夹获取图片并合并
-        let collectedItems = [];
-        for (const folderId of allFolderIds) {
-            const items = await eagle.item.get({
+        // 并行获取所有文件夹的图片
+        const promises = allFolderIds.map(folderId => 
+            eagle.item.get({
                 folders: [folderId],
                 limit: 10000
-            });
+            })
+        );
+        
+        const results = await Promise.all(promises);
+        
+        // 合并所有结果
+        let collectedItems = [];
+        for (const items of results) {
             if (items && items.length > 0) {
                 collectedItems.push(...items);
             }
