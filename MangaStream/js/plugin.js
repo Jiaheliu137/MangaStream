@@ -15,7 +15,8 @@ import {
     initRefreshButton,
     initPinButton,
     initThemeButton,
-    initModeButton
+    initModeButton,
+    initZoomButton
 } from './ui.js';
 import { initPDFExportButton } from './pdfExport.js';
 import { debounce } from './utils.js';
@@ -92,6 +93,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // 初始化模式与主题按钮
     initThemeButton();
     initModeButton();
+
+    // 初始化缩放按钮
+    initZoomButton();
 
     // 初始化完成后检查并处理滚动条状态
     setTimeout(() => {

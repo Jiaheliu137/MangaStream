@@ -88,7 +88,7 @@ export function initKeyboardShortcuts() {
             event.preventDefault();
 
             const oldZoom = getCurrentZoom();
-            let newZoom = oldZoom * 1.05;
+            let newZoom = oldZoom + 0.1;
             newZoom = Math.min(ZoomConfig.MAX_ZOOM, newZoom);
 
             applyZoomWithMouseCenter(newZoom, oldZoom);
@@ -100,7 +100,7 @@ export function initKeyboardShortcuts() {
             event.preventDefault();
 
             const oldZoom = getCurrentZoom();
-            let newZoom = oldZoom * 0.95;
+            let newZoom = oldZoom - 0.1;
             newZoom = Math.max(ZoomConfig.MIN_ZOOM, newZoom);
 
             applyZoomWithMouseCenter(newZoom, oldZoom);
@@ -133,6 +133,7 @@ export function initKeyboardShortcuts() {
             const exportButton = document.getElementById('export-pdf-button');
             const themeButton = document.getElementById('theme-button');
             const modeButton = document.getElementById('mode-button');
+            const zoomButton = document.getElementById('zoom-button');
 
             if (refreshButton) {
                 refreshButton.style.display = uiComponentsVisible ? 'flex' : 'none';
@@ -152,6 +153,10 @@ export function initKeyboardShortcuts() {
 
             if (modeButton) {
                 modeButton.style.display = uiComponentsVisible ? 'flex' : 'none';
+            }
+
+            if (zoomButton) {
+                zoomButton.style.display = uiComponentsVisible ? 'flex' : 'none';
             }
         }
 
@@ -359,4 +364,83 @@ export function updateModeButtonIcon() {
         iconSpan.textContent = '⇕';
         modeButton.title = '切换排版模式 (M): 当前竖向 (点击切换为横排向从左到右)';
     }
+}
+
+// 缩放步进值（10%）
+const ZOOM_BUTTON_STEP = 0.1;
+
+// 初始化缩放控制按钮
+export function initZoomButton() {
+    const zoomButton = document.getElementById('zoom-button');
+    if (!zoomButton || zoomButton._initialized) return;
+    zoomButton._initialized = true;
+
+    const zoomPlus = zoomButton.querySelector('.zoom-plus');
+    const zoomMinus = zoomButton.querySelector('.zoom-minus');
+    const zoomReset = zoomButton.querySelector('.zoom-reset');
+
+    // 点击放大
+    if (zoomPlus) {
+        zoomPlus.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const oldZoom = getCurrentZoom();
+            let newZoom = oldZoom + ZOOM_BUTTON_STEP;
+            newZoom = Math.min(ZoomConfig.MAX_ZOOM, newZoom);
+            if (newZoom !== oldZoom) {
+                applyZoomWithMouseCenter(newZoom, oldZoom);
+                showScrollbars();
+            }
+        });
+    }
+
+    // 点击重置为100%
+    if (zoomReset) {
+        zoomReset.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const oldZoom = getCurrentZoom();
+            if (Math.abs(oldZoom - 1.0) > 0.001) {
+                applyZoomWithMouseCenter(1.0, oldZoom);
+                showScrollbars();
+            }
+        });
+    }
+
+    // 点击缩小
+    if (zoomMinus) {
+        zoomMinus.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const oldZoom = getCurrentZoom();
+            let newZoom = oldZoom - ZOOM_BUTTON_STEP;
+            newZoom = Math.max(ZoomConfig.MIN_ZOOM, newZoom);
+            if (newZoom !== oldZoom) {
+                applyZoomWithMouseCenter(newZoom, oldZoom);
+                showScrollbars();
+            }
+        });
+    }
+
+    // 鼠标悬停在按钮上时，滚轮控制缩放
+    zoomButton.addEventListener('mouseenter', () => {
+        document.body.classList.add('zoom-button-hover');
+    });
+
+    zoomButton.addEventListener('mouseleave', () => {
+        document.body.classList.remove('zoom-button-hover');
+    });
+
+    // 滚轮事件 - 只在悬停时生效
+    zoomButton.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const delta = e.deltaY > 0 ? -ZOOM_BUTTON_STEP : ZOOM_BUTTON_STEP;
+        const oldZoom = getCurrentZoom();
+        let newZoom = oldZoom + delta;
+        newZoom = Math.max(ZoomConfig.MIN_ZOOM, Math.min(ZoomConfig.MAX_ZOOM, newZoom));
+
+        if (Math.abs(newZoom - oldZoom) > 0.001) {
+            applyZoomWithMouseCenter(newZoom, oldZoom);
+            showScrollbars();
+        }
+    }, { passive: false });
 }
