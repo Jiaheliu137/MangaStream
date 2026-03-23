@@ -771,22 +771,66 @@ function createErrorMessageWithRetry(message) {
     `;
 }
 
-// 获取当前选中文件夹的所有图片
+// 递归获取文件夹下所有子文件夹的ID（包括自己）
+// 使用 getAllHierarchy 参数获取完整层级结构
+async function getAllSubFolderIds(folderId) {
+    const collectedIds = [folderId];
+    
+    // 使用 get 获取文件夹，getAllHierarchy=true 返回完整层级结构
+    const folders = await eagle.folder.get({
+        ids: [folderId],
+        getAllHierarchy: true,
+        fullDetails: true
+    });
+    
+    if (!folders || folders.length === 0) {
+        return collectedIds;
+    }
+    
+    const folder = folders[0];
+    console.log(`文件夹 "${folder.name}" (ID: ${folder.id}) 的子文件夹数量:`, folder.children ? folder.children.length : 0);
+    
+    if (folder.children && folder.children.length > 0) {
+        for (const child of folder.children) {
+            const childIds = await getAllSubFolderIds(child.id);
+            collectedIds.push(...childIds);
+        }
+    }
+    
+    return collectedIds;
+}
+
+// 获取当前选中文件夹的所有图片（包括所有子文件夹）
 async function getFolderImages() {
     try {
         const folders = await eagle.folder.getSelected();
         if (!folders || folders.length === 0) {
             return null;
         }
-        // 获取第一个选中文件夹的所有图片（支持格式的图片）
-        const folderId = folders[0].id;
-        const items = await eagle.item.get({
-            folders: [folderId],
-            limit: 1000,
-            fullDetails: false
-        });
-        if (items && items.length > 0) {
-            return items;
+        
+        const rootFolder = folders[0];
+        console.log(`开始获取文件夹 "${rootFolder.name}" 下的所有图片...`);
+        
+        // 递归获取所有子文件夹ID
+        const allFolderIds = await getAllSubFolderIds(rootFolder.id);
+        console.log(`找到 ${allFolderIds.length} 个文件夹`);
+        
+        // 逐个文件夹获取图片并合并
+        let collectedItems = [];
+        for (const folderId of allFolderIds) {
+            const items = await eagle.item.get({
+                folders: [folderId],
+                limit: 10000
+            });
+            if (items && items.length > 0) {
+                collectedItems.push(...items);
+            }
+        }
+        
+        console.log(`在所有子文件夹中共找到 ${collectedItems.length} 张图片`);
+        
+        if (collectedItems.length > 0) {
+            return collectedItems;
         }
         return null;
     } catch (err) {
