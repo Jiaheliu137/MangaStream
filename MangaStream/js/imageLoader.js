@@ -771,6 +771,106 @@ function createErrorMessageWithRetry(message) {
     `;
 }
 
+// 获取当前选中文件夹的所有图片
+async function getFolderImages() {
+    try {
+        const folders = await eagle.folder.getSelected();
+        if (!folders || folders.length === 0) {
+            return null;
+        }
+        // 获取第一个选中文件夹的所有图片（支持格式的图片）
+        const folderId = folders[0].id;
+        const items = await eagle.item.get({
+            folders: [folderId],
+            limit: 1000,
+            fullDetails: false
+        });
+        if (items && items.length > 0) {
+            return items;
+        }
+        return null;
+    } catch (err) {
+        console.error('获取文件夹图片时出错:', err);
+        return null;
+    }
+}
+
+// 加载图片的核心逻辑
+async function loadImagesCore(items, useAnimation = true) {
+    const container = document.querySelector('#image-container');
+    if (!container) return;
+
+    if (!items || items.length === 0) {
+        container.innerHTML = '<p class="no-images">当前没有可显示的图片</p>';
+        return;
+    }
+    isFirstLoad = false;
+    displaySelectedItems(items, useAnimation);
+}
+
+// 处理初次加载（无选中图片时尝试获取文件夹图片）
+async function handleFirstLoad(container) {
+    container.innerHTML = '<div class="loading-message"><div class="spinner"></div>正在加载图片...</div>';
+
+    try {
+        let items = await eagle.item.getSelected();
+        
+        // 如果没有选中图片，尝试获取当前选中文件夹的图片
+        if (!items || items.length === 0) {
+            console.log('没有选中图片，尝试获取当前文件夹的图片...');
+            items = await getFolderImages();
+        }
+        
+        if (!items || items.length === 0) {
+            container.innerHTML = '<p class="no-images">请先在Eagle中选择一个或多个图片，或在左侧选中一个文件夹</p>';
+            return;
+        }
+        
+        await loadImagesCore(items, false);
+    } catch (err) {
+        console.error('获取选中项目时出错:', err);
+        container.innerHTML = createErrorMessageWithRetry('获取选中项目时出错');
+        const retryBtn = container.querySelector('#retry-button');
+        if (retryBtn) retryBtn.addEventListener('click', () => loadSelectedItems());
+    }
+}
+
+// 处理非初次加载（刷新操作）
+async function handleRefreshLoad(container) {
+    container.style.transition = `opacity ${AnimationConfig.FADE_OUT_DURATION}ms ease-out`;
+    container.style.opacity = '0';
+
+    setTimeout(async () => {
+        try {
+            let items = await eagle.item.getSelected();
+            
+            // 如果没有选中图片，尝试获取当前选中文件夹的图片
+            if (!items || items.length === 0) {
+                console.log('没有选中图片，尝试获取当前文件夹的图片...');
+                items = await getFolderImages();
+            }
+            
+            if (!items || items.length === 0) {
+                container.innerHTML = '<p class="no-images">请先在Eagle中选择一个或多个图片，或在左侧选中一个文件夹</p>';
+                container.style.opacity = '1';
+                return;
+            }
+            
+            container.innerHTML = '';
+            await loadImagesCore(items, true);
+            container.style.transition = `opacity ${AnimationConfig.FADE_IN_DURATION}ms ease-in`;
+            container.style.opacity = '1';
+            setTimeout(() => { container.style.transition = ''; }, AnimationConfig.FADE_IN_DURATION);
+        } catch (err) {
+            console.error('获取选中项目时出错:', err);
+            container.innerHTML = createErrorMessageWithRetry('获取选中项目时出错');
+            container.style.opacity = '1';
+            const retryBtn = container.querySelector('#retry-button');
+            if (retryBtn) retryBtn.addEventListener('click', () => loadSelectedItems());
+        }
+    }, AnimationConfig.FADE_OUT_DURATION);
+}
+
 export function loadSelectedItems() {
     console.log('loadSelectedItems');
 
@@ -787,45 +887,9 @@ export function loadSelectedItems() {
     }
 
     if (isFirstLoad) {
-        container.innerHTML = '<div class="loading-message"><div class="spinner"></div>正在加载图片...</div>';
-
-        eagle.item.getSelected().then(items => {
-            if (!items || items.length === 0) {
-                container.innerHTML = '<p class="no-images">请先在Eagle中选择一个或多个图片</p>';
-                return;
-            }
-            isFirstLoad = false;
-            displaySelectedItems(items, false);
-        }).catch(err => {
-            console.error('获取选中项目时出错:', err);
-            container.innerHTML = createErrorMessageWithRetry('获取选中项目时出错');
-            const retryBtn = container.querySelector('#retry-button');
-            if (retryBtn) retryBtn.addEventListener('click', () => loadSelectedItems());
-        });
+        handleFirstLoad(container);
     } else {
-        container.style.transition = `opacity ${AnimationConfig.FADE_OUT_DURATION}ms ease-out`;
-        container.style.opacity = '0';
-
-        setTimeout(() => {
-            eagle.item.getSelected().then(items => {
-                if (!items || items.length === 0) {
-                    container.innerHTML = '<p class="no-images">请先在Eagle中选择一个或多个图片</p>';
-                    container.style.opacity = '1';
-                    return;
-                }
-                container.innerHTML = '';
-                displaySelectedItems(items, true);
-                container.style.transition = `opacity ${AnimationConfig.FADE_IN_DURATION}ms ease-in`;
-                container.style.opacity = '1';
-                setTimeout(() => { container.style.transition = ''; }, AnimationConfig.FADE_IN_DURATION);
-            }).catch(err => {
-                console.error('获取选中项目时出错:', err);
-                container.innerHTML = createErrorMessageWithRetry('获取选中项目时出错');
-                container.style.opacity = '1';
-                const retryBtn = container.querySelector('#retry-button');
-                if (retryBtn) retryBtn.addEventListener('click', () => loadSelectedItems());
-            });
-        }, AnimationConfig.FADE_OUT_DURATION);
+        handleRefreshLoad(container);
     }
 }
 
