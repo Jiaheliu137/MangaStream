@@ -13,7 +13,8 @@
         "zoomReset": "Сбросить до 100%",
         "unpinWindow": "Открепить окно",
         "pinWindow": "Поверх всех окон",
-        "exportPDF": "Экспорт в PDF"
+        "exportPDF": "Экспорт в PDF",
+        "jumpPageHint": "Введите номер страницы и нажмите Enter для перехода"
     },
     "mode": {
         "vertical": "Вертикальная лента",

@@ -13,7 +13,8 @@
         "zoomReset": "Reset to 100%",
         "unpinWindow": "Unpin Window",
         "pinWindow": "Pin window to top",
-        "exportPDF": "Export to PDF"
+        "exportPDF": "Export to PDF",
+        "jumpPageHint": "Input page number and press Enter to jump"
     },
     "mode": {
         "vertical": "Vertical Scroll",

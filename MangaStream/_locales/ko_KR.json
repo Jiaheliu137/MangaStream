@@ -13,7 +13,8 @@
         "zoomReset": "100%로 재설정",
         "unpinWindow": "창 고정 해제",
         "pinWindow": "창을 항상 위에 고정",
-        "exportPDF": "PDF로 내보내기"
+        "exportPDF": "PDF로 내보내기",
+        "jumpPageHint": "페이지 번호를 입력하고 Enter를 눌러 이동"
     },
     "mode": {
         "vertical": "세로 스크롤",

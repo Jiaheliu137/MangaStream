@@ -263,7 +263,7 @@ body.horizontal-mode .image-divider {
 }
 
 #total-count-indicator:hover #total-count-text::after {
-    content: " ✎ 输入指定页码回车跳转";
+    content: " ✎ " attr(data-hover-text);
     opacity: 1;
 }
 

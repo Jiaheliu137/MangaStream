@@ -13,7 +13,8 @@
         "zoomReset": "Restablecer al 100%",
         "unpinWindow": "Desfijar ventana",
         "pinWindow": "Mantener ventana siempre visible",
-        "exportPDF": "Exportar a PDF"
+        "exportPDF": "Exportar a PDF",
+        "jumpPageHint": "Ingrese un número de página y presione Enter para saltar"
     },
     "mode": {
         "vertical": "Vertical",

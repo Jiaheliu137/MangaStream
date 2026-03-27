@@ -13,7 +13,8 @@
         "zoomReset": "重設為100%",
         "unpinWindow": "取消固定視窗",
         "pinWindow": "固定視窗在最前端",
-        "exportPDF": "匯出為PDF"
+        "exportPDF": "匯出為PDF",
+        "jumpPageHint": "輸入指定頁碼確認跳轉"
     },
     "mode": {
         "vertical": "直式瀑布流",

@@ -378,6 +378,7 @@ function updateCountIndicator(currentIndex, totalCount) {
 
         const textSpan = document.createElement('span');
         textSpan.id = 'total-count-text';
+        textSpan.setAttribute('data-hover-text', i18next.t('ui.jumpPageHint') || "输入指定页码回车跳转");
 
         const inputField = document.createElement('input');
         inputField.id = 'page-jump-input';

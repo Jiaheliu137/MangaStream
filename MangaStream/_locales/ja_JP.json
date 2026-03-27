@@ -13,7 +13,8 @@
         "zoomReset": "100%にリセット",
         "unpinWindow": "ウィンドウの固定を解除",
         "pinWindow": "ウィンドウを最前面に固定",
-        "exportPDF": "PDFとして書き出す"
+        "exportPDF": "PDFとして書き出す",
+        "jumpPageHint": "ページ番号を入力してEnterで移動"
     },
     "mode": {
         "vertical": "縦スクロール",
