@@ -130,7 +130,7 @@ function preloadImages(centerIndex) {
         // 创建一个完整配置好的 img 元素，后续可以直接塞进 DOM
         const img = new Image();
         img.className = 'seamless-image';
-        img.alt = item.name || '未命名';
+        img.alt = item.name || i18next.t('image.unnamed');
 
         if (isHorizontalMode()) {
             img.style.height = `${getStandardSizeValue()}px`;
@@ -680,7 +680,7 @@ export function displaySelectedItems(items, useAnimation = true) {
     if (!containerEl || !viewportEl) return;
 
     if (!items || items.length === 0) {
-        containerEl.innerHTML = '<p class="no-images">请先在Eagle中选择一个或多个图片</p>';
+        containerEl.innerHTML = `<p class="no-images">${i18next.t('image.noImages')}</p>`;
         containerEl.classList.add('visible');
         return;
     }
@@ -698,7 +698,7 @@ export function displaySelectedItems(items, useAnimation = true) {
     });
 
     if (filteredItems.length === 0) {
-        containerEl.innerHTML = '<p class="no-images">当前选择中没有支持的图片格式<br>支持的格式：JPG、JPEG、PNG、GIF、WEBP</p>';
+        containerEl.innerHTML = `<p class="no-images">${i18next.t('image.noSupportedFormat')}</p>`;
         containerEl.classList.add('visible');
         return;
     }
@@ -782,7 +782,7 @@ function createErrorMessageWithRetry(message) {
             <p>${message}</p>
             <button id="retry-button"
                     style="margin-top: 10px; padding: 8px 20px; background: #555; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;">
-                重试
+                ${i18next.t('image.retryButton')}
             </button>
         </div>
     `;
@@ -868,7 +868,7 @@ async function loadImagesCore(items, useAnimation = true) {
     if (!container) return;
 
     if (!items || items.length === 0) {
-        container.innerHTML = '<p class="no-images">当前没有可显示的图片</p>';
+        container.innerHTML = `<p class="no-images">${i18next.t('image.noImagesAvailable')}</p>`;
         return;
     }
     isFirstLoad = false;
@@ -877,7 +877,7 @@ async function loadImagesCore(items, useAnimation = true) {
 
 // 处理初次加载（无选中图片时尝试获取文件夹图片）
 async function handleFirstLoad(container) {
-    container.innerHTML = '<div class="loading-message"><div class="spinner"></div>正在加载图片...</div>';
+    container.innerHTML = `<div class="loading-message"><div class="spinner"></div>${i18next.t('image.loading')}</div>`;
 
     try {
         let items = await eagle.item.getSelected();
@@ -889,14 +889,14 @@ async function handleFirstLoad(container) {
         }
         
         if (!items || items.length === 0) {
-            container.innerHTML = '<p class="no-images">请先在Eagle中选择一个或多个图片，或在左侧选中一个文件夹</p>';
+            container.innerHTML = `<p class="no-images">${i18next.t('image.selectImageOrFolder')}</p>`;
             return;
         }
         
         await loadImagesCore(items, false);
     } catch (err) {
         console.error('获取选中项目时出错:', err);
-        container.innerHTML = createErrorMessageWithRetry('获取选中项目时出错');
+        container.innerHTML = createErrorMessageWithRetry(i18next.t('image.loadError'));
         const retryBtn = container.querySelector('#retry-button');
         if (retryBtn) retryBtn.addEventListener('click', () => loadSelectedItems());
     }
@@ -918,7 +918,7 @@ async function handleRefreshLoad(container) {
             }
             
             if (!items || items.length === 0) {
-                container.innerHTML = '<p class="no-images">请先在Eagle中选择一个或多个图片，或在左侧选中一个文件夹</p>';
+                container.innerHTML = `<p class="no-images">${i18next.t('image.selectImageOrFolder')}</p>`;
                 container.style.opacity = '1';
                 return;
             }
@@ -929,8 +929,8 @@ async function handleRefreshLoad(container) {
             container.style.opacity = '1';
             setTimeout(() => { container.style.transition = ''; }, AnimationConfig.FADE_IN_DURATION);
         } catch (err) {
-            console.error('获取选中项目时出错:', err);
-            container.innerHTML = createErrorMessageWithRetry('获取选中项目时出错');
+            console.error('Error loading selected items:', err);
+            container.innerHTML = createErrorMessageWithRetry(i18next.t('image.loadError'));
             container.style.opacity = '1';
             const retryBtn = container.querySelector('#retry-button');
             if (retryBtn) retryBtn.addEventListener('click', () => loadSelectedItems());

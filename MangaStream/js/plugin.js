@@ -16,7 +16,8 @@ import {
     initPinButton,
     initThemeButton,
     initModeButton,
-    initZoomButton
+    initZoomButton,
+    updateModeButtonIcon
 } from './ui.js';
 import { initPDFExportButton } from './pdfExport.js';
 import { debounce } from './utils.js';
@@ -43,6 +44,13 @@ eagle.onPluginCreate((plugin) => {
 
 eagle.onPluginRun(() => {
     console.log('eagle.onPluginRun');
+    
+    // 应用i18n翻译到HTML元素 (确保此阶段i18next已准备就绪)
+    applyI18nTitles();
+    
+    // 更新由JS动态控制的title
+    updateModeButtonIcon();
+    
     loadSelectedItems();
 });
 
@@ -58,6 +66,14 @@ eagle.onPluginHide(() => {
 eagle.onPluginBeforeExit((event) => {
     console.log('eagle.onPluginBeforeExit');
 });
+
+// 应用 data-i18n-title 翻译
+function applyI18nTitles() {
+    document.querySelectorAll('[data-i18n-title]').forEach(el => {
+        const key = el.getAttribute('data-i18n-title');
+        el.title = i18next.t(key);
+    });
+}
 
 // 文档加载完成后初始化
 document.addEventListener('DOMContentLoaded', () => {

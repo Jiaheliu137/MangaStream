@@ -62,17 +62,17 @@ export function initPinButton() {
         if (isPinned) {
             pinButton.classList.add('active');
             pinIcon.textContent = '📌';
-            pinButton.title = '取消固定窗口';
+            pinButton.title = i18next.t('ui.unpinWindow');
             eagle.window.setAlwaysOnTop(true)
                 .then(() => eagle.window.focus())
-                .catch(err => console.error('设置窗口置顶失败:', err));
+                .catch(err => console.error('Error setting window on top:', err));
         } else {
             pinButton.classList.remove('active');
             pinIcon.textContent = '📌';
-            pinButton.title = '固定窗口在最前端';
+            pinButton.title = i18next.t('ui.pinWindow');
             eagle.window.setAlwaysOnTop(false)
                 .then(() => eagle.window.focus())
-                .catch(err => console.error('取消窗口置顶失败:', err));
+                .catch(err => console.error('Error clearing window on top:', err));
         }
     });
 }
@@ -167,7 +167,7 @@ export function initKeyboardShortcuts() {
 
             if (typeof eagle !== 'undefined' && eagle.window && typeof eagle.window.hide === 'function') {
                 eagle.window.hide().catch(err => {
-                    console.error('隐藏窗口失败:', err);
+                    console.error('Error hiding window:', err);
                 });
             }
         }
@@ -266,7 +266,8 @@ export function showToast(message, type = 'success', duration = 3000, id = null)
 }
 
 // 显示导出进度
-export function showExportProgress(current, total, message = '正在导出PDF...') {
+export function showExportProgress(current, total, message) {
+    if (message === undefined) message = i18next.t('pdf.processing');
     let progressIndicator = document.getElementById('export-progress-indicator');
 
     if (!progressIndicator) {
@@ -325,13 +326,13 @@ export function updateModeButtonIcon() {
 
     if (isHorizontalLTRMode()) {
         iconSpan.textContent = '⇒';
-        modeButton.title = '切换排版模式 (M): 当前横向从左到右 (点击切换为横排向从右到左)';
+        modeButton.title = i18next.t('mode.switchToLTR');
     } else if (isHorizontalRTLMode()) {
         iconSpan.textContent = '⇐';
-        modeButton.title = '切换排版模式 (M): 当前横向从右到左 (点击切换为竖向)';
+        modeButton.title = i18next.t('mode.switchToRTL');
     } else {
         iconSpan.textContent = '⇕';
-        modeButton.title = '切换排版模式 (M): 当前竖向 (点击切换为横排向从左到右)';
+        modeButton.title = i18next.t('mode.switchToVertical');
     }
 }
 

@@ -58,11 +58,11 @@ export function toggleReadingMode() {
 
     let modeName = '';
     switch (newMode) {
-        case READING_MODES.VERTICAL: modeName = '竖屏瀑布流'; break;
-        case READING_MODES.HORIZONTAL_LTR: modeName = '横屏 (左到右)'; break;
-        case READING_MODES.HORIZONTAL_RTL: modeName = '横屏 (右到左)'; break;
+        case READING_MODES.VERTICAL: modeName = i18next.t('mode.vertical'); break;
+        case READING_MODES.HORIZONTAL_LTR: modeName = i18next.t('mode.horizontalLTR'); break;
+        case READING_MODES.HORIZONTAL_RTL: modeName = i18next.t('mode.horizontalRTL'); break;
     }
-    showToast(`当前模式: ${modeName}`, 'info', 1500, 'mode-toast');
+    showToast(i18next.t('mode.currentMode', { mode: modeName }), 'info', 1500, 'mode-toast');
 
     return newMode;
 }

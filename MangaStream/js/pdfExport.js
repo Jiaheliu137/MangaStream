@@ -33,7 +33,7 @@ async function loadAndResizeImage(imagePath, targetWidth) {
         };
 
         img.onerror = () => {
-            reject(new Error(`无法加载图片: ${imagePath}`));
+            reject(new Error(`${i18next.t('image.loadError')}: ${imagePath}`));
         };
 
         img.src = `file://${imagePath}`;
@@ -72,14 +72,14 @@ async function ensureJsPDFLoaded() {
 // 导出PDF - 流式处理，逐张添加图片后释放内存 (#12)
 async function exportToPDF(images) {
     try {
-        showExportProgress(0, images.length, '正在加载PDF库...');
+        showExportProgress(0, images.length, i18next.t('pdf.loading'));
         await ensureJsPDFLoaded();
 
         const { jsPDF } = window.jspdf;
         const targetWidth = STANDARD_MANGA_WIDTH;
         const pxToMm = 25.4 / 96;
 
-        showExportProgress(0, images.length, '正在处理图片...');
+        showExportProgress(0, images.length, i18next.t('pdf.processing'));
 
         // 流式处理：逐张加载、添加到 PDF、释放 (#12)
         let pdf = null;
@@ -91,7 +91,7 @@ async function exportToPDF(images) {
             if (!imagePath) continue;
 
             try {
-                showExportProgress(i + 1, images.length, '正在处理图片...');
+                showExportProgress(i + 1, images.length, i18next.t('pdf.processing'));
                 const imgData = await loadAndResizeImage(imagePath, targetWidth);
 
                 const widthMM = imgData.width * pxToMm;
@@ -130,7 +130,7 @@ async function exportToPDF(images) {
         }
 
         if (!pdf) {
-            throw new Error('没有成功处理的图片');
+            throw new Error(i18next.t('pdf.noProcessedImages'));
         }
 
         hideExportProgress();
@@ -140,12 +140,12 @@ async function exportToPDF(images) {
         const filename = `manga_${timestamp}.pdf`;
 
         pdf.save(filename);
-        showToast(`PDF导出成功！共 ${images.length} 张图片`, 'success');
+        showToast(i18next.t('pdf.exportSuccess', { count: images.length }), 'success');
 
     } catch (err) {
         hideExportProgress();
-        console.error('导出PDF失败:', err);
-        showToast('导出PDF失败: ' + err.message, 'error');
+        console.error('PDF export failed:', err);
+        showToast(i18next.t('pdf.exportFailed') + err.message, 'error');
     }
 }
 
@@ -154,11 +154,11 @@ export async function exportCurrentImagesToPDF() {
     const images = getCurrentImages();
 
     if (!images || images.length === 0) {
-        showToast('没有可导出的图片', 'error');
+        showToast(i18next.t('pdf.noImages'), 'error');
         return;
     }
 
-    const confirmed = confirm(`确定要将当前 ${images.length} 张图片导出为PDF吗？\n\n所有图片将统一宽度为800px，高度按比例缩放。\n每张图片独立成页，无留白。\n\n这可能需要一些时间，请耐心等待。`);
+    const confirmed = confirm(i18next.t('pdf.confirmExport', { count: images.length }));
 
     if (!confirmed) {
         return;
@@ -178,7 +178,7 @@ export function initPDFExportButton() {
             <path d="M13 12.67l2.59-2.58L17 11.5l-5 5-5-5 1.41-1.41L11 12.67V3h2v9.67z"/>
         </svg>
     `;
-    exportButton.title = '导出为PDF';
+    exportButton.setAttribute('data-i18n-title', 'ui.exportPDF');
 
     exportButton.addEventListener('click', exportCurrentImagesToPDF);
 

@@ -1,0 +1,47 @@
+{
+    "manifest": {
+        "app": {
+            "name": "MangaStream"
+        }
+    },
+    "ui": {
+        "switchLayoutMode": "レイアウト切替 (M)",
+        "switchBackground": "背景色切替 (T)",
+        "refresh": "画像を更新 (Ctrl+R)",
+        "pin": "ウィンドウを固定 (P)",
+        "zoomScroll": "スクロールまたはクリックでズーム",
+        "zoomReset": "100%にリセット",
+        "unpinWindow": "ウィンドウの固定を解除",
+        "pinWindow": "ウィンドウを最前面に固定",
+        "exportPDF": "PDFとして書き出す"
+    },
+    "mode": {
+        "vertical": "縦スクロール",
+        "horizontalLTR": "横読み (左から右)",
+        "horizontalRTL": "横読み (右から左)",
+        "currentMode": "現在のモード: {{mode}}",
+        "switchToLTR": "レイアウト切替 (M): 現在 左から右の横読み (クリックで右から左に切替)",
+        "switchToRTL": "レイアウト切替 (M): 現在 右から左の横読み (クリックで縦読みに切替)",
+        "switchToVertical": "レイアウト切替 (M): 現在 縦読み (クリックで左から右の横読みに切替)"
+    },
+    "image": {
+        "noImages": "Eagleで画像を選択してください",
+        "noSupportedFormat": "選択中にサポートされている画像形式がありません<br>対応形式：JPG・JPEG・PNG・GIF・WEBP",
+        "noImagesAvailable": "表示できる画像がありません",
+        "selectImageOrFolder": "Eagleで画像を選択するか、左側のパネルでフォルダを選択してください",
+        "loading": "画像を読み込み中...",
+        "loadError": "選択アイテムの取得中にエラーが発生しました",
+        "retryButton": "再試行",
+        "unnamed": "名称未設定"
+    },
+    "pdf": {
+        "loading": "PDFライブラリを読み込み中...",
+        "processing": "画像を処理中...",
+        "exportSuccess": "PDFの書き出しが完了しました！全 {{count}} 枚",
+        "exportFailed": "PDFの書き出しに失敗しました: ",
+        "noImages": "書き出せる画像がありません",
+        "confirmExport": "現在表示中の {{count}} 枚の画像をPDFに書き出しますか？\n\nすべての画像は幅800pxに統一され、高さは比率に合わせてスケールされます。\n各画像は独立したページに出力されます。\n\n処理に時間がかかる場合があります。しばらくお待ちください。",
+        "loadLibFailed": "PDFライブラリの読み込みに失敗しました（ローカルおよびCDNの両方）",
+        "noProcessedImages": "正常に処理できた画像がありませんでした"
+    }
+}

@@ -3,10 +3,12 @@
     "version": "1.5.0",
     "platform": "all",
     "arch": "all",
-    "name": "MangaStream",
+    "name": "{{manifest.app.name}}",
     "logo": "logo.png",
     "keywords": [],
     "devTools": false,
+    "fallbackLanguage": "zh_CN",
+    "languages": ["zh_CN", "ja_JP"],
     "main": {
         "url": "index.html",
         "width": 800,
