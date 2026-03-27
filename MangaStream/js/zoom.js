@@ -116,10 +116,6 @@ export function applyZoomWithMouseCenter(newZoom, oldZoom) {
     updateVerticalScrollbar();
     showZoomLevel(newZoom);
     showScrollbars();
-
-    setTimeout(() => {
-        document.body.classList.remove('scaling');
-    }, 100);
 }
 
 // 应用缩放

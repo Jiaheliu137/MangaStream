@@ -127,37 +127,12 @@ export function initKeyboardShortcuts() {
             event.preventDefault();
 
             uiComponentsVisible = !uiComponentsVisible;
+            const displayValue = uiComponentsVisible ? 'flex' : 'none';
 
-            const refreshButton = document.getElementById('refresh-button');
-            const pinButton = document.getElementById('pin-button');
-            const exportButton = document.getElementById('export-pdf-button');
-            const themeButton = document.getElementById('theme-button');
-            const modeButton = document.getElementById('mode-button');
-            const zoomButton = document.getElementById('zoom-button');
-
-            if (refreshButton) {
-                refreshButton.style.display = uiComponentsVisible ? 'flex' : 'none';
-            }
-
-            if (pinButton) {
-                pinButton.style.display = uiComponentsVisible ? 'flex' : 'none';
-            }
-
-            if (exportButton) {
-                exportButton.style.display = uiComponentsVisible ? 'flex' : 'none';
-            }
-
-            if (themeButton) {
-                themeButton.style.display = uiComponentsVisible ? 'flex' : 'none';
-            }
-
-            if (modeButton) {
-                modeButton.style.display = uiComponentsVisible ? 'flex' : 'none';
-            }
-
-            if (zoomButton) {
-                zoomButton.style.display = uiComponentsVisible ? 'flex' : 'none';
-            }
+            ['refresh-button', 'pin-button', 'export-pdf-button', 'theme-button', 'mode-button', 'zoom-button'].forEach(id => {
+                const btn = document.getElementById(id);
+                if (btn) btn.style.display = displayValue;
+            });
         }
 
         // M键：切换排版模式
@@ -195,12 +170,6 @@ export function initKeyboardShortcuts() {
                     console.error('隐藏窗口失败:', err);
                 });
             }
-        }
-
-        // Ctrl+R：刷新
-        if (event.ctrlKey && event.key === 'r') {
-            event.preventDefault();
-            loadSelectedItems();
         }
 
         // 键盘滚动控制 (W/S/A/D, Up/Down/Left/Right, Space)

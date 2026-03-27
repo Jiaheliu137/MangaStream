@@ -1,6 +1,6 @@
 // MangaStream 主入口文件 - 模块化重构版本
 // 导入所有模块
-import { initZoomFeature } from './zoom.js';
+import { initZoomFeature, getCurrentZoom } from './zoom.js';
 import {
     initCustomScrollbar,
     initVerticalScrollbar,
@@ -28,7 +28,7 @@ function initializePlugin() {
     const container = document.querySelector('#image-container');
     if (container) {
         setImageFixedSize();
-        updateHorizontalScroll(1.0);
+        updateHorizontalScroll(getCurrentZoom());
         updateVerticalScrollbar();
     }
 

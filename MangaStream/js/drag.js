@@ -80,12 +80,9 @@ export function initDragFeature() {
         if (isHorizontalMode()) {
             // 主轴是 X，副轴是 Y
             if (dx !== 0) {
-                const viewport = document.querySelector('#viewport');
-                if (viewport) {
-                    viewport.scrollBy(-dx, 0);
-                    showHorizontalScrollbar();
-                    hasMainMovement = true;
-                }
+                viewport.scrollBy(-dx, 0);
+                showHorizontalScrollbar();
+                hasMainMovement = true;
             }
             if (crossAxisEnabled && dy !== 0) {
                 hasCrossMovement = true;
@@ -126,11 +123,8 @@ export function initDragFeature() {
 
             if (dy !== 0) {
                 hasMainMovement = true;
-                const viewport = document.querySelector('#viewport');
-                if (viewport) {
-                    viewport.scrollBy(0, -dy);
-                    showVerticalScrollbar();
-                }
+                viewport.scrollBy(0, -dy);
+                showVerticalScrollbar();
             }
         }
 
