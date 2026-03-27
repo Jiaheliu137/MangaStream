@@ -1,6 +1,6 @@
 {
     "id": "c96edc90-b8cb-423e-8bab-52951bbe2ed2",
-    "version": "1.5.0",
+    "version": "1.5.1",
     "platform": "all",
     "arch": "all",
     "name": "{{manifest.app.name}}",
@@ -8,7 +8,7 @@
     "keywords": [],
     "devTools": false,
     "fallbackLanguage": "zh_CN",
-    "languages": ["zh_CN", "ja_JP"],
+    "languages": ["en", "ja_JP", "es_ES", "de_DE", "zh_TW", "zh_CN", "ko_KR", "ru_RU"],
     "main": {
         "url": "index.html",
         "width": 800,

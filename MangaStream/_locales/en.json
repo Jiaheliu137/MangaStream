@@ -1,0 +1,47 @@
+{
+    "manifest": {
+        "app": {
+            "name": "MangaStream"
+        }
+    },
+    "ui": {
+        "switchLayoutMode": "Switch Layout Mode (M)",
+        "switchBackground": "Switch Background Color (T)",
+        "refresh": "Refresh Images (Ctrl+R)",
+        "pin": "Pin Window (P)",
+        "zoomScroll": "Scroll or Click to Zoom",
+        "zoomReset": "Reset to 100%",
+        "unpinWindow": "Unpin Window",
+        "pinWindow": "Pin window to top",
+        "exportPDF": "Export to PDF"
+    },
+    "mode": {
+        "vertical": "Vertical Scroll",
+        "horizontalLTR": "Horizontal (Left to Right)",
+        "horizontalRTL": "Horizontal (Right to Left)",
+        "currentMode": "Current Mode: {{mode}}",
+        "switchToLTR": "Switch Mode (M): Now Horizontal LTR (Click for RTL)",
+        "switchToRTL": "Switch Mode (M): Now Horizontal RTL (Click for Vertical)",
+        "switchToVertical": "Switch Mode (M): Now Vertical (Click for Horizontal LTR)"
+    },
+    "image": {
+        "noImages": "Please select one or more images in Eagle first",
+        "noSupportedFormat": "No supported image format in the current selection<br>Supported formats: JPG, JPEG, PNG, GIF, WEBP",
+        "noImagesAvailable": "No images available to display",
+        "selectImageOrFolder": "Please select images or a folder in Eagle first",
+        "loading": "Loading images...",
+        "loadError": "Error fetching selected items",
+        "retryButton": "Retry",
+        "unnamed": "Unnamed"
+    },
+    "pdf": {
+        "loading": "Loading PDF library...",
+        "processing": "Processing images...",
+        "exportSuccess": "PDF exported successfully! Total {{count}} images",
+        "exportFailed": "Failed to export PDF: ",
+        "noImages": "No images available to export",
+        "confirmExport": "Are you sure you want to export the current {{count}} images to PDF?\n\nAll images will have a fixed width of 800px, keeping their aspect ratio.\nEach image will be on a separate page with no margins.\n\nThis might take some time, please be patient.",
+        "loadLibFailed": "Failed to load PDF library (Both local and CDN failed)",
+        "noProcessedImages": "No successfully processed images"
+    }
+}

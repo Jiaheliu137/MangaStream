@@ -1,0 +1,47 @@
+{
+    "manifest": {
+        "app": {
+            "name": "MangaStream"
+        }
+    },
+    "ui": {
+        "switchLayoutMode": "切換排版模式 (M)",
+        "switchBackground": "切換背景顏色 (T)",
+        "refresh": "重新載入圖片 (Ctrl+R)",
+        "pin": "固定視窗 (P)",
+        "zoomScroll": "滾輪或點擊縮放",
+        "zoomReset": "重設為100%",
+        "unpinWindow": "取消固定視窗",
+        "pinWindow": "固定視窗在最前端",
+        "exportPDF": "匯出為PDF"
+    },
+    "mode": {
+        "vertical": "直式瀑布流",
+        "horizontalLTR": "橫式 (左到右)",
+        "horizontalRTL": "橫式 (右到左)",
+        "currentMode": "目前模式: {{mode}}",
+        "switchToLTR": "切換排版模式 (M): 目前橫向從左到右 (點擊切換為橫向從右到左)",
+        "switchToRTL": "切換排版模式 (M): 目前橫向從右到左 (點擊切換為直向)",
+        "switchToVertical": "切換排版模式 (M): 目前直向 (點擊切換為橫向從左到右)"
+    },
+    "image": {
+        "noImages": "請先在 Eagle 中選取一或多個圖片",
+        "noSupportedFormat": "目前選取中沒有支援的圖片格式<br>支援的格式：JPG、JPEG、PNG、GIF、WEBP",
+        "noImagesAvailable": "目前沒有可顯示的圖片",
+        "selectImageOrFolder": "請先在 Eagle 中選取一或多個圖片，或在左側選取一個資料夾",
+        "loading": "正在載入圖片...",
+        "loadError": "取得選取項目時發生錯誤",
+        "retryButton": "重試",
+        "unnamed": "未命名"
+    },
+    "pdf": {
+        "loading": "正在載入 PDF 函式庫...",
+        "processing": "正在處理圖片...",
+        "exportSuccess": "PDF 匯出成功！共 {{count}} 張圖片",
+        "exportFailed": "匯出 PDF 失敗: ",
+        "noImages": "沒有可匯出的圖片",
+        "confirmExport": "確定要將目前 {{count}} 張圖片匯出為 PDF 嗎？\n\n所有圖片將統一寬度為 800px，高度按比例縮放。\n每張圖片獨立成頁，無留白。\n\n這可能需要一些時間，請耐心等候。",
+        "loadLibFailed": "無法載入 PDF 函式庫（本機和 CDN 皆失敗）",
+        "noProcessedImages": "沒有成功處理的圖片"
+    }
+}

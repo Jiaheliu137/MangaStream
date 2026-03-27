@@ -1,0 +1,47 @@
+{
+    "manifest": {
+        "app": {
+            "name": "MangaStream"
+        }
+    },
+    "ui": {
+        "switchLayoutMode": "레이아웃 모드 전환 (M)",
+        "switchBackground": "배경색 전환 (T)",
+        "refresh": "이미지 새로고침 (Ctrl+R)",
+        "pin": "창 고정 (P)",
+        "zoomScroll": "휠 또는 클릭하여 확대/축소",
+        "zoomReset": "100%로 재설정",
+        "unpinWindow": "창 고정 해제",
+        "pinWindow": "창을 항상 위에 고정",
+        "exportPDF": "PDF로 내보내기"
+    },
+    "mode": {
+        "vertical": "세로 스크롤",
+        "horizontalLTR": "가로 (좌에서 우)",
+        "horizontalRTL": "가로 (우에서 좌)",
+        "currentMode": "현재 모드: {{mode}}",
+        "switchToLTR": "모드 전환 (M): 현재 가로 좌→우 (클릭하여 우→좌로 전환)",
+        "switchToRTL": "모드 전환 (M): 현재 가로 우→좌 (클릭하여 세로로 전환)",
+        "switchToVertical": "모드 전환 (M): 현재 세로 (클릭하여 좌→우로 전환)"
+    },
+    "image": {
+        "noImages": "먼저 Eagle에서 하나 이상의 이미지를 선택하세요",
+        "noSupportedFormat": "현재 선택 항목에 지원되는 이미지 형식이 없습니다<br>지원되는 형식: JPG, JPEG, PNG, GIF, WEBP",
+        "noImagesAvailable": "표시할 이미지가 없습니다",
+        "selectImageOrFolder": "먼저 Eagle에서 이미지 또는 폴더를 선택하세요",
+        "loading": "이미지 불러오는 중...",
+        "loadError": "선택한 항목을 가져오는 중 오류 발생",
+        "retryButton": "재시도",
+        "unnamed": "제목 없음"
+    },
+    "pdf": {
+        "loading": "PDF 라이브러리 불러오는 중...",
+        "processing": "이미지 처리 중...",
+        "exportSuccess": "PDF 내보내기 성공! 총 {{count}}장의 이미지",
+        "exportFailed": "PDF 내보내기 실패: ",
+        "noImages": "내보낼 이미지가 없습니다",
+        "confirmExport": "현재 {{count}}장의 이미지를 PDF로 내보내시겠습니까?\n\n모든 이미지는 너비 800px 로 고정되며, 비율에 맞게 높이가 조절됩니다.\n각 이미지는 여백 없이 독립된 페이지에 배치됩니다.\n\n시간이 다소 소요될 수 있습니다.",
+        "loadLibFailed": "PDF 라이브러리를 불러올 수 없습니다 (로컬 및 CDN 모두 실패)",
+        "noProcessedImages": "성공적으로 처리된 이미지가 없습니다"
+    }
+}

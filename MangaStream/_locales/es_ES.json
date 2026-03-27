@@ -1,0 +1,47 @@
+{
+    "manifest": {
+        "app": {
+            "name": "MangaStream"
+        }
+    },
+    "ui": {
+        "switchLayoutMode": "Cambiar modo de diseño (M)",
+        "switchBackground": "Cambiar color de fondo (T)",
+        "refresh": "Actualizar imágenes (Ctrl+R)",
+        "pin": "Fijar ventana (P)",
+        "zoomScroll": "Desplazarse o hacer clic para zoom",
+        "zoomReset": "Restablecer al 100%",
+        "unpinWindow": "Desfijar ventana",
+        "pinWindow": "Mantener ventana siempre visible",
+        "exportPDF": "Exportar a PDF"
+    },
+    "mode": {
+        "vertical": "Vertical",
+        "horizontalLTR": "Horizontal (De Izquierda a Derecha)",
+        "horizontalRTL": "Horizontal (De Derecha a Izquierda)",
+        "currentMode": "Modo actual: {{mode}}",
+        "switchToLTR": "Cambiar modo (M): Ahora I->D (Clic para D->I)",
+        "switchToRTL": "Cambiar modo (M): Ahora D->I (Clic para Vertical)",
+        "switchToVertical": "Cambiar modo (M): Ahora Vertical (Clic para I->D)"
+    },
+    "image": {
+        "noImages": "Por favor, seleccione primero una o más imágenes en Eagle",
+        "noSupportedFormat": "No hay formato compatible en la selección actual<br>Formatos: JPG, JPEG, PNG, GIF, WEBP",
+        "noImagesAvailable": "No hay imágenes disponibles para mostrar",
+        "selectImageOrFolder": "Por favor, seleccione primero imágenes o una carpeta en Eagle",
+        "loading": "Cargando imágenes...",
+        "loadError": "Error al obtener los elementos seleccionados",
+        "retryButton": "Reintentar",
+        "unnamed": "Sin nombre"
+    },
+    "pdf": {
+        "loading": "Cargando biblioteca PDF...",
+        "processing": "Procesando imágenes...",
+        "exportSuccess": "¡Exportación a PDF exitosa! Total de {{count}} imágenes",
+        "exportFailed": "Error al exportar a PDF: ",
+        "noImages": "No hay imágenes para exportar",
+        "confirmExport": "¿Está seguro de querer exportar las {{count}} imágenes actuales a PDF?\n\nTodas tendrán un ancho fijo de 800px, según su proporción.\nCada imagen irá en una página separada sin márgenes.\n\nEsto tomará algo de tiempo, tenga paciencia.",
+        "loadLibFailed": "No se pudo cargar la biblioteca PDF (Error local y en CDN)",
+        "noProcessedImages": "No hay imágenes procesadas exitosamente"
+    }
+}

@@ -1,0 +1,47 @@
+{
+    "manifest": {
+        "app": {
+            "name": "MangaStream"
+        }
+    },
+    "ui": {
+        "switchLayoutMode": "Layout-Modus wechseln (M)",
+        "switchBackground": "Hintergrundfarbe wechseln (T)",
+        "refresh": "Bilder aktualisieren (Strg+R)",
+        "pin": "Fenster anheften (P)",
+        "zoomScroll": "Scrollen oder Klicken zum Zoomen",
+        "zoomReset": "Auf 100% zurücksetzen",
+        "unpinWindow": "Fenster lösen",
+        "pinWindow": "Fenster immer im Vordergrund behalten",
+        "exportPDF": "Als PDF exportieren"
+    },
+    "mode": {
+        "vertical": "Vertikales Scrollen",
+        "horizontalLTR": "Horizontal (Links nach Rechts)",
+        "horizontalRTL": "Horizontal (Rechts nach Links)",
+        "currentMode": "Aktueller Modus: {{mode}}",
+        "switchToLTR": "Modus wechseln (M): Aktuell L->R (Klicken für R->L)",
+        "switchToRTL": "Modus wechseln (M): Aktuell R->L (Klicken für Vertikal)",
+        "switchToVertical": "Modus wechseln (M): Aktuell Vertikal (Klicken für L->R)"
+    },
+    "image": {
+        "noImages": "Bitte wählen Sie zuerst eines oder mehrere Bilder in Eagle aus",
+        "noSupportedFormat": "Kein unterstütztes Bildformat in der aktuellen Auswahl<br>Unterstützte Formate: JPG, JPEG, PNG, GIF, WEBP",
+        "noImagesAvailable": "Keine Bilder zur Anzeige verfügbar",
+        "selectImageOrFolder": "Bitte wählen Sie zuerst Bilder oder einen Ordner in Eagle aus",
+        "loading": "Bilder werden geladen...",
+        "loadError": "Fehler beim Abrufen der ausgewählten Elemente",
+        "retryButton": "Erneut versuchen",
+        "unnamed": "Unbenannt"
+    },
+    "pdf": {
+        "loading": "PDF-Bibliothek wird geladen...",
+        "processing": "Bilder werden verarbeitet...",
+        "exportSuccess": "PDF-Export erfolgreich! Insgesamt {{count}} Bilder",
+        "exportFailed": "PDF-Export fehlgeschlagen: ",
+        "noImages": "Keine Bilder zum Exportieren verfügbar",
+        "confirmExport": "Möchten Sie die aktuellen {{count}} Bilder wirklich als PDF exportieren?\n\nAlle Bilder erhalten eine feste Breite von 800px und behalten ihr Seitenverhältnis.\nJedes Bild wird ohne Ränder auf einer eigenen Seite platziert.\n\nDies kann einige Zeit dauern, bitte haben Sie Geduld.",
+        "loadLibFailed": "Fehler beim Laden der PDF-Bibliothek (Lokal und CDN fehlgeschlagen)",
+        "noProcessedImages": "Keine erfolgreich verarbeiteten Bilder"
+    }
+}
