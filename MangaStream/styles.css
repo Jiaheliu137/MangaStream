@@ -79,7 +79,18 @@ body.dragging * {
 }
 
 body.resizing #image-container {
-    transition: none !important;
+    animation: none !important;
+}
+
+/* ==================== 淡入淡出动画 ==================== */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+@keyframes fadeOut {
+    from { opacity: 1; }
+    to   { opacity: 0; }
 }
 
 /* ==================== 图片容器 ==================== */
@@ -98,6 +109,21 @@ body.resizing #image-container {
     user-select: none;
     will-change: transform;
     backface-visibility: hidden;
+    opacity: 0;
+}
+
+#image-container.visible {
+    opacity: 1;
+}
+
+#image-container.fading-in {
+    animation: fadeIn 500ms ease forwards;
+    pointer-events: none;
+}
+
+#image-container.fading-out {
+    animation: fadeOut 500ms ease forwards;
+    pointer-events: none;
 }
 
 /* 横向画卷模式样式覆盖 */
@@ -135,17 +161,6 @@ body.horizontal-mode .image-divider {
     background-color: transparent;
 }
 
-#image-container.fading-out {
-    opacity: 0;
-    transition: opacity 500ms ease-out;
-    pointer-events: none;
-}
-
-#image-container.fading-in {
-    opacity: 1;
-    transition: opacity 500ms ease-in;
-    pointer-events: none;
-}
 
 .image-wrapper {
     width: 100%;

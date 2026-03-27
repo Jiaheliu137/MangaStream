@@ -28,9 +28,8 @@ export function setCurrentOffset(x, y) {
 
 // 应用内容的位置和缩放变换
 export function applyContentPosition() {
-    const imageWrapper = document.querySelector('.image-wrapper');
     const viewport = document.querySelector('#viewport');
-    if (!imageWrapper || !viewport) return;
+    if (!viewport) return;
 
     const windowSize = isHorizontalMode() ? window.innerHeight : window.innerWidth;
 

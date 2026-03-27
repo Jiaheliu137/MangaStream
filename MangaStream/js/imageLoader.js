@@ -564,12 +564,15 @@ export function reloadForModeSwitch() {
     viewportEl = document.querySelector('#viewport');
     if (!containerEl || !viewportEl) return;
 
-    // 先开始淡出（隐式遮蔽后续的跳动）
-    containerEl.classList.remove('fading-in'); // 防止之前的动画未结束
+    // 淡出：keyframes 动画从 1→0，结束后 forwards 保持 opacity:0
+    containerEl.classList.remove('visible');
     containerEl.classList.add('fading-out');
 
     // 延迟到淡出完成（屏幕变黑）后，再进行破坏性的 DOM 重建和页面跳转
     setTimeout(() => {
+        // 淡出完成，移除动画类（base opacity:0 维持黑屏）
+        containerEl.classList.remove('fading-out');
+
         // 在屏幕变黑时，切换真实的基础排版 CSS 属性（原从 setReadingMode 抽离）
         applyBodyModeClasses();
 
@@ -580,11 +583,17 @@ export function reloadForModeSwitch() {
         decodedImageCache.clear();
         lastPreloadCenter = -1;
 
+        const targetJumpIndex = pendingModeSwitchIndex;
+        pendingModeSwitchIndex = -1;
+
         // 用新模式的主轴方向重新计算前缀和（纯算术，10w 张 < 50ms）
         precalculateSizes();
-        preloadImages(0);
+
+        // 从目标位置附近预加载，切换后目标页面图片优先解码
+        preloadImages(targetJumpIndex > 0 ? targetJumpIndex - 1 : 0);
 
         const stdSize = getStandardSizeValue();
+        const totalSize = getTotalSize();
 
         spacerTopEl = document.createElement('div');
         spacerTopEl.id = 'virtual-spacer-top';
@@ -604,9 +613,13 @@ export function reloadForModeSwitch() {
         if (isHorizontalMode()) {
             spacerTopEl.style.height = `${stdSize}px`;
             spacerBottomEl.style.height = `${stdSize}px`;
+            // 预先撑开完整主轴尺寸，保证 scrollLeft 目标值不被浏览器截断
+            spacerBottomEl.style.width = `${totalSize}px`;
         } else {
             spacerTopEl.style.width = `${stdSize}px`;
             spacerBottomEl.style.width = `${stdSize}px`;
+            // 预先撑开完整主轴尺寸，保证 scrollTop 目标值不被浏览器截断
+            spacerBottomEl.style.height = `${totalSize}px`;
         }
 
         containerEl.appendChild(spacerTopEl);
@@ -616,38 +629,43 @@ export function reloadForModeSwitch() {
         resetContentPosition();
         attachScrollListener();
 
-        const targetJumpIndex = pendingModeSwitchIndex;
-        pendingModeSwitchIndex = -1;
-
-        // 先渲染当前滚动位置的可见图片 (通常是0)
-        renderVisibleItems();
-
         requestAnimationFrame(() => {
+            // applyContentPosition 现已无需 image-wrapper 守卫，直接设置 transform
             applyContentPosition();
+
+            // 强制同步重排：让浏览器以 scale(zoom) 后的视觉尺寸更新滚动边界，
+            // 此后设置的 scrollTop/Left 才不会被物理边界截断。
+            void (isHorizontalMode() ? viewportEl.scrollWidth : viewportEl.scrollHeight);
+
+            // 直接定位到目标页——滚动位置在第一次 renderVisibleItems 之前就已就绪，
+            // 内容永远不会经过位置 0，彻底消除切换时的画面跳动。
+            if (targetJumpIndex !== -1) {
+                const index = targetJumpIndex - 1; // 转为 0-based
+                const targetOffset = getOffsetForIndex(index);
+                const zoom = getCurrentZoom();
+                const pageSize = getOffsetForIndex(Math.min(index + 1, totalFilteredItems.length)) - targetOffset;
+                const clientSize = isHorizontalMode() ? viewportEl.clientWidth : viewportEl.clientHeight;
+                const centeredOffset = Math.max(0, (targetOffset + pageSize / 2) * zoom - clientSize / 2);
+
+                if (isHorizontalMode()) {
+                    viewportEl.scrollLeft = centeredOffset * (isHorizontalRTLMode() ? -1 : 1);
+                } else {
+                    viewportEl.scrollTop = centeredOffset;
+                }
+            }
+
+            // 在已定位好的滚动位置上渲染，首帧即目标页
+            renderVisibleItems();
+
+            // renderVisibleItems 创建了 image-wrapper 后，滚动条才能正确计算尺寸
             updateHorizontalScroll(getCurrentZoom());
 
-            if (targetJumpIndex !== -1) {
-                // 核心修复：必须等待 applyContentPosition 构建了 transform: scale(zoom) 容器，
-                // 且浏览器重排完毕后，才能设置 scrollLeft / scrollTop，否则会被物理边界错误截断回第一页。
-                setTimeout(() => {
-                    jumpToPage(targetJumpIndex);
-
-                    // 跳转安稳落地后，开始淡入
-                    containerEl.classList.remove('fading-out');
-                    containerEl.classList.add('fading-in');
-                    setTimeout(() => {
-                        containerEl.classList.remove('fading-in');
-                    }, AnimationConfig.FADE_IN_DURATION);
-
-                }, 0);
-            } else {
-                // 如果没有跳转目标，也执行淡入
-                containerEl.classList.remove('fading-out');
-                containerEl.classList.add('fading-in');
-                setTimeout(() => {
-                    containerEl.classList.remove('fading-in');
-                }, AnimationConfig.FADE_IN_DURATION);
-            }
+            // 内容已就位，淡入：keyframes 动画从 0→1
+            containerEl.classList.add('fading-in');
+            setTimeout(() => {
+                containerEl.classList.remove('fading-in');
+                containerEl.classList.add('visible');
+            }, AnimationConfig.FADE_IN_DURATION);
         });
 
         setTimeout(() => updateVerticalScrollbar(), 100);
@@ -663,6 +681,7 @@ export function displaySelectedItems(items, useAnimation = true) {
 
     if (!items || items.length === 0) {
         containerEl.innerHTML = '<p class="no-images">请先在Eagle中选择一个或多个图片</p>';
+        containerEl.classList.add('visible');
         return;
     }
 
@@ -680,6 +699,7 @@ export function displaySelectedItems(items, useAnimation = true) {
 
     if (filteredItems.length === 0) {
         containerEl.innerHTML = '<p class="no-images">当前选择中没有支持的图片格式<br>支持的格式：JPG、JPEG、PNG、GIF、WEBP</p>';
+        containerEl.classList.add('visible');
         return;
     }
 
@@ -735,12 +755,17 @@ export function displaySelectedItems(items, useAnimation = true) {
         applyContentPosition();
         updateHorizontalScroll(getCurrentZoom());
 
-        if (targetJumpIndex !== -1) {
-            // 核心修复：必须等待 DOM 彻底应用新排版后，再物理滚回用户看到的页面。
-            setTimeout(() => {
+        // 第二个 rAF：布局稳定后跳转并淡入，与 reloadForModeSwitch 保持一致。
+        requestAnimationFrame(() => {
+            if (targetJumpIndex !== -1) {
                 jumpToPage(targetJumpIndex);
-            }, 0);
-        }
+            }
+            containerEl.classList.add('fading-in');
+            setTimeout(() => {
+                containerEl.classList.remove('fading-in');
+                containerEl.classList.add('visible');
+            }, AnimationConfig.FADE_IN_DURATION);
+        });
     });
 
     setTimeout(() => updateVerticalScrollbar(), 100);
@@ -748,14 +773,6 @@ export function displaySelectedItems(items, useAnimation = true) {
     // 初始化页码指示器（仅首次创建时）
     if (document.getElementById('total-count-text') == null) {
         updateCountIndicator(1, totalFilteredItems.length);
-    }
-
-    if (useAnimation) {
-        setTimeout(() => {
-            containerEl.classList.remove('fading-out');
-            containerEl.classList.add('fading-in');
-            setTimeout(() => containerEl.classList.remove('fading-in'), AnimationConfig.FADE_IN_DURATION);
-        }, 100);
     }
 }
 
