@@ -6,15 +6,17 @@
     },
     "ui": {
         "switchLayoutMode": "レイアウト切替 (M)",
-        "switchBackground": "背景色切替 (T)",
+        "switchBackground": "テーマ切替 (B)",
         "refresh": "画像を更新 (Ctrl+R)",
-        "pin": "ウィンドウを固定 (P)",
+        "pin": "ウィンドウを固定 (Shift+T)",
         "zoomScroll": "スクロールまたはクリックでズーム",
         "zoomReset": "100%にリセット",
-        "unpinWindow": "ウィンドウの固定を解除",
-        "pinWindow": "ウィンドウを最前面に固定",
+        "unpinWindow": "ウィンドウの固定を解除 (Shift+T)",
+        "pinWindow": "ウィンドウを最前面に固定 (Shift+T)",
         "exportPDF": "PDFとして書き出す",
-        "jumpPageHint": "ページ番号を入力してEnterで移動"
+        "jumpPageHint": "ページ番号を入力してEnterで移動",
+        "minimize": "最小化",
+        "close": "閉じる"
     },
     "mode": {
         "vertical": "縦スクロール",

@@ -6,15 +6,17 @@
     },
     "ui": {
         "switchLayoutMode": "切換排版模式 (M)",
-        "switchBackground": "切換背景顏色 (T)",
+        "switchBackground": "切換主題色 (B)",
         "refresh": "重新載入圖片 (Ctrl+R)",
-        "pin": "固定視窗 (P)",
+        "pin": "固定視窗 (Shift+T)",
         "zoomScroll": "滾輪或點擊縮放",
         "zoomReset": "重設為100%",
-        "unpinWindow": "取消固定視窗",
-        "pinWindow": "固定視窗在最前端",
+        "unpinWindow": "取消固定視窗 (Shift+T)",
+        "pinWindow": "固定視窗在最前端 (Shift+T)",
         "exportPDF": "匯出為PDF",
-        "jumpPageHint": "輸入指定頁碼確認跳轉"
+        "jumpPageHint": "輸入指定頁碼確認跳轉",
+        "minimize": "最小化",
+        "close": "關閉"
     },
     "mode": {
         "vertical": "直式瀑布流",

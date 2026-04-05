@@ -1,6 +1,6 @@
 {
     "id": "c96edc90-b8cb-423e-8bab-52951bbe2ed2",
-    "version": "1.5.1",
+    "version": "1.5.2",
     "platform": "all",
     "arch": "all",
     "name": "{{manifest.app.name}}",
@@ -10,8 +10,12 @@
     "fallbackLanguage": "zh_CN",
     "languages": ["en", "ja_JP", "es_ES", "de_DE", "zh_TW", "zh_CN", "ko_KR", "ru_RU"],
     "main": {
+        "frame": false,
+        "vibrancy": true,
         "url": "index.html",
-        "width": 800,
-        "height": 600
+        "width": 1120,
+        "height": 700,
+        "minWidth": 800,
+        "minHeight": 600
     }
 }

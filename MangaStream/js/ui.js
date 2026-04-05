@@ -8,26 +8,51 @@ import { ZoomConfig } from './constants.js';
 // UI组件可见性状态
 let uiComponentsVisible = true;
 
-// 主题状态
-const themes = ['theme-dark', 'theme-pure-black', 'theme-light'];
+// Eagle 主题映射：eagle.app.theme 值 -> CSS 类名
+const EAGLE_THEME_MAP = {
+    'Auto': null, // 由 isDarkColors 决定
+    'LIGHT': 'theme-light',
+    'LIGHTGRAY': 'theme-lightgray',
+    'GRAY': 'theme-gray',
+    'DARK': 'theme-dark',
+    'BLUE': 'theme-blue',
+    'PURPLE': 'theme-purple'
+};
+
+// 所有可切换的主题
+const ALL_THEMES = ['theme-light', 'theme-lightgray', 'theme-gray', 'theme-dark', 'theme-blue', 'theme-purple'];
 let currentThemeIndex = 0;
 
 import { toggleReadingMode, isHorizontalMode, isHorizontalLTRMode, isHorizontalRTLMode } from './modeManager.js';
 
-export function toggleTheme() {
-    document.body.classList.remove(themes[currentThemeIndex]);
-    currentThemeIndex = (currentThemeIndex + 1) % themes.length;
-    document.body.classList.add(themes[currentThemeIndex]);
+// 应用主题（内部通用函数）
+function applyTheme(themeClass) {
+    // 移除所有主题类
+    ALL_THEMES.forEach(t => document.body.classList.remove(t));
+    document.body.classList.add(themeClass);
 
-    const iconData = ['◐', '✰', '☀'];
-    const themeButton = document.getElementById('theme-button');
-    if (themeButton) {
-        const iconSpan = themeButton.querySelector('.theme-icon');
-        if (iconSpan) {
-            iconSpan.textContent = iconData[currentThemeIndex];
-        }
-    }
+    // 同步 currentThemeIndex
+    const idx = ALL_THEMES.indexOf(themeClass);
+    if (idx !== -1) currentThemeIndex = idx;
+
+    // 更新面板选中状态
+    updateSwatchActive();
 }
+
+// 从 Eagle 同步主题
+export function syncEagleTheme() {
+    if (typeof eagle === 'undefined' || !eagle.app) return;
+    const eagleTheme = eagle.app.theme;
+    let themeClass = EAGLE_THEME_MAP[eagleTheme];
+
+    // Auto 模式：根据系统深色判断
+    if (!themeClass) {
+        themeClass = eagle.app.isDarkColors() ? 'theme-gray' : 'theme-light';
+    }
+
+    applyTheme(themeClass);
+}
+
 
 // 初始化刷新按钮
 export function initRefreshButton() {
@@ -49,11 +74,12 @@ export function initRefreshButton() {
     });
 }
 
-// 初始化固定按钮
+// 初始化固定按钮（标题栏中的pin按钮）
 export function initPinButton() {
-    const pinButton = document.getElementById('pin-button');
+    const pinButton = document.getElementById('titlebar-pin');
     if (!pinButton) return;
-    const pinIcon = pinButton.querySelector('.pin-icon');
+    const pinNormal = pinButton.querySelector('.pin-icon-normal');
+    const pinPinned = pinButton.querySelector('.pin-icon-pinned');
     let isPinned = false;
 
     pinButton.addEventListener('click', () => {
@@ -61,20 +87,124 @@ export function initPinButton() {
 
         if (isPinned) {
             pinButton.classList.add('active');
-            pinIcon.textContent = '📌';
             pinButton.title = i18next.t('ui.unpinWindow');
+            if (pinNormal) pinNormal.style.display = 'none';
+            if (pinPinned) pinPinned.style.display = '';
             eagle.window.setAlwaysOnTop(true)
                 .then(() => eagle.window.focus())
                 .catch(err => console.error('Error setting window on top:', err));
         } else {
             pinButton.classList.remove('active');
-            pinIcon.textContent = '📌';
             pinButton.title = i18next.t('ui.pinWindow');
+            if (pinNormal) pinNormal.style.display = '';
+            if (pinPinned) pinPinned.style.display = 'none';
             eagle.window.setAlwaysOnTop(false)
                 .then(() => eagle.window.focus())
                 .catch(err => console.error('Error clearing window on top:', err));
         }
     });
+}
+
+// 更新最大化按钮图标（全屏 vs 还原）
+function updateMaximizeIcon() {
+    const maximizeIcon = document.querySelector('#titlebar-maximize .maximize-icon');
+    const restoreIcon = document.querySelector('#titlebar-maximize .restore-icon');
+    if (!maximizeIcon || !restoreIcon) return;
+
+    if (document.fullscreenElement) {
+        maximizeIcon.style.display = 'none';
+        restoreIcon.style.display = '';
+    } else {
+        maximizeIcon.style.display = '';
+        restoreIcon.style.display = 'none';
+    }
+}
+
+// 初始化标题栏按钮（最小化、最大化、关闭）
+export function initTitlebar() {
+    const minimizeBtn = document.getElementById('titlebar-minimize');
+    const maximizeBtn = document.getElementById('titlebar-maximize');
+    const closeBtn = document.getElementById('titlebar-close');
+    const titlebarDrag = document.getElementById('titlebar-drag');
+
+    if (minimizeBtn) {
+        minimizeBtn.addEventListener('click', () => {
+            if (typeof eagle !== 'undefined' && eagle.window && typeof eagle.window.hide === 'function') {
+                eagle.window.hide().catch(err => console.error('Error minimizing:', err));
+            }
+        });
+    }
+
+    if (maximizeBtn) {
+        maximizeBtn.addEventListener('click', async () => {
+            try {
+                if (!document.fullscreenElement) {
+                    await document.documentElement.requestFullscreen();
+                } else {
+                    await document.exitFullscreen();
+                }
+            } catch (err) {
+                console.error('Error toggling fullscreen:', err);
+            }
+        });
+    }
+
+    // 双击标题栏 → 全屏/还原
+    if (titlebarDrag) {
+        titlebarDrag.addEventListener('dblclick', async () => {
+            try {
+                if (!document.fullscreenElement) {
+                    await document.documentElement.requestFullscreen();
+                } else {
+                    await document.exitFullscreen();
+                }
+            } catch (err) {
+                console.error('Error toggling fullscreen:', err);
+            }
+        });
+
+        // 全屏状态下，拖动标题栏任意方向退出全屏
+        let dragStart = null;
+        titlebarDrag.addEventListener('mousedown', (e) => {
+            if (document.fullscreenElement) {
+                dragStart = { x: e.screenX, y: e.screenY };
+            }
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (dragStart && document.fullscreenElement) {
+                const dx = Math.abs(e.screenX - dragStart.x);
+                const dy = Math.abs(e.screenY - dragStart.y);
+                if (dx > 10 || dy > 10) {
+                    dragStart = null;
+                    document.exitFullscreen().catch(() => {});
+                }
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            dragStart = null;
+        });
+    }
+
+    // 监听全屏状态变化，同步图标 + 调整拖拽区域
+    document.addEventListener('fullscreenchange', () => {
+        updateMaximizeIcon();
+        // 全屏时禁用系统拖拽，以便鼠标事件能正常触发退出全屏
+        if (titlebarDrag) {
+            titlebarDrag.style.webkitAppRegion = document.fullscreenElement ? 'no-drag' : 'drag';
+        }
+    });
+
+    if (closeBtn) {
+        closeBtn.addEventListener('click', () => {
+            if (typeof eagle !== 'undefined' && eagle.window && typeof eagle.window.close === 'function') {
+                eagle.window.close();
+            } else {
+                window.close();
+            }
+        });
+    }
 }
 
 // 初始化键盘快捷键
@@ -115,9 +245,12 @@ export function initKeyboardShortcuts() {
             }
         }
 
-        // Esc键：退出全屏
+        // Esc键：关闭面板/退出全屏
         if (event.key === 'Escape') {
-            if (document.fullscreenElement) {
+            const themePanel = document.getElementById('theme-panel');
+            if (themePanel && themePanel.classList.contains('visible')) {
+                themePanel.classList.remove('visible');
+            } else if (document.fullscreenElement) {
                 document.exitFullscreen();
             }
         }
@@ -129,7 +262,7 @@ export function initKeyboardShortcuts() {
             uiComponentsVisible = !uiComponentsVisible;
             const displayValue = uiComponentsVisible ? 'flex' : 'none';
 
-            ['refresh-button', 'pin-button', 'export-pdf-button', 'theme-button', 'mode-button', 'zoom-button'].forEach(id => {
+            ['refresh-button', 'export-pdf-button', 'theme-button', 'mode-button', 'zoom-button'].forEach(id => {
                 const btn = document.getElementById(id);
                 if (btn) btn.style.display = displayValue;
             });
@@ -142,16 +275,16 @@ export function initKeyboardShortcuts() {
             updateModeButtonIcon();
         }
 
-        // T键：切换主题
-        if (!isInputFocused && event.key.toLowerCase() === 't') {
+        // B键：顺序切换主题色
+        if (!isInputFocused && !event.shiftKey && !event.ctrlKey && event.key.toLowerCase() === 'b') {
             event.preventDefault();
-            toggleTheme();
+            cycleNextTheme();
         }
 
-        // P键：切换固定窗口
-        if (!isInputFocused && event.key.toLowerCase() === 'p') {
+        // Shift+T：切换固定窗口（与官方一致）
+        if (!isInputFocused && event.shiftKey && event.key.toLowerCase() === 't') {
             event.preventDefault();
-            const pinButton = document.getElementById('pin-button');
+            const pinButton = document.getElementById('titlebar-pin');
             if (pinButton) {
                 pinButton.click();
 
@@ -295,13 +428,69 @@ export function hideExportProgress() {
     }
 }
 
-// 初始化主题切换按钮
+// 顺序切换到下一个主题
+function cycleNextTheme() {
+    currentThemeIndex = (currentThemeIndex + 1) % ALL_THEMES.length;
+    applyTheme(ALL_THEMES[currentThemeIndex]);
+}
+
+// 初始化主题切换按钮（悬浮显示面板，点击顺序切换）
 export function initThemeButton() {
     const themeButton = document.getElementById('theme-button');
-    if (!themeButton || themeButton._initialized) return;
+    const themePanel = document.getElementById('theme-panel');
+    if (!themeButton || !themePanel || themeButton._initialized) return;
     themeButton._initialized = true;
 
-    themeButton.addEventListener('click', toggleTheme);
+    let hideTimer = null;
+
+    function showPanel() {
+        if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+        updateSwatchActive();
+        themePanel.classList.add('visible');
+    }
+
+    function scheduleHide() {
+        if (hideTimer) clearTimeout(hideTimer);
+        hideTimer = setTimeout(() => {
+            themePanel.classList.remove('visible');
+            hideTimer = null;
+        }, 300);
+    }
+
+    // 悬浮按钮 → 显示面板
+    themeButton.addEventListener('mouseenter', showPanel);
+    themeButton.addEventListener('mouseleave', scheduleHide);
+
+    // 悬浮面板 → 保持面板可见
+    themePanel.addEventListener('mouseenter', () => {
+        if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+    });
+    themePanel.addEventListener('mouseleave', scheduleHide);
+
+    // 点击按钮 → 顺序切换主题
+    themeButton.addEventListener('click', (e) => {
+        e.stopPropagation();
+        cycleNextTheme();
+    });
+
+    // 点击色卡 → 切换到指定主题
+    themePanel.querySelectorAll('.theme-swatch').forEach(swatch => {
+        swatch.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const theme = swatch.getAttribute('data-theme');
+            applyTheme(theme);
+        });
+    });
+}
+
+// 更新色卡的选中状态
+function updateSwatchActive() {
+    const panel = document.getElementById('theme-panel');
+    if (!panel) return;
+    const current = ALL_THEMES[currentThemeIndex];
+    panel.querySelectorAll('.theme-swatch').forEach(s => {
+        s.classList.toggle('active', s.getAttribute('data-theme') === current);
+    });
 }
 
 // 初始化排版模式切换按钮

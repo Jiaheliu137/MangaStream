@@ -6,15 +6,17 @@
     },
     "ui": {
         "switchLayoutMode": "레이아웃 모드 전환 (M)",
-        "switchBackground": "배경색 전환 (T)",
+        "switchBackground": "테마 전환 (B)",
         "refresh": "이미지 새로고침 (Ctrl+R)",
-        "pin": "창 고정 (P)",
+        "pin": "창 고정 (Shift+T)",
         "zoomScroll": "휠 또는 클릭하여 확대/축소",
         "zoomReset": "100%로 재설정",
-        "unpinWindow": "창 고정 해제",
-        "pinWindow": "창을 항상 위에 고정",
+        "unpinWindow": "창 고정 해제 (Shift+T)",
+        "pinWindow": "창을 항상 위에 고정 (Shift+T)",
         "exportPDF": "PDF로 내보내기",
-        "jumpPageHint": "페이지 번호를 입력하고 Enter를 눌러 이동"
+        "jumpPageHint": "페이지 번호를 입력하고 Enter를 눌러 이동",
+        "minimize": "최소화",
+        "close": "닫기"
     },
     "mode": {
         "vertical": "세로 스크롤",

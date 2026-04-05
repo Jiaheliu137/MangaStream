@@ -14,10 +14,12 @@ import {
     initKeyboardShortcuts,
     initRefreshButton,
     initPinButton,
+    initTitlebar,
     initThemeButton,
     initModeButton,
     initZoomButton,
-    updateModeButtonIcon
+    updateModeButtonIcon,
+    syncEagleTheme
 } from './ui.js';
 import { initPDFExportButton } from './pdfExport.js';
 import { debounce } from './utils.js';
@@ -39,7 +41,13 @@ function initializePlugin() {
 // Eagle插件生命周期钩子
 eagle.onPluginCreate((plugin) => {
     console.log('eagle.onPluginCreate');
-    // 初始化由 DOMContentLoaded 统一处理，避免重复注册事件监听器
+    // 同步 Eagle 主题
+    syncEagleTheme();
+});
+
+// 监听 Eagle 主题变化，实时同步
+eagle.onThemeChanged(() => {
+    syncEagleTheme();
 });
 
 eagle.onPluginRun(() => {
@@ -100,7 +108,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // 初始化键盘快捷键
     initKeyboardShortcuts();
 
-    // 初始化固定按钮
+    // 初始化标题栏（最小化、关闭、固定）
+    initTitlebar();
     initPinButton();
 
     // 初始化PDF导出按钮

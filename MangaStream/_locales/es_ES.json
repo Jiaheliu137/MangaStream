@@ -6,15 +6,17 @@
     },
     "ui": {
         "switchLayoutMode": "Cambiar modo de diseño (M)",
-        "switchBackground": "Cambiar color de fondo (T)",
+        "switchBackground": "Cambiar tema (B)",
         "refresh": "Actualizar imágenes (Ctrl+R)",
-        "pin": "Fijar ventana (P)",
+        "pin": "Fijar ventana (Shift+T)",
         "zoomScroll": "Desplazarse o hacer clic para zoom",
         "zoomReset": "Restablecer al 100%",
-        "unpinWindow": "Desfijar ventana",
-        "pinWindow": "Mantener ventana siempre visible",
+        "unpinWindow": "Desfijar ventana (Shift+T)",
+        "pinWindow": "Mantener ventana siempre visible (Shift+T)",
         "exportPDF": "Exportar a PDF",
-        "jumpPageHint": "Ingrese un número de página y presione Enter para saltar"
+        "jumpPageHint": "Ingrese un número de página y presione Enter para saltar",
+        "minimize": "Minimizar",
+        "close": "Cerrar"
     },
     "mode": {
         "vertical": "Vertical",

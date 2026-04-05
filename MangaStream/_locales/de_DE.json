@@ -6,15 +6,17 @@
     },
     "ui": {
         "switchLayoutMode": "Layout-Modus wechseln (M)",
-        "switchBackground": "Hintergrundfarbe wechseln (T)",
+        "switchBackground": "Thema wechseln (B)",
         "refresh": "Bilder aktualisieren (Strg+R)",
-        "pin": "Fenster anheften (P)",
+        "pin": "Fenster anheften (Shift+T)",
         "zoomScroll": "Scrollen oder Klicken zum Zoomen",
         "zoomReset": "Auf 100% zurücksetzen",
-        "unpinWindow": "Fenster lösen",
-        "pinWindow": "Fenster immer im Vordergrund behalten",
+        "unpinWindow": "Fenster lösen (Shift+T)",
+        "pinWindow": "Fenster immer im Vordergrund behalten (Shift+T)",
         "exportPDF": "Als PDF exportieren",
-        "jumpPageHint": "Seitenzahl eingeben und Eingabetaste zum Springen drücken"
+        "jumpPageHint": "Seitenzahl eingeben und Eingabetaste zum Springen drücken",
+        "minimize": "Minimieren",
+        "close": "Schließen"
     },
     "mode": {
         "vertical": "Vertikales Scrollen",

@@ -6,15 +6,17 @@
     },
     "ui": {
         "switchLayoutMode": "Сменить режим макета (M)",
-        "switchBackground": "Изменить цвет фона (T)",
+        "switchBackground": "Сменить тему (B)",
         "refresh": "Обновить изображения (Ctrl+R)",
-        "pin": "Закрепить окно (P)",
+        "pin": "Закрепить окно (Shift+T)",
         "zoomScroll": "Колесико мыши или клик для масштаба",
         "zoomReset": "Сбросить до 100%",
-        "unpinWindow": "Открепить окно",
-        "pinWindow": "Поверх всех окон",
+        "unpinWindow": "Открепить окно (Shift+T)",
+        "pinWindow": "Поверх всех окон (Shift+T)",
         "exportPDF": "Экспорт в PDF",
-        "jumpPageHint": "Введите номер страницы и нажмите Enter для перехода"
+        "jumpPageHint": "Введите номер страницы и нажмите Enter для перехода",
+        "minimize": "Свернуть",
+        "close": "Закрыть"
     },
     "mode": {
         "vertical": "Вертикальная лента",
