@@ -5,6 +5,11 @@ import { ZoomConfig } from './constants.js';
 import { updateVerticalScrollbar, updateCrossAxisScrollbar, showScrollbars } from './scrollbar.js';
 import { isHorizontalMode, isHorizontalRTLMode } from './modeManager.js';
 import { getDragLogicalScroll, updateDragSnapshot } from './drag.js';
+import { forceRenderVisibleItems } from './imageLoader.js';
+
+// DOM 缓存
+let cachedViewport = null;
+let cachedContainer = null;
 
 // 全局缩放状态
 let currentZoom = ZoomConfig.DEFAULT_ZOOM;
@@ -18,7 +23,7 @@ export function getCurrentZoom() {
 
 // 应用内容的缩放（仅设置 CSS zoom，布局由浏览器自动处理）
 export function applyContentPosition() {
-    const container = document.querySelector('#image-container');
+    const container = cachedContainer || document.querySelector('#image-container');
     if (!container) return;
     container.style.zoom = currentZoom;
     updateCrossAxisScrollbar();
@@ -26,7 +31,7 @@ export function applyContentPosition() {
 
 // 重置交叉轴滚动（模式切换时调用）
 export function resetContentPosition() {
-    const viewport = document.querySelector('#viewport');
+    const viewport = cachedViewport || document.querySelector('#viewport');
     if (viewport) {
         if (isHorizontalMode()) {
             viewport.scrollTop = 0;
@@ -53,14 +58,14 @@ export function showZoomLevel(zoomLevel) {
     clearTimeout(zoomLevelTimeout);
     zoomLevelTimeout = setTimeout(() => {
         zoomLevelElement.style.opacity = '0';
-    }, 1500);
+    }, ZoomConfig.ZOOM_INDICATOR_DURATION);
 }
 
 // 应用缩放并按比例保持滚动位置
 export function applyZoomWithMouseCenter(newZoom, oldZoom) {
-    if (Math.abs(newZoom - oldZoom) < 0.001) return;
+    if (Math.abs(newZoom - oldZoom) < ZoomConfig.ZOOM_EPSILON) return;
 
-    const viewport = document.querySelector('#viewport');
+    const viewport = cachedViewport;
     const scaleRatio = newZoom / oldZoom;
 
     // 拖拽中优先使用逻辑滚动位置（未被 Chrome 舍入），避免多次缩放的误差累积
@@ -104,6 +109,8 @@ export function applyZoomWithMouseCenter(newZoom, oldZoom) {
         viewport.scrollTop = newScrollTop;
     }
 
+    // 先让虚拟滚动更新 spacer，确保 scrollHeight 准确后再更新滚动条
+    forceRenderVisibleItems();
     updateVerticalScrollbar();
     updateCrossAxisScrollbar();
     showZoomLevel(newZoom);
@@ -115,9 +122,9 @@ export function applyZoomWithMouseCenter(newZoom, oldZoom) {
 // 竖向：鼠标 Y 对应的那行像素不动；横向：鼠标 X 对应的那列像素不动
 // 交叉轴保持中心锚定
 function applyZoomAtMousePosition(newZoom, oldZoom, mouseX, mouseY) {
-    if (Math.abs(newZoom - oldZoom) < 0.001) return;
+    if (Math.abs(newZoom - oldZoom) < ZoomConfig.ZOOM_EPSILON) return;
 
-    const viewport = document.querySelector('#viewport');
+    const viewport = cachedViewport;
     const scaleRatio = newZoom / oldZoom;
 
     const dragScroll = getDragLogicalScroll();
@@ -140,7 +147,12 @@ function applyZoomAtMousePosition(newZoom, oldZoom, mouseX, mouseY) {
     if (viewport) {
         if (isHorizontalMode()) {
             // 主轴 X：鼠标所在竖线锚定
-            newScrollLeft = (oldScrollLeft + mouseInViewportX) * scaleRatio - mouseInViewportX;
+            // RTL 下 scrollLeft 为负值，需要转换为"距起始边的正距离"再计算
+            const rtl = isHorizontalRTLMode();
+            const absScroll = rtl ? -oldScrollLeft : oldScrollLeft;
+            const mouseDist = rtl ? (viewport.clientWidth - mouseInViewportX) : mouseInViewportX;
+            const newAbsScroll = (absScroll + mouseDist) * scaleRatio - mouseDist;
+            newScrollLeft = rtl ? -newAbsScroll : newAbsScroll;
             // 交叉轴 Y
             if (hadCrossOverflowY) {
                 const cy = viewport.clientHeight / 2;
@@ -163,6 +175,8 @@ function applyZoomAtMousePosition(newZoom, oldZoom, mouseX, mouseY) {
         viewport.scrollTop = newScrollTop;
     }
 
+    // 先让虚拟滚动更新 spacer，确保 scrollHeight 准确后再更新滚动条
+    forceRenderVisibleItems();
     updateVerticalScrollbar();
     updateCrossAxisScrollbar();
     showZoomLevel(newZoom);
@@ -177,6 +191,8 @@ export function applyZoom(zoomLevel) {
 
 // 初始化缩放功能
 export function initZoomFeature() {
+    cachedViewport = document.querySelector('#viewport');
+    cachedContainer = document.querySelector('#image-container');
     resetContentPosition();
 
     // 追踪左键状态
@@ -221,7 +237,7 @@ export function initZoomFeature() {
             applyZoomWithMouseCenter(newZoom, oldZoom);
         } else if (isHorizontalMode() && !event.shiftKey) {
             // 横向模式：将垂直滚轮转换为水平滚动
-            const viewport = document.getElementById('viewport');
+            const viewport = cachedViewport;
             if (viewport && event.deltaY !== 0) {
                 const delta = isHorizontalRTLMode() ? -event.deltaY : event.deltaY;
                 viewport.scrollLeft += delta;

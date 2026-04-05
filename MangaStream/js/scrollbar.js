@@ -1,8 +1,11 @@
 // 滚动条管理模块 - CSS zoom 重构版
 // 交叉轴滚动现在由浏览器原生处理（CSS zoom 改变真实布局尺寸），
 // 滚动条只需读取 viewport 的原生滚动位置即可。
-import { AnimationConfig } from './constants.js';
+import { AnimationConfig, ScrollbarConfig } from './constants.js';
 import { isHorizontalMode, isHorizontalRTLMode } from './modeManager.js';
+import { isDragActive } from './drag.js';
+import { ensureScrollableHeight, getLogicalTotalSize } from './imageLoader.js';
+import { getCurrentZoom } from './zoom.js';
 
 // ==================== 通用滚动条控制器 ====================
 
@@ -94,8 +97,13 @@ export function showVerticalScrollbar() {
     const viewport = document.querySelector('#viewport');
     if (!viewport) return;
 
-    const contentHeight = viewport.scrollHeight;
+    // 使用逻辑总尺寸判断是否需要显示垂直滚动条（主轴模式下）
+    const zoom = getCurrentZoom();
+    const logicalTotal = getLogicalTotalSize() * zoom;
     const viewportHeight = viewport.clientHeight;
+
+    // 如果逻辑总尺寸为 0（还没加载图片），回退到 scrollHeight
+    const contentHeight = logicalTotal > 0 ? logicalTotal : viewport.scrollHeight;
 
     if (contentHeight > viewportHeight) {
         verticalScrollbar.setDisplay(true);
@@ -154,7 +162,7 @@ export function updateCrossAxisScrollbar() {
 
     // 滚动条尺寸
     const ratio = clientSize / scrollSize;
-    const scrollbarSize = Math.max(30, clientSize * ratio);
+    const scrollbarSize = Math.max(ScrollbarConfig.MIN_SIZE, clientSize * ratio);
 
     if (isHorizontalMode()) {
         bar.style.height = `${scrollbarSize}px`;
@@ -186,6 +194,15 @@ export function updateScrollbarPosition() {
 
 // ==================== 主轴滚动条 ====================
 
+/**
+ * 使用逻辑总尺寸（prefixSum，稳定不变）而非 viewport.scrollHeight（随 spacer 波动）
+ * 来定位主轴滚动条。这样无论虚拟滚动如何重排 spacer，滚动条位置都是稳定的。
+ *
+ * 核心公式:
+ *   logicalTotal = getLogicalTotalSize() * zoom   （虚拟列表的物理总长度）
+ *   scrollRatio  = scrollPos / (logicalTotal - viewportSize)
+ *   handleSize   = viewportSize / logicalTotal * trackSize
+ */
 export function updateVerticalScrollbar() {
     const viewport = document.querySelector('#viewport');
     const mainAxisScrollbar = isHorizontalMode() ? horizontalScrollbar : verticalScrollbar;
@@ -193,18 +210,20 @@ export function updateVerticalScrollbar() {
 
     if (!viewport || !mainBar || !mainContainer) return;
 
-    const contentSize = isHorizontalMode() ? viewport.scrollWidth : viewport.scrollHeight;
+    const zoom = getCurrentZoom();
+    const logicalTotal = getLogicalTotalSize() * zoom;
     const viewportSize = isHorizontalMode() ? viewport.clientWidth : viewport.clientHeight;
 
-    if (contentSize <= viewportSize) {
+    if (logicalTotal <= viewportSize) {
         mainAxisScrollbar.setDisplay(false);
         return;
     }
 
     mainContainer.style.display = 'block';
 
-    const ratio = viewportSize / contentSize;
-    const scrollbarSize = Math.max(30, viewportSize * ratio);
+    // 滚动条手柄大小：基于逻辑总尺寸的比例
+    const ratio = viewportSize / logicalTotal;
+    const scrollbarSize = Math.max(ScrollbarConfig.MIN_SIZE, viewportSize * ratio);
 
     if (isHorizontalMode()) {
         mainBar.style.width = `${scrollbarSize}px`;
@@ -212,12 +231,15 @@ export function updateVerticalScrollbar() {
         mainBar.style.height = `${scrollbarSize}px`;
     }
 
+    // 滚动条位置：基于逻辑总尺寸而非 volatile scrollHeight
     const scrollPos = isHorizontalMode() ? Math.abs(viewport.scrollLeft) : viewport.scrollTop;
+    const maxLogicalScroll = logicalTotal - viewportSize;
 
-    let scrollRatio = scrollPos / (contentSize - viewportSize);
+    let scrollRatio = maxLogicalScroll > 0 ? scrollPos / maxLogicalScroll : 0;
     if (isHorizontalMode() && isHorizontalRTLMode()) {
         scrollRatio = 1.0 - scrollRatio;
     }
+    scrollRatio = Math.max(0, Math.min(1, scrollRatio));
 
     const maxScrollbarOffset = viewportSize - scrollbarSize;
     const scrollbarOffset = scrollRatio * maxScrollbarOffset;
@@ -238,11 +260,17 @@ export function updateVerticalScrollbar() {
 // ==================== 滚动条拖动处理 ====================
 
 let isDraggingScrollbar = false;
+
+// 查询滚动条是否正在拖拽（供其他模块互斥检查）
+export function isScrollbarDragActive() {
+    return isDraggingScrollbar || isVerticalScrollbarDragging;
+}
+let isVerticalScrollbarDragging = false;
 let scrollbarStartX = 0;
 let scrollbarStartY = 0;
 
 function handleScrollbarDrag(e) {
-    if (!isDraggingScrollbar) return;
+    if (!isDraggingScrollbar || isDragActive()) return;
 
     horizontalScrollbar.show();
 
@@ -265,13 +293,15 @@ function handleScrollbarDrag(e) {
     if (!viewport) { scrollbarStartX = e.clientX; return; }
 
     if (isHorizontalMode()) {
-        // 横向模式：水平滚动条是主轴 → viewport.scrollLeft
-        const contentWidth = viewport.scrollWidth;
+        // 横向模式：水平滚动条是主轴 → 使用逻辑总尺寸计算目标位置
+        ensureScrollableHeight();
+        const zoom = getCurrentZoom();
+        const logicalTotal = getLogicalTotalSize() * zoom;
         const viewportWidth = viewport.clientWidth;
         if (isHorizontalRTLMode()) {
             scrollRatio = 1.0 - scrollRatio;
         }
-        const targetLeft = scrollRatio * (contentWidth - viewportWidth);
+        const targetLeft = scrollRatio * (logicalTotal - viewportWidth);
         viewport.scrollTo({ left: isHorizontalRTLMode() ? -targetLeft : targetLeft });
     } else {
         // 竖向模式：水平滚动条是交叉轴 → viewport.scrollLeft
@@ -332,8 +362,11 @@ export function initVerticalScrollbar() {
     updateVerticalScrollbar();
 
     // 滚动事件同时更新主轴和交叉轴滚动条
+    // 拖拽滚动条期间跳过主轴滚动条更新，避免反馈环路导致跳回
     viewport.addEventListener('scroll', () => {
-        updateVerticalScrollbar();
+        if (!isVerticalScrollbarDragging && !isDraggingScrollbar) {
+            updateVerticalScrollbar();
+        }
         updateCrossAxisScrollbar();
     });
     window.addEventListener('resize', () => {
@@ -343,13 +376,11 @@ export function initVerticalScrollbar() {
 
     verticalScrollbar.enablePointerEvents();
 
-    let isDraggingVerticalScrollbar = false;
-
     handle.addEventListener('mousedown', (e) => {
         e.stopPropagation();
         e.preventDefault();
 
-        isDraggingVerticalScrollbar = true;
+        isVerticalScrollbarDragging = true;
         scrollbarStartY = e.clientY;
 
         document.body.classList.add('dragging');
@@ -357,7 +388,7 @@ export function initVerticalScrollbar() {
     });
 
     function handleVerticalScrollbarDrag(e) {
-        if (!isDraggingVerticalScrollbar) return;
+        if (!isVerticalScrollbarDragging || isDragActive()) return;
 
         showVerticalScrollbar();
 
@@ -382,19 +413,22 @@ export function initVerticalScrollbar() {
             const viewportHeight = viewport.clientHeight;
             viewport.scrollTop = scrollRatio * (contentHeight - viewportHeight);
         } else {
-            // 竖向模式：垂直滚动条是主轴 → viewport.scrollTop
-            const contentHeight = viewport.scrollHeight;
+            // 竖向模式：垂直滚动条是主轴 → 使用逻辑总尺寸计算目标位置
+            ensureScrollableHeight();
+            const zoom = getCurrentZoom();
+            const logicalTotal = getLogicalTotalSize() * zoom;
             const viewportHeight = viewport.clientHeight;
-            viewport.scrollTo({ top: scrollRatio * (contentHeight - viewportHeight) });
+            const targetTop = scrollRatio * (logicalTotal - viewportHeight);
+            viewport.scrollTo({ top: targetTop });
         }
 
         scrollbarStartY = e.clientY;
     }
 
     function endVerticalScrollbarDrag() {
-        if (!isDraggingVerticalScrollbar) return;
+        if (!isVerticalScrollbarDragging) return;
 
-        isDraggingVerticalScrollbar = false;
+        isVerticalScrollbarDragging = false;
         document.body.classList.remove('dragging');
         verticalScrollbar.resetHideTimer();
     }

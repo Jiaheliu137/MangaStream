@@ -1,7 +1,8 @@
 // PDF导出功能模块 - 每张图片独立页面，统一宽度，无留白
 import { getCurrentImages, getImagePath } from './imageLoader.js';
-import { STANDARD_MANGA_WIDTH } from './constants.js';
-import { showToast, showExportProgress, hideExportProgress } from './ui.js';
+import { STANDARD_MANGA_WIDTH, PDFConfig } from './constants.js';
+import { showExportProgress, hideExportProgress } from './ui.js';
+import { showToast } from './utils.js';
 
 // 加载图片并缩放到统一宽度
 async function loadAndResizeImage(imagePath, targetWidth) {
@@ -21,7 +22,7 @@ async function loadAndResizeImage(imagePath, targetWidth) {
             ctx.drawImage(img, 0, 0, targetWidth, scaledHeight);
 
             try {
-                const base64 = canvas.toDataURL('image/jpeg', 0.95);
+                const base64 = canvas.toDataURL('image/jpeg', PDFConfig.JPEG_QUALITY);
                 resolve({
                     base64,
                     width: targetWidth,

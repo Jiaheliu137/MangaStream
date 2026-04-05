@@ -3,7 +3,7 @@ import { applyZoomWithMouseCenter, getCurrentZoom } from './zoom.js';
 import { showScrollbars } from './scrollbar.js';
 import { loadSelectedItems } from './imageLoader.js';
 import { exportCurrentImagesToPDF } from './pdfExport.js';
-import { ZoomConfig } from './constants.js';
+import { ZoomConfig, ScrollConfig } from './constants.js';
 
 // UI组件可见性状态
 let uiComponentsVisible = true;
@@ -208,205 +208,185 @@ export function initTitlebar() {
 }
 
 // 初始化键盘快捷键
-export function initKeyboardShortcuts() {
-    document.addEventListener('keydown', (event) => {
-        // 检查是否在输入框中，避免误触发
-        const isInputFocused = event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA' || event.target.isContentEditable;
+// 处理缩放快捷键 (Ctrl+加号/减号)
+function handleZoomShortcuts(event) {
+    if (event.ctrlKey && (event.key === '+' || event.key === '=')) {
+        event.preventDefault();
+        const oldZoom = getCurrentZoom();
+        const newZoom = Math.min(ZoomConfig.MAX_ZOOM, oldZoom + ZoomConfig.ZOOM_BUTTON_STEP);
+        applyZoomWithMouseCenter(newZoom, oldZoom);
+        showScrollbars();
+    }
 
-        // Ctrl+加号或等号(+/=)：放大
-        if (event.ctrlKey && (event.key === '+' || event.key === '=')) {
-            event.preventDefault();
+    if (event.ctrlKey && event.key === '-') {
+        event.preventDefault();
+        const oldZoom = getCurrentZoom();
+        const newZoom = Math.max(ZoomConfig.MIN_ZOOM, oldZoom - ZoomConfig.ZOOM_BUTTON_STEP);
+        applyZoomWithMouseCenter(newZoom, oldZoom);
+        showScrollbars();
+    }
+}
 
-            const oldZoom = getCurrentZoom();
-            let newZoom = oldZoom + 0.1;
-            newZoom = Math.min(ZoomConfig.MAX_ZOOM, newZoom);
-
-            applyZoomWithMouseCenter(newZoom, oldZoom);
-            showScrollbars();
+// 处理UI快捷键 (F/Esc/H/I/M/B/Shift+T/Ctrl+W/Ctrl+R/Ctrl+E)
+function handleUIShortcuts(event, isInputFocused) {
+    // F键：进入全屏
+    if (!isInputFocused && event.key.toLowerCase() === 'f') {
+        event.preventDefault();
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen();
         }
+    }
 
-        // Ctrl+减号(-)：缩小
-        if (event.ctrlKey && event.key === '-') {
-            event.preventDefault();
+    // Esc键：关闭面板/退出全屏（按优先级逐层关闭）
+    if (event.key === 'Escape') {
+        const helpOverlay = document.getElementById('help-overlay');
+        const themePanel = document.getElementById('theme-panel');
 
-            const oldZoom = getCurrentZoom();
-            let newZoom = oldZoom - 0.1;
-            newZoom = Math.max(ZoomConfig.MIN_ZOOM, newZoom);
-
-            applyZoomWithMouseCenter(newZoom, oldZoom);
-            showScrollbars();
+        if (helpOverlay && helpOverlay.classList.contains('visible')) {
+            helpOverlay.classList.remove('visible');
+        } else if (themePanel && themePanel.classList.contains('visible')) {
+            themePanel.classList.remove('visible');
+        } else if (document.fullscreenElement) {
+            document.exitFullscreen();
         }
+    }
 
-        // F键：进入全屏
-        if (!isInputFocused && event.key.toLowerCase() === 'f') {
-            event.preventDefault();
-            if (!document.fullscreenElement) {
-                document.documentElement.requestFullscreen();
+    // H键：隐藏/显示UI组件
+    if (!isInputFocused && event.key.toLowerCase() === 'h') {
+        event.preventDefault();
+        uiComponentsVisible = !uiComponentsVisible;
+        const displayValue = uiComponentsVisible ? 'flex' : 'none';
+        ['refresh-button', 'export-pdf-button', 'theme-button', 'mode-button', 'zoom-button', 'help-button'].forEach(id => {
+            const btn = document.getElementById(id);
+            if (btn) btn.style.display = displayValue;
+        });
+    }
+
+    // I键：显示/隐藏快捷键帮助
+    if (!isInputFocused && event.key.toLowerCase() === 'i') {
+        event.preventDefault();
+        toggleHelpOverlay();
+    }
+
+    // M键：切换排版模式
+    if (!isInputFocused && event.key.toLowerCase() === 'm') {
+        event.preventDefault();
+        toggleReadingMode();
+        updateModeButtonIcon();
+    }
+
+    // B键：顺序切换主题色
+    if (!isInputFocused && !event.shiftKey && !event.ctrlKey && event.key.toLowerCase() === 'b') {
+        event.preventDefault();
+        cycleNextTheme();
+    }
+
+    // Shift+T：切换固定窗口
+    if (!isInputFocused && event.shiftKey && event.key.toLowerCase() === 't') {
+        event.preventDefault();
+        const pinButton = document.getElementById('titlebar-pin');
+        if (pinButton) {
+            pinButton.click();
+            if (typeof eagle !== 'undefined' && eagle.window && typeof eagle.window.focus === 'function') {
+                eagle.window.focus();
             }
         }
+    }
 
-        // Esc键：关闭面板/退出全屏（按优先级逐层关闭）
-        if (event.key === 'Escape') {
-            const helpOverlay = document.getElementById('help-overlay');
-            const themePanel = document.getElementById('theme-panel');
-
-            if (helpOverlay && helpOverlay.classList.contains('visible')) {
-                helpOverlay.classList.remove('visible');
-            } else if (themePanel && themePanel.classList.contains('visible')) {
-                themePanel.classList.remove('visible');
-            } else if (document.fullscreenElement) {
-                document.exitFullscreen();
-            }
-        }
-
-        // H键：隐藏/显示UI组件
-        if (!isInputFocused && event.key.toLowerCase() === 'h') {
-            event.preventDefault();
-
-            uiComponentsVisible = !uiComponentsVisible;
-            const displayValue = uiComponentsVisible ? 'flex' : 'none';
-
-            ['refresh-button', 'export-pdf-button', 'theme-button', 'mode-button', 'zoom-button', 'help-button'].forEach(id => {
-                const btn = document.getElementById(id);
-                if (btn) btn.style.display = displayValue;
+    // Ctrl+W：关闭窗口
+    if (event.ctrlKey && event.key === 'w') {
+        event.preventDefault();
+        if (typeof eagle !== 'undefined' && eagle.window && typeof eagle.window.hide === 'function') {
+            eagle.window.hide().catch(err => {
+                console.error('Error hiding window:', err);
             });
         }
+    }
 
-        // I键：显示/隐藏快捷键帮助
-        if (!isInputFocused && event.key.toLowerCase() === 'i') {
-            event.preventDefault();
-            toggleHelpOverlay();
-        }
+    // Ctrl+R：刷新内容
+    if (event.ctrlKey && (event.key === 'r' || event.key === 'R')) {
+        event.preventDefault();
+        loadSelectedItems();
+    }
 
-        // M键：切换排版模式
-        if (!isInputFocused && event.key.toLowerCase() === 'm') {
-            event.preventDefault();
-            toggleReadingMode();
-            updateModeButtonIcon();
-        }
+    // Ctrl+E：导出PDF
+    if (event.ctrlKey && event.key === 'e') {
+        event.preventDefault();
+        exportCurrentImagesToPDF();
+    }
+}
 
-        // B键：顺序切换主题色
-        if (!isInputFocused && !event.shiftKey && !event.ctrlKey && event.key.toLowerCase() === 'b') {
-            event.preventDefault();
-            cycleNextTheme();
-        }
+// 处理导航快捷键 (W/S/A/D, 方向键, Space)
+function handleNavigationShortcuts(event, isInputFocused) {
+    if (isInputFocused || event.ctrlKey || event.altKey || event.metaKey) return;
 
-        // Shift+T：切换固定窗口（与官方一致）
-        if (!isInputFocused && event.shiftKey && event.key.toLowerCase() === 't') {
-            event.preventDefault();
-            const pinButton = document.getElementById('titlebar-pin');
-            if (pinButton) {
-                pinButton.click();
+    const viewportEl = document.getElementById('viewport');
+    if (!viewportEl) return;
 
-                if (typeof eagle !== 'undefined' && eagle.window && typeof eagle.window.focus === 'function') {
-                    eagle.window.focus();
-                }
+    const scrollAmount = ScrollConfig.KEYBOARD_SCROLL_AMOUNT;
+    const horizontal = isHorizontalMode();
+    const rtl = isHorizontalRTLMode();
+    const pageScrollAmount = (horizontal ? viewportEl.clientWidth : viewportEl.clientHeight) * ScrollConfig.PAGE_SCROLL_RATIO;
+    const getHDelta = (baseAmount) => rtl ? -baseAmount : baseAmount;
+
+    let handled = false;
+
+    switch (event.key) {
+        case 'ArrowDown':
+        case 's':
+        case 'S':
+            if (horizontal) viewportEl.scrollBy({ left: getHDelta(scrollAmount), behavior: 'auto' });
+            else viewportEl.scrollBy({ top: scrollAmount, behavior: 'auto' });
+            handled = true;
+            break;
+        case 'ArrowRight':
+        case 'd':
+        case 'D':
+            if (horizontal) {
+                viewportEl.scrollBy({ left: getHDelta(scrollAmount), behavior: 'auto' });
+                handled = true;
             }
-        }
-
-        // Ctrl+W：关闭窗口
-        if (event.ctrlKey && event.key === 'w') {
-            event.preventDefault();
-
-            if (typeof eagle !== 'undefined' && eagle.window && typeof eagle.window.hide === 'function') {
-                eagle.window.hide().catch(err => {
-                    console.error('Error hiding window:', err);
-                });
+            break;
+        case 'ArrowUp':
+        case 'w':
+        case 'W':
+            if (horizontal) viewportEl.scrollBy({ left: getHDelta(-scrollAmount), behavior: 'auto' });
+            else viewportEl.scrollBy({ top: -scrollAmount, behavior: 'auto' });
+            handled = true;
+            break;
+        case 'ArrowLeft':
+        case 'a':
+        case 'A':
+            if (horizontal) {
+                viewportEl.scrollBy({ left: getHDelta(-scrollAmount), behavior: 'auto' });
+                handled = true;
             }
+            break;
+        case ' ': { // Space
+            const delta = event.shiftKey ? -pageScrollAmount : pageScrollAmount;
+            if (horizontal) viewportEl.scrollBy({ left: getHDelta(delta), behavior: 'auto' });
+            else viewportEl.scrollBy({ top: delta, behavior: 'auto' });
+            handled = true;
+            break;
         }
+    }
 
-        // 键盘滚动控制 (W/S/A/D, Up/Down/Left/Right, Space)
-        if (!isInputFocused && !event.ctrlKey && !event.altKey && !event.metaKey) {
-            const viewportEl = document.getElementById('viewport');
-            if (viewportEl) {
-                const scrollAmount = 150; // 每次方向键滚动的像素
-                const horizontal = isHorizontalMode();
-                const rtl = isHorizontalRTLMode();
-                const pageScrollAmount = (horizontal ? viewportEl.clientWidth : viewportEl.clientHeight) * 0.8; // 空格键翻页量（80%视口大小）
+    if (handled) event.preventDefault();
+}
 
-                let handled = false;
-
-                // RTL flips the horizontal direction: Next page (Right/Down) effectively moves the scroll left (negative delta)
-                const getHDelta = (baseAmount) => rtl ? -baseAmount : baseAmount;
-
-                switch (event.key) {
-                    case 'ArrowDown':
-                    case 's':
-                    case 'S':
-                        if (horizontal) viewportEl.scrollBy({ left: getHDelta(scrollAmount), behavior: 'auto' });
-                        else viewportEl.scrollBy({ top: scrollAmount, behavior: 'auto' });
-                        handled = true;
-                        break;
-                    case 'ArrowRight':
-                    case 'd':
-                    case 'D':
-                        if (horizontal) {
-                            viewportEl.scrollBy({ left: getHDelta(scrollAmount), behavior: 'auto' });
-                            handled = true;
-                        }
-                        break;
-                    case 'ArrowUp':
-                    case 'w':
-                    case 'W':
-                        if (horizontal) viewportEl.scrollBy({ left: getHDelta(-scrollAmount), behavior: 'auto' });
-                        else viewportEl.scrollBy({ top: -scrollAmount, behavior: 'auto' });
-                        handled = true;
-                        break;
-                    case 'ArrowLeft':
-                    case 'a':
-                    case 'A':
-                        if (horizontal) {
-                            viewportEl.scrollBy({ left: getHDelta(-scrollAmount), behavior: 'auto' });
-                            handled = true;
-                        }
-                        break;
-                    case ' ': // Space
-                        const delta = event.shiftKey ? -pageScrollAmount : pageScrollAmount;
-                        if (horizontal) viewportEl.scrollBy({ left: getHDelta(delta), behavior: 'auto' });
-                        else viewportEl.scrollBy({ top: delta, behavior: 'auto' });
-                        handled = true;
-                        break;
-                }
-
-                if (handled) {
-                    event.preventDefault();
-                }
-            }
-        }
-
-        // Ctrl+R：刷新内容
-        if (event.ctrlKey && (event.key === 'r' || event.key === 'R')) {
-            event.preventDefault();
-            loadSelectedItems();
-        }
-
-        // Ctrl+E：导出PDF
-        if (event.ctrlKey && event.key === 'e') {
-            event.preventDefault();
-            exportCurrentImagesToPDF();
-        }
+export function initKeyboardShortcuts() {
+    document.addEventListener('keydown', (event) => {
+        const isInputFocused = event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA' || event.target.isContentEditable;
+        handleZoomShortcuts(event);
+        handleUIShortcuts(event, isInputFocused);
+        handleNavigationShortcuts(event, isInputFocused);
     });
 }
 
 // 显示 Toast 消息（通用）
-export function showToast(message, type = 'success', duration = 3000, id = null) {
-    if (id) {
-        const existingToast = document.getElementById(id);
-        if (existingToast) existingToast.remove();
-    }
-
-    const toast = document.createElement('div');
-    toast.className = `toast-message ${type} ${id ? id : ''}`;
-    if (id) toast.id = id;
-    toast.textContent = message;
-    document.body.appendChild(toast);
-
-    setTimeout(() => {
-        if (document.body.contains(toast)) {
-            toast.remove();
-        }
-    }, duration);
-}
+// showToast 已迁移至 utils.js（打破 modeManager ↔ ui 循环依赖）
+// 为保持向后兼容，从 utils 重导出
+export { showToast } from './utils.js';
 
 // 显示导出进度
 export function showExportProgress(current, total, message) {
@@ -612,8 +592,7 @@ export function initHelpButton() {
     });
 }
 
-// 缩放步进值（10%）
-const ZOOM_BUTTON_STEP = 0.1;
+const ZOOM_BUTTON_STEP = ZoomConfig.ZOOM_BUTTON_STEP;
 
 // 初始化缩放控制按钮
 export function initZoomButton() {

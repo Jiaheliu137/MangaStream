@@ -1,7 +1,7 @@
 // 图片加载模块 - 预计算精确高度虚拟滚动 + 增量DOM更新 + 对象级预解码复用
 // 核心突破：预加载器创建的 Image 对象在 decode() 完成后，
 //           直接被塞进 DOM —— 同一个JS对象，零重复解码。
-import { SUPPORTED_IMAGE_FORMATS, AnimationConfig } from './constants.js';
+import { SUPPORTED_IMAGE_FORMATS, AnimationConfig, VirtualScrollConfig } from './constants.js';
 import { isHorizontalMode, isHorizontalRTLMode, getStandardSizeValue, applyBodyModeClasses } from './modeManager.js';
 import { resetContentPosition, applyContentPosition, getCurrentZoom } from './zoom.js';
 // 注意：CSS zoom 方案下，applyContentPosition 仅设置 container.style.zoom，
@@ -10,8 +10,8 @@ import { updateHorizontalScroll, updateVerticalScrollbar } from './scrollbar.js'
 import { throttle } from './utils.js';
 
 // ==================== 常量 ====================
-const RENDER_BUFFER = 15;
-const PRELOAD_AHEAD = 50;
+const RENDER_BUFFER = VirtualScrollConfig.RENDER_BUFFER;
+const PRELOAD_AHEAD = VirtualScrollConfig.PRELOAD_AHEAD;
 let DIVIDER_SIZE = 1;
 
 // ==================== 模块状态 ====================
@@ -69,7 +69,7 @@ function precalculateSizes() {
 
     for (let i = 0; i < n; i++) {
         const item = totalFilteredItems[i];
-        let displaySize = 1000;
+        let displaySize = VirtualScrollConfig.DEFAULT_IMAGE_SIZE;
 
         if (item.width && item.height) {
             if (isHorizontalMode() && item.height > 0) {
@@ -448,6 +448,40 @@ function updateCountIndicator(currentIndex, totalCount) {
     }
 }
 
+// ==================== 供外部模块调用的虚拟滚动工具 ====================
+
+/**
+ * 返回虚拟列表的总逻辑尺寸（未缩放），用于主轴滚动条的稳定定位。
+ * 这个值基于 prefixSum，不随 spacer 动态变化，是唯一可靠的"总长度"。
+ */
+export function getLogicalTotalSize() {
+    return getTotalSize();
+}
+
+/**
+ * 预扩展 spacerBottom，确保 viewport 的 scrollHeight/scrollWidth 足以容纳 totalSize * zoom。
+ * 解决问题：滚动条拖拽或缩放时，spacer 范围不够大导致浏览器 clamp scrollTop/scrollLeft。
+ */
+export function ensureScrollableHeight() {
+    if (!spacerBottomEl || !viewportEl) return;
+    const totalSize = getTotalSize();
+    if (isHorizontalMode()) {
+        spacerBottomEl.style.width = `${totalSize}px`;
+        void viewportEl.scrollWidth;
+    } else {
+        spacerBottomEl.style.height = `${totalSize}px`;
+        void viewportEl.scrollHeight;
+    }
+}
+
+/**
+ * 强制触发一次虚拟滚动渲染（跳过节流），更新 spacer 尺寸使 scrollHeight 准确。
+ * 用于缩放后、scrollbar 更新前，确保 scrollHeight 反映当前可视区域。
+ */
+export function forceRenderVisibleItems() {
+    renderVisibleItems();
+}
+
 // ==================== 滚动事件处理 ====================
 
 export function jumpToPage(pageNumber) {
@@ -496,6 +530,15 @@ export function jumpToPage(pageNumber) {
 
     // 同步渲染确保立刻显示 DOM 切片，而不是等待节流后的 scroll 事件
     renderVisibleItems();
+
+    // 补偿：renderVisibleItems 重算 spacer 可能改变 scrollHeight 结构，
+    // 导致浏览器 clamp scrollTop/scrollLeft，需要重新设置一次
+    if (isHorizontalMode()) {
+        const rtlMultiplier = isHorizontalRTLMode() ? -1 : 1;
+        viewportEl.scrollLeft = centeredOffset * rtlMultiplier;
+    } else {
+        viewportEl.scrollTop = centeredOffset;
+    }
 }
 
 const throttledScrollHandler = throttle(function () {
@@ -507,7 +550,7 @@ const throttledScrollHandler = throttle(function () {
         const centerIndex = findIndexByOffset(scrollPos / zoom);
         preloadImages(centerIndex);
     }
-}, 50);
+}, VirtualScrollConfig.SCROLL_THROTTLE);
 
 function attachScrollListener() {
     if (scrollListenerAttached || !viewportEl) return;
@@ -808,8 +851,7 @@ async function getAllSubFolderIds(folderId) {
     }
     
     const folder = folders[0];
-    console.log(`文件夹 "${folder.name}" (ID: ${folder.id}) 的子文件夹数量:`, folder.children ? folder.children.length : 0);
-    
+
     if (folder.children && folder.children.length > 0) {
         for (const child of folder.children) {
             const childIds = await getAllSubFolderIds(child.id);
@@ -829,17 +871,15 @@ async function getFolderImages() {
         }
         
         const rootFolder = folders[0];
-        console.log(`开始获取文件夹 "${rootFolder.name}" 下的所有图片...`);
-        
+
         // 递归获取所有子文件夹ID
         const allFolderIds = await getAllSubFolderIds(rootFolder.id);
-        console.log(`找到 ${allFolderIds.length} 个文件夹`);
         
         // 并行获取所有文件夹的图片
         const promises = allFolderIds.map(folderId => 
             eagle.item.get({
                 folders: [folderId],
-                limit: 10000
+                limit: VirtualScrollConfig.EAGLE_FOLDER_QUERY_LIMIT
             })
         );
         
@@ -852,8 +892,6 @@ async function getFolderImages() {
                 collectedItems.push(...items);
             }
         }
-        
-        console.log(`在所有子文件夹中共找到 ${collectedItems.length} 张图片`);
         
         if (collectedItems.length > 0) {
             return collectedItems;
@@ -887,15 +925,14 @@ async function handleFirstLoad(container) {
         
         // 如果没有选中图片，尝试获取当前选中文件夹的图片
         if (!items || items.length === 0) {
-            console.log('没有选中图片，尝试获取当前文件夹的图片...');
             items = await getFolderImages();
         }
-        
+
         if (!items || items.length === 0) {
             container.innerHTML = `<p class="no-images">${i18next.t('image.selectImageOrFolder')}</p>`;
             return;
         }
-        
+
         await loadImagesCore(items, false);
     } catch (err) {
         console.error('获取选中项目时出错:', err);
@@ -916,7 +953,6 @@ async function handleRefreshLoad(container) {
             
             // 如果没有选中图片，尝试获取当前选中文件夹的图片
             if (!items || items.length === 0) {
-                console.log('没有选中图片，尝试获取当前文件夹的图片...');
                 items = await getFolderImages();
             }
             
@@ -942,8 +978,6 @@ async function handleRefreshLoad(container) {
 }
 
 export function loadSelectedItems() {
-    console.log('loadSelectedItems');
-
     const container = document.querySelector('#image-container');
     if (!container) return;
 

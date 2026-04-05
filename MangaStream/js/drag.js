@@ -1,7 +1,11 @@
 // 拖动功能模块 — CSS zoom 重构版
 // 使用绝对滚动定位（而非增量 scrollBy），避免 Chrome CSS zoom 亚像素舍入累积漂移。
-import { showHorizontalScrollbar, showVerticalScrollbar } from './scrollbar.js';
+import { showHorizontalScrollbar, showVerticalScrollbar, isScrollbarDragActive } from './scrollbar.js';
 import { isHorizontalMode } from './modeManager.js';
+
+// DOM 缓存
+let cachedViewport = null;
+let cachedContainer = null;
 
 // 拖动状态
 let isDragging = false;
@@ -17,7 +21,7 @@ let logicalScrollTop = 0;
 
 // 检查是否应该启用副轴拖拽（通过 viewport 真实溢出判断）
 function shouldEnableCrossAxisDrag() {
-    const viewport = document.querySelector('#viewport');
+    const viewport = cachedViewport;
     if (!viewport) return false;
 
     if (isHorizontalMode()) {
@@ -29,7 +33,7 @@ function shouldEnableCrossAxisDrag() {
 
 // 更新光标样式
 function updateCursorStyle() {
-    const container = document.querySelector('#image-container');
+    const container = cachedContainer;
     if (!container) return;
 
     container.style.cursor = 'default';
@@ -43,8 +47,10 @@ function updateCursorStyle() {
 
 // 初始化拖动功能
 export function initDragFeature() {
-    const container = document.querySelector('#image-container');
-    const viewport = document.querySelector('#viewport');
+    cachedContainer = document.querySelector('#image-container');
+    cachedViewport = document.querySelector('#viewport');
+    const container = cachedContainer;
+    const viewport = cachedViewport;
     if (!container || !viewport) return;
 
     updateCursorStyle();
@@ -52,6 +58,7 @@ export function initDragFeature() {
     // 鼠标按下事件
     container.addEventListener('mousedown', (e) => {
         if (e.button !== 0) return;
+        if (isScrollbarDragActive()) return;
 
         if (e.target.tagName === 'BUTTON' ||
             e.target.tagName === 'A' ||
@@ -138,6 +145,11 @@ export function updateDragSnapshot(computedScrollLeft, computedScrollTop) {
     dragStartScrollTop = computedScrollTop;
     dragStartMouseX = lastMouseX;
     dragStartMouseY = lastMouseY;
+}
+
+// 查询拖拽是否正在进行（供其他模块互斥检查）
+export function isDragActive() {
+    return isDragging;
 }
 
 // 导出更新光标样式函数

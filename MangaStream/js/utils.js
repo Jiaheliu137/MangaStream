@@ -31,3 +31,23 @@ export function throttle(func, limit) {
         }
     };
 }
+
+// Toast 提示消息（从 ui.js 提取，打破 modeManager ↔ ui 循环依赖）
+export function showToast(message, type = 'success', duration = 3000, id = null) {
+    if (id) {
+        const existingToast = document.getElementById(id);
+        if (existingToast) existingToast.remove();
+    }
+
+    const toast = document.createElement('div');
+    toast.className = `toast-message ${type} ${id ? id : ''}`;
+    if (id) toast.id = id;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+
+    setTimeout(() => {
+        if (document.body.contains(toast)) {
+            toast.remove();
+        }
+    }, duration);
+}

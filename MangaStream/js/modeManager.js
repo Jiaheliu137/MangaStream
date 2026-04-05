@@ -1,9 +1,9 @@
 // 模式管理模块 (Mode Manager)
 // 负责处理竖向(Vertical)和横向(Horizontal)阅读模式的切换和状态管理
 
-import { READING_MODES, STANDARD_MANGA_WIDTH, STANDARD_MANGA_HEIGHT } from './constants.js';
+import { READING_MODES, STANDARD_MANGA_WIDTH, STANDARD_MANGA_HEIGHT, UIConfig } from './constants.js';
 import { loadSelectedItems, captureCurrentIndexForModeSwitch, reloadForModeSwitch } from './imageLoader.js';
-import { showToast } from './ui.js';
+import { showToast } from './utils.js';
 
 let currentMode = READING_MODES.VERTICAL;
 
@@ -40,7 +40,6 @@ export function setReadingMode(mode) {
         if (currentMode === mode) return; // 无变化
 
         currentMode = mode;
-        console.log('[ModeManager] 已切换阅读模式到:', currentMode);
 
         // 快速路径：复用已有数据，跳过 Eagle API 调用
         // 注意：不在这里直接调用 applyBodyModeClasses，交由 reloadForModeSwitch 在黑屏后异步执行，防止穿帮。
@@ -62,7 +61,7 @@ export function toggleReadingMode() {
         case READING_MODES.HORIZONTAL_LTR: modeName = i18next.t('mode.horizontalLTR'); break;
         case READING_MODES.HORIZONTAL_RTL: modeName = i18next.t('mode.horizontalRTL'); break;
     }
-    showToast(i18next.t('mode.currentMode', { mode: modeName }), 'info', 1500, 'mode-toast');
+    showToast(i18next.t('mode.currentMode', { mode: modeName }), 'info', UIConfig.MODE_TOAST_DURATION, 'mode-toast');
 
     return newMode;
 }

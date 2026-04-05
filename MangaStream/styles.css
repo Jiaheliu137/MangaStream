@@ -341,10 +341,6 @@ body.theme-lightgray #page-jump-input {
     display: none;
 }
 
-#viewport.has-scrollbar {
-    height: calc(100vh - 49px);
-}
-
 /* ==================== 交互状态 ==================== */
 body.scaling {
     pointer-events: none;
@@ -473,7 +469,12 @@ body.horizontal-mode .image-divider {
 .no-images {
     padding: 20px;
     text-align: center;
-    color: #999;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.theme-light .no-images,
+.theme-lightgray .no-images {
+    color: rgba(0, 0, 0, 0.4);
 }
 
 /* 懒加载占位 */
@@ -508,7 +509,7 @@ body.horizontal-mode .image-divider {
     padding: 6px 12px;
     border-radius: 6px;
     z-index: 1000;
-    transition: all 0.3s ease;
+    transition: background-color 0.3s ease, opacity 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
     font-size: 14px;
     font-weight: bold;
     opacity: 0.8;
@@ -529,7 +530,7 @@ body.horizontal-mode .image-divider {
     font-size: 13px;
     opacity: 0.6;
     margin-left: 4px;
-    transition: all 0.3s ease;
+    transition: opacity 0.3s ease;
 }
 
 #total-count-indicator:hover #total-count-text::after {
@@ -658,7 +659,7 @@ body.dragging #vertical-scrollbar-handle {
     cursor: pointer;
     z-index: 1000;
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, transform 0.2s ease, opacity 0.2s ease;
     opacity: 0.5;
     user-select: none;
 }
@@ -738,7 +739,7 @@ body.dragging #vertical-scrollbar-handle {
     padding: 3px;
     border-radius: 50%;
     border: 2px solid transparent;
-    transition: all 0.15s ease;
+    transition: border-color 0.15s ease, transform 0.15s ease;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -803,7 +804,7 @@ body.theme-lightgray .theme-swatch span {
     align-items: center;
     width: 100%;
     height: 24px;
-    transition: all 0.2s ease;
+    transition: color 0.2s ease, transform 0.2s ease;
 }
 
 #zoom-button .zoom-minus {
@@ -823,7 +824,7 @@ body.theme-lightgray .theme-swatch span {
     width: 22px;
     height: 1px;
     background-color: rgba(255, 255, 255, 0.2);
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease;
 }
 
 #zoom-button:hover .zoom-plus:hover {
