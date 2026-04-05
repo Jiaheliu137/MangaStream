@@ -37,6 +37,38 @@
         "retryButton": "重試",
         "unnamed": "未命名"
     },
+    "theme": {
+        "light": "淺色",
+        "lightgray": "淺灰",
+        "gray": "灰色",
+        "dark": "深色",
+        "blue": "深藍",
+        "purple": "深紫"
+    },
+    "help": {
+        "title": "快捷鍵說明",
+        "scrollUp": "向上/向前捲動（橫屏自動對映為左右）",
+        "scrollDown": "向下/向後捲動（橫屏自動對映為左右）",
+        "pageDown": "向後翻頁",
+        "pageUp": "向前翻頁",
+        "switchMode": "切換閱讀模式（直式 → 橫式LTR → 橫式RTL）",
+        "switchTheme": "切換主題色",
+        "ctrlWheel": "邊緣錨定縮放（視口邊緣不動，內容向外展開）",
+        "leftClickWheel": "滑鼠錨定縮放（滑鼠指向的像素不動）",
+        "zoomIn": "放大檢視",
+        "zoomOut": "縮小檢視",
+        "zoomReset": "重設縮放比例",
+        "refresh": "重新載入圖片（更新選取內容後使用）",
+        "exportPdf": "匯出目前圖片為 PDF",
+        "closeWindow": "關閉閱讀視窗",
+        "pinWindow": "固定/取消固定視窗",
+        "fullscreen": "進入全螢幕",
+        "exitFullscreen": "離開全螢幕",
+        "hideUI": "隱藏/顯示所有 UI 按鈕",
+        "showHelp": "顯示/隱藏快捷鍵說明",
+        "dragToScroll": "拖曳捲動畫面",
+        "clickAnywhere": "按 I 或點擊空白區域關閉"
+    },
     "pdf": {
         "loading": "正在載入 PDF 函式庫...",
         "processing": "正在處理圖片...",

@@ -856,6 +856,13 @@ body.zoom-button-hover #viewport {
     overflow: hidden !important;
 }
 
+/* 快捷键帮助按钮 */
+#help-button {
+    left: 20px;
+    bottom: 20px;
+    opacity: 0.35;
+}
+
 /* PDF导出按钮 */
 #export-pdf-button {
     right: 20px;
@@ -956,6 +963,140 @@ body.zoom-button-hover #viewport {
     height: 100%;
     background-color: #4CAF50;
     transition: width 0.3s;
+}
+
+/* ==================== 快捷键帮助面板 ==================== */
+#help-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    z-index: 10000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+}
+
+#help-overlay.visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+#help-panel {
+    background-color: rgba(30, 30, 30, 0.95);
+    color: #e0e0e0;
+    border-radius: 12px;
+    max-width: 560px;
+    width: 90%;
+    max-height: 80vh;
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    display: flex;
+    flex-direction: column;
+}
+
+#help-panel-body {
+    overflow-y: auto;
+    padding: 0 36px 28px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(150,150,150,0.4) transparent;
+}
+
+#help-panel h2 {
+    margin: 0;
+    padding: 28px 36px 16px;
+    font-size: 18px;
+    font-weight: 600;
+    text-align: center;
+    color: #ffffff;
+    flex-shrink: 0;
+}
+
+#help-panel table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+#help-panel tr {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+#help-panel tr:last-child {
+    border-bottom: none;
+}
+
+#help-panel td {
+    padding: 7px 0;
+    vertical-align: middle;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+#help-panel td:first-child {
+    width: 160px;
+    padding-right: 16px;
+    white-space: nowrap;
+}
+
+#help-panel kbd {
+    display: inline-block;
+    background-color: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+    padding: 2px 7px;
+    font-family: inherit;
+    font-size: 12px;
+    color: #ffffff;
+    min-width: 20px;
+    text-align: center;
+}
+
+#help-panel .help-footer {
+    margin-top: 16px;
+    text-align: center;
+    font-size: 12px;
+    color: #888;
+}
+
+/* 亮色主题下帮助面板 */
+body.theme-light #help-overlay,
+body.theme-lightgray #help-overlay {
+    background-color: rgba(0, 0, 0, 0.35);
+}
+
+body.theme-light #help-panel,
+body.theme-lightgray #help-panel {
+    background-color: rgba(255, 255, 255, 0.97);
+    color: #333;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+}
+
+body.theme-light #help-panel h2,
+body.theme-lightgray #help-panel h2 {
+    color: #111;
+}
+
+body.theme-light #help-panel kbd,
+body.theme-lightgray #help-panel kbd {
+    background-color: rgba(0, 0, 0, 0.06);
+    border-color: rgba(0, 0, 0, 0.12);
+    color: #333;
+}
+
+body.theme-light #help-panel tr,
+body.theme-lightgray #help-panel tr {
+    border-bottom-color: rgba(0, 0, 0, 0.06);
+}
+
+body.theme-light #help-panel .help-footer,
+body.theme-lightgray #help-panel .help-footer {
+    color: #999;
 }
 
 /* ==================== 单个专属模式提示 ==================== */

@@ -37,6 +37,38 @@
         "retryButton": "재시도",
         "unnamed": "제목 없음"
     },
+    "theme": {
+        "light": "라이트",
+        "lightgray": "라이트 그레이",
+        "gray": "그레이",
+        "dark": "다크",
+        "blue": "블루",
+        "purple": "퍼플"
+    },
+    "help": {
+        "title": "키보드 단축키",
+        "scrollUp": "위/앞으로 스크롤 (가로 모드에서는 좌우로 자동 전환)",
+        "scrollDown": "아래/뒤로 스크롤 (가로 모드에서는 좌우로 자동 전환)",
+        "pageDown": "다음 페이지",
+        "pageUp": "이전 페이지",
+        "switchMode": "읽기 모드 전환 (세로 → 가로LTR → 가로RTL)",
+        "switchTheme": "테마 색상 전환",
+        "ctrlWheel": "모서리 고정 확대/축소 (뷰포트 가장자리 고정)",
+        "leftClickWheel": "마우스 위치 고정 확대/축소 (커서 아래 픽셀 고정)",
+        "zoomIn": "확대",
+        "zoomOut": "축소",
+        "zoomReset": "확대/축소 초기화",
+        "refresh": "이미지 새로고침 (선택 변경 후 사용)",
+        "exportPdf": "현재 이미지를 PDF로 내보내기",
+        "closeWindow": "읽기 창 닫기",
+        "pinWindow": "창 고정/해제",
+        "fullscreen": "전체 화면 전환",
+        "exitFullscreen": "전체 화면 종료",
+        "hideUI": "모든 UI 버튼 표시/숨기기",
+        "showHelp": "단축키 도움말 표시/숨기기",
+        "dragToScroll": "드래그하여 스크롤",
+        "clickAnywhere": "I 키 또는 빈 영역 클릭으로 닫기"
+    },
     "pdf": {
         "loading": "PDF 라이브러리 불러오는 중...",
         "processing": "이미지 처리 중...",

@@ -18,6 +18,7 @@ import {
     initThemeButton,
     initModeButton,
     initZoomButton,
+    initHelpButton,
     updateModeButtonIcon,
     syncEagleTheme
 } from './ui.js';
@@ -121,6 +122,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 初始化缩放按钮
     initZoomButton();
+
+    // 初始化帮助按钮
+    initHelpButton();
 
     // 初始化完成后检查并处理滚动条状态
     setTimeout(() => {

@@ -245,10 +245,14 @@ export function initKeyboardShortcuts() {
             }
         }
 
-        // Esc键：关闭面板/退出全屏
+        // Esc键：关闭面板/退出全屏（按优先级逐层关闭）
         if (event.key === 'Escape') {
+            const helpOverlay = document.getElementById('help-overlay');
             const themePanel = document.getElementById('theme-panel');
-            if (themePanel && themePanel.classList.contains('visible')) {
+
+            if (helpOverlay && helpOverlay.classList.contains('visible')) {
+                helpOverlay.classList.remove('visible');
+            } else if (themePanel && themePanel.classList.contains('visible')) {
                 themePanel.classList.remove('visible');
             } else if (document.fullscreenElement) {
                 document.exitFullscreen();
@@ -262,10 +266,16 @@ export function initKeyboardShortcuts() {
             uiComponentsVisible = !uiComponentsVisible;
             const displayValue = uiComponentsVisible ? 'flex' : 'none';
 
-            ['refresh-button', 'export-pdf-button', 'theme-button', 'mode-button', 'zoom-button'].forEach(id => {
+            ['refresh-button', 'export-pdf-button', 'theme-button', 'mode-button', 'zoom-button', 'help-button'].forEach(id => {
                 const btn = document.getElementById(id);
                 if (btn) btn.style.display = displayValue;
             });
+        }
+
+        // I键：显示/隐藏快捷键帮助
+        if (!isInputFocused && event.key.toLowerCase() === 'i') {
+            event.preventDefault();
+            toggleHelpOverlay();
         }
 
         // M键：切换排版模式
@@ -523,6 +533,83 @@ export function updateModeButtonIcon() {
         iconSpan.textContent = '⇕';
         modeButton.title = i18next.t('mode.switchToVertical');
     }
+}
+
+// ==================== 快捷键帮助面板 ====================
+function createHelpOverlay() {
+    let overlay = document.getElementById('help-overlay');
+    if (overlay) return overlay;
+
+    overlay = document.createElement('div');
+    overlay.id = 'help-overlay';
+    overlay.innerHTML = `
+        <div id="help-panel">
+            <h2>${i18next.t('help.title')}</h2>
+            <div id="help-panel-body">
+                <table>
+                    <tr><td><kbd>W</kbd> / <kbd>S</kbd> / <kbd>↑</kbd> / <kbd>↓</kbd></td><td>${i18next.t('help.scrollDown')}</td></tr>
+                    <tr><td><kbd>Space</kbd></td><td>${i18next.t('help.pageDown')}</td></tr>
+                    <tr><td><kbd>Shift</kbd> + <kbd>Space</kbd></td><td>${i18next.t('help.pageUp')}</td></tr>
+                    <tr><td><kbd>M</kbd></td><td>${i18next.t('help.switchMode')}</td></tr>
+                    <tr><td><kbd>B</kbd></td><td>${i18next.t('help.switchTheme')}</td></tr>
+                    <tr><td><kbd>Ctrl</kbd> + <kbd>Wheel</kbd></td><td>${i18next.t('help.ctrlWheel')}</td></tr>
+                    <tr><td><kbd>LClick</kbd> + <kbd>Wheel</kbd></td><td>${i18next.t('help.leftClickWheel')}</td></tr>
+                    <tr><td><kbd>Ctrl</kbd> + <kbd>+</kbd></td><td>${i18next.t('help.zoomIn')}</td></tr>
+                    <tr><td><kbd>Ctrl</kbd> + <kbd>-</kbd></td><td>${i18next.t('help.zoomOut')}</td></tr>
+                    <tr><td><kbd>Ctrl</kbd> + <kbd>0</kbd></td><td>${i18next.t('help.zoomReset')}</td></tr>
+                    <tr><td><kbd>Ctrl</kbd> + <kbd>R</kbd></td><td>${i18next.t('help.refresh')}</td></tr>
+                    <tr><td><kbd>Ctrl</kbd> + <kbd>E</kbd></td><td>${i18next.t('help.exportPdf')}</td></tr>
+                    <tr><td><kbd>Ctrl</kbd> + <kbd>W</kbd></td><td>${i18next.t('help.closeWindow')}</td></tr>
+                    <tr><td><kbd>Shift</kbd> + <kbd>T</kbd></td><td>${i18next.t('help.pinWindow')}</td></tr>
+                    <tr><td><kbd>F</kbd></td><td>${i18next.t('help.fullscreen')}</td></tr>
+                    <tr><td><kbd>Esc</kbd></td><td>${i18next.t('help.exitFullscreen')}</td></tr>
+                    <tr><td><kbd>H</kbd></td><td>${i18next.t('help.hideUI')}</td></tr>
+                    <tr><td><kbd>I</kbd></td><td>${i18next.t('help.showHelp')}</td></tr>
+                    <tr><td>${i18next.t('help.dragToScroll')}</td><td></td></tr>
+                </table>
+                <div class="help-footer">${i18next.t('help.clickAnywhere')}</div>
+            </div>
+        </div>
+    `;
+
+    // 点击遮罩层（面板外部）关闭
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) {
+            toggleHelpOverlay();
+        }
+    });
+
+    document.body.appendChild(overlay);
+    return overlay;
+}
+
+function toggleHelpOverlay() {
+    let overlay = document.getElementById('help-overlay');
+    if (!overlay) {
+        overlay = createHelpOverlay();
+        // 强制 reflow 后再添加 visible，确保过渡动画生效
+        void overlay.offsetHeight;
+        overlay.classList.add('visible');
+    } else if (overlay.classList.contains('visible')) {
+        overlay.classList.remove('visible');
+    } else {
+        // 重新生成内容（语言可能已切换）
+        overlay.remove();
+        overlay = createHelpOverlay();
+        void overlay.offsetHeight;
+        overlay.classList.add('visible');
+    }
+}
+
+// 初始化帮助按钮
+export function initHelpButton() {
+    const helpButton = document.getElementById('help-button');
+    if (!helpButton || helpButton._initialized) return;
+    helpButton._initialized = true;
+
+    helpButton.addEventListener('click', () => {
+        toggleHelpOverlay();
+    });
 }
 
 // 缩放步进值（10%）

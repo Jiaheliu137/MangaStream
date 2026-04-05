@@ -37,6 +37,38 @@
         "retryButton": "Reintentar",
         "unnamed": "Sin nombre"
     },
+    "theme": {
+        "light": "Claro",
+        "lightgray": "Gris claro",
+        "gray": "Gris",
+        "dark": "Oscuro",
+        "blue": "Azul",
+        "purple": "Púrpura"
+    },
+    "help": {
+        "title": "Atajos de teclado",
+        "scrollUp": "Desplazarse arriba/atrás (en modo horizontal se asigna a izq/der)",
+        "scrollDown": "Desplazarse abajo/adelante (en modo horizontal se asigna a izq/der)",
+        "pageDown": "Página siguiente",
+        "pageUp": "Página anterior",
+        "switchMode": "Cambiar modo de lectura (Vertical → LTR → RTL)",
+        "switchTheme": "Cambiar color del tema",
+        "ctrlWheel": "Zoom anclado al borde (el borde del viewport se mantiene fijo)",
+        "leftClickWheel": "Zoom anclado al ratón (el píxel bajo el cursor se mantiene fijo)",
+        "zoomIn": "Acercar",
+        "zoomOut": "Alejar",
+        "zoomReset": "Restablecer zoom",
+        "refresh": "Actualizar imágenes (después de cambiar la selección)",
+        "exportPdf": "Exportar imágenes actuales a PDF",
+        "closeWindow": "Cerrar ventana de lectura",
+        "pinWindow": "Fijar/desfijar ventana",
+        "fullscreen": "Pantalla completa",
+        "exitFullscreen": "Salir de pantalla completa",
+        "hideUI": "Ocultar/mostrar botones de la interfaz",
+        "showHelp": "Mostrar/ocultar atajos de teclado",
+        "dragToScroll": "Arrastrar para desplazar",
+        "clickAnywhere": "Presione I o haga clic en cualquier lugar para cerrar"
+    },
     "pdf": {
         "loading": "Cargando biblioteca PDF...",
         "processing": "Procesando imágenes...",

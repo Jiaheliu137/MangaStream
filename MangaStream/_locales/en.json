@@ -37,6 +37,38 @@
         "retryButton": "Retry",
         "unnamed": "Unnamed"
     },
+    "theme": {
+        "light": "Light",
+        "lightgray": "Light Gray",
+        "gray": "Gray",
+        "dark": "Dark",
+        "blue": "Blue",
+        "purple": "Purple"
+    },
+    "help": {
+        "title": "Keyboard Shortcuts",
+        "scrollUp": "Scroll up/backward (auto-mapped to horizontal in landscape mode)",
+        "scrollDown": "Scroll down/forward (auto-mapped to horizontal in landscape mode)",
+        "pageDown": "Page down/forward",
+        "pageUp": "Page up/backward",
+        "switchMode": "Switch reading mode (Vertical → LTR → RTL)",
+        "switchTheme": "Switch theme color",
+        "ctrlWheel": "Edge-anchored zoom (viewport edge stays fixed)",
+        "leftClickWheel": "Mouse-anchored zoom (pixel under cursor stays fixed)",
+        "zoomIn": "Zoom in",
+        "zoomOut": "Zoom out",
+        "zoomReset": "Reset zoom",
+        "refresh": "Refresh images (after updating selection)",
+        "exportPdf": "Export current images to PDF",
+        "closeWindow": "Close reading window",
+        "pinWindow": "Pin/unpin window",
+        "fullscreen": "Enter fullscreen",
+        "exitFullscreen": "Exit fullscreen",
+        "hideUI": "Hide/show all UI buttons",
+        "showHelp": "Show/hide keyboard shortcuts",
+        "dragToScroll": "Drag to scroll",
+        "clickAnywhere": "Press I or click anywhere to close"
+    },
     "pdf": {
         "loading": "Loading PDF library...",
         "processing": "Processing images...",

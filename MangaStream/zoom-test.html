@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>CSS zoom + scrollBy drag test</title>
+<style>
+body { margin: 0; font-family: monospace; }
+#info { position: fixed; top: 10px; left: 10px; background: rgba(0,0,0,0.8); color: #0f0; padding: 10px; z-index: 100; font-size: 14px; border-radius: 4px; }
+#viewport {
+    width: 100vw;
+    height: 100vh;
+    overflow: auto;
+    scrollbar-width: none;
+}
+#viewport::-webkit-scrollbar { display: none; }
+#content {
+    /* CSS zoom applied here, same as MangaStream's #image-container */
+    zoom: 2;
+    width: 800px;
+    margin: 0 auto;
+    background: repeating-linear-gradient(
+        0deg,
+        #333 0px, #333 49px,
+        #555 49px, #555 50px
+    );
+    /* crosshair grid */
+    background-image:
+        repeating-linear-gradient(0deg, transparent, transparent 49px, #555 49px, #555 50px),
+        repeating-linear-gradient(90deg, transparent, transparent 49px, #555 49px, #555 50px);
+    background-color: #333;
+    height: 5000px;
+    cursor: grab;
+}
+.marker {
+    position: fixed;
+    width: 20px; height: 20px;
+    border: 2px solid red;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 99;
+    transform: translate(-50%, -50%);
+}
+</style>
+</head>
+<body>
+<div id="info">
+    Zoom: <span id="z">2</span>x |
+    Drag to test 1:1 tracking |
+    Ctrl+wheel to change zoom<br>
+    <span id="drift" style="color: yellow;">Drift: 0, 0</span>
+</div>
+<div id="viewport">
+    <div id="content"></div>
+</div>
+
+<script>
+const viewport = document.getElementById('viewport');
+const content = document.getElementById('content');
+const zoomDisplay = document.getElementById('z');
+const driftDisplay = document.getElementById('drift');
+
+let zoom = 2;
+let isDragging = false;
+let lastX = 0, lastY = 0;
+let startScrollX = 0, startScrollY = 0;
+let startMouseX = 0, startMouseY = 0;
+
+// Drag — raw scrollBy, no zoom compensation
+content.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    isDragging = true;
+    lastX = e.clientX;
+    lastY = e.clientY;
+    startScrollX = viewport.scrollLeft;
+    startScrollY = viewport.scrollTop;
+    startMouseX = e.clientX;
+    startMouseY = e.clientY;
+    content.style.cursor = 'grabbing';
+});
+
+document.addEventListener('mousemove', (e) => {
+    if (!isDragging) return;
+    const dx = e.clientX - lastX;
+    const dy = e.clientY - lastY;
+    viewport.scrollBy(-dx, -dy);
+    lastX = e.clientX;
+    lastY = e.clientY;
+
+    // Calculate accumulated drift
+    const totalMouseDx = e.clientX - startMouseX;
+    const totalMouseDy = e.clientY - startMouseY;
+    const totalScrollDx = viewport.scrollLeft - startScrollX;
+    const totalScrollDy = viewport.scrollTop - startScrollY;
+    const driftX = totalScrollDx + totalMouseDx;
+    const driftY = totalScrollDy + totalMouseDy;
+    driftDisplay.textContent = `Drift: ${driftX.toFixed(1)}, ${driftY.toFixed(1)}`;
+});
+
+document.addEventListener('mouseup', () => {
+    isDragging = false;
+    content.style.cursor = 'grab';
+});
+
+// Zoom
+document.addEventListener('wheel', (e) => {
+    if (!e.ctrlKey) return;
+    e.preventDefault();
+    zoom += e.deltaY > 0 ? -0.1 : 0.1;
+    zoom = Math.max(0.5, Math.min(5, zoom));
+    content.style.zoom = zoom;
+    zoomDisplay.textContent = zoom.toFixed(1);
+}, { passive: false });
+</script>
+</body>
+</html>

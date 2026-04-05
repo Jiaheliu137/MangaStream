@@ -37,6 +37,38 @@
         "retryButton": "重试",
         "unnamed": "未命名"
     },
+    "theme": {
+        "light": "浅色",
+        "lightgray": "浅灰",
+        "gray": "灰色",
+        "dark": "深色",
+        "blue": "深蓝",
+        "purple": "深紫"
+    },
+    "help": {
+        "title": "快捷键说明",
+        "scrollUp": "向上/向前滚动（横屏自动映射为左右）",
+        "scrollDown": "向下/向后滚动（横屏自动映射为左右）",
+        "pageDown": "向后翻页",
+        "pageUp": "向前翻页",
+        "switchMode": "切换阅读模式（竖屏 → 横屏LTR → 横屏RTL）",
+        "switchTheme": "切换主题色",
+        "ctrlWheel": "边缘锚定缩放（视口边缘不动，内容向外展开）",
+        "leftClickWheel": "鼠标锚定缩放（鼠标指向的像素不动）",
+        "zoomIn": "放大视图",
+        "zoomOut": "缩小视图",
+        "zoomReset": "重置缩放比例",
+        "refresh": "刷新图片（更新选中内容后使用）",
+        "exportPdf": "导出当前图片为PDF",
+        "closeWindow": "关闭阅读窗口",
+        "pinWindow": "钉住/取消钉住窗口",
+        "fullscreen": "进入全屏",
+        "exitFullscreen": "退出全屏",
+        "hideUI": "隐藏/显示所有UI按钮",
+        "showHelp": "显示/隐藏快捷键说明",
+        "dragToScroll": "拖拽滚动画面",
+        "clickAnywhere": "按 I 或点击空白区域关闭"
+    },
     "pdf": {
         "loading": "正在加载PDF库...",
         "processing": "正在处理图片...",

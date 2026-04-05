@@ -37,6 +37,38 @@
         "retryButton": "Erneut versuchen",
         "unnamed": "Unbenannt"
     },
+    "theme": {
+        "light": "Hell",
+        "lightgray": "Hellgrau",
+        "gray": "Grau",
+        "dark": "Dunkel",
+        "blue": "Blau",
+        "purple": "Lila"
+    },
+    "help": {
+        "title": "Tastenkürzel",
+        "scrollUp": "Nach oben/zurück scrollen (im Querformat automatisch links/rechts)",
+        "scrollDown": "Nach unten/vorwärts scrollen (im Querformat automatisch links/rechts)",
+        "pageDown": "Nächste Seite",
+        "pageUp": "Vorherige Seite",
+        "switchMode": "Lesemodus wechseln (Vertikal → LTR → RTL)",
+        "switchTheme": "Themenfarbe wechseln",
+        "ctrlWheel": "Rand-verankerter Zoom (Viewport-Rand bleibt fixiert)",
+        "leftClickWheel": "Mausposition-verankerter Zoom (Pixel unter dem Cursor bleibt fixiert)",
+        "zoomIn": "Vergrößern",
+        "zoomOut": "Verkleinern",
+        "zoomReset": "Zoom zurücksetzen",
+        "refresh": "Bilder aktualisieren (nach Änderung der Auswahl)",
+        "exportPdf": "Aktuelle Bilder als PDF exportieren",
+        "closeWindow": "Lesefenster schließen",
+        "pinWindow": "Fenster anheften/lösen",
+        "fullscreen": "Vollbildmodus",
+        "exitFullscreen": "Vollbildmodus verlassen",
+        "hideUI": "Alle UI-Schaltflächen ein-/ausblenden",
+        "showHelp": "Tastenkürzel ein-/ausblenden",
+        "dragToScroll": "Ziehen zum Scrollen",
+        "clickAnywhere": "I drücken oder auf eine leere Stelle klicken zum Schließen"
+    },
     "pdf": {
         "loading": "PDF-Bibliothek wird geladen...",
         "processing": "Bilder werden verarbeitet...",

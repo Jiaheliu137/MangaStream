@@ -37,6 +37,38 @@
         "retryButton": "再試行",
         "unnamed": "名称未設定"
     },
+    "theme": {
+        "light": "ライト",
+        "lightgray": "ライトグレー",
+        "gray": "グレー",
+        "dark": "ダーク",
+        "blue": "ブルー",
+        "purple": "パープル"
+    },
+    "help": {
+        "title": "キーボードショートカット",
+        "scrollUp": "上/前方にスクロール（横読みモードでは左右に自動変換）",
+        "scrollDown": "下/後方にスクロール（横読みモードでは左右に自動変換）",
+        "pageDown": "次のページへ",
+        "pageUp": "前のページへ",
+        "switchMode": "読書モード切替（縦 → 横LTR → 横RTL）",
+        "switchTheme": "テーマカラーを切替",
+        "ctrlWheel": "端固定ズーム（ビューポートの端が固定）",
+        "leftClickWheel": "マウス位置固定ズーム（カーソル下のピクセルが固定）",
+        "zoomIn": "拡大",
+        "zoomOut": "縮小",
+        "zoomReset": "ズームをリセット",
+        "refresh": "画像を更新（選択変更後に使用）",
+        "exportPdf": "現在の画像をPDFにエクスポート",
+        "closeWindow": "閲覧ウィンドウを閉じる",
+        "pinWindow": "ウィンドウの固定/解除",
+        "fullscreen": "フルスクリーンにする",
+        "exitFullscreen": "フルスクリーンを終了",
+        "hideUI": "すべてのUIボタンの表示/非表示",
+        "showHelp": "ショートカット一覧の表示/非表示",
+        "dragToScroll": "ドラッグでスクロール",
+        "clickAnywhere": "I キーまたは空白部分のクリックで閉じる"
+    },
     "pdf": {
         "loading": "PDFライブラリを読み込み中...",
         "processing": "画像を処理中...",

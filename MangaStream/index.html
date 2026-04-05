@@ -87,12 +87,12 @@
     </div>
     <!-- 主题选择面板 -->
     <div id="theme-panel">
-        <div class="theme-swatch" data-theme="theme-light" title="Light"><span style="background:#ffffff"></span></div>
-        <div class="theme-swatch" data-theme="theme-lightgray" title="Light Gray"><span style="background:#e3e4e6"></span></div>
-        <div class="theme-swatch" data-theme="theme-gray" title="Gray"><span style="background:#37383c"></span></div>
-        <div class="theme-swatch" data-theme="theme-dark" title="Dark"><span style="background:#18191c"></span></div>
-        <div class="theme-swatch" data-theme="theme-blue" title="Blue"><span style="background:#0d1630"></span></div>
-        <div class="theme-swatch" data-theme="theme-purple" title="Purple"><span style="background:#1c1424"></span></div>
+        <div class="theme-swatch" data-theme="theme-light" data-i18n-title="theme.light"><span style="background:#ffffff"></span></div>
+        <div class="theme-swatch" data-theme="theme-lightgray" data-i18n-title="theme.lightgray"><span style="background:#e3e4e6"></span></div>
+        <div class="theme-swatch" data-theme="theme-gray" data-i18n-title="theme.gray"><span style="background:#37383c"></span></div>
+        <div class="theme-swatch" data-theme="theme-dark" data-i18n-title="theme.dark"><span style="background:#18191c"></span></div>
+        <div class="theme-swatch" data-theme="theme-blue" data-i18n-title="theme.blue"><span style="background:#0d1630"></span></div>
+        <div class="theme-swatch" data-theme="theme-purple" data-i18n-title="theme.purple"><span style="background:#1c1424"></span></div>
     </div>
 
     <!-- 刷新按钮 -->
@@ -107,6 +107,14 @@
             <span class="zoom-reset"></span>
         </span>
         <span class="zoom-minus">−</span>
+    </div>
+
+    <!-- 快捷键帮助按钮 -->
+    <div id="help-button" class="action-button" data-i18n-title="help.title">
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+            <circle cx="11" cy="11" r="9" stroke="currentColor" stroke-width="1.5" fill="none"/>
+            <text x="11" y="15.5" text-anchor="middle" font-size="13" font-weight="600" font-family="Arial, sans-serif" fill="currentColor">?</text>
+        </svg>
     </div>
 
     <script type="module" src="js/plugin.js"></script>
