@@ -257,14 +257,14 @@ body.theme-purple .titlebar-wnd-btn.titlebar-wnd-close:active {
 
 /* ==================== 基础布局 ==================== */
 html {
-    background-color: #ffffff;
+    background-color: var(--initial-bg, #ffffff);
 }
 
 body {
     margin: 0;
     padding: 0;
     overflow: hidden;
-    background-color: #ffffff;
+    background-color: transparent;
     color: #2c2f32;
     font-family: Arial, sans-serif;
     transition: background-color 0.3s ease;
