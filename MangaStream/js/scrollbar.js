@@ -1,16 +1,11 @@
-// 滚动条管理模块 - 重构版本：抽象通用逻辑，减少重复代码 (#8)
+// 滚动条管理模块 - CSS zoom 重构版
+// 交叉轴滚动现在由浏览器原生处理（CSS zoom 改变真实布局尺寸），
+// 滚动条只需读取 viewport 的原生滚动位置即可。
 import { AnimationConfig } from './constants.js';
-import { getCurrentZoom, getCurrentOffset, setCurrentOffset, applyContentPosition } from './zoom.js';
-import { isHorizontalMode, isHorizontalRTLMode, getStandardSizeValue } from './modeManager.js';
+import { isHorizontalMode, isHorizontalRTLMode } from './modeManager.js';
 
 // ==================== 通用滚动条控制器 ====================
 
-/**
- * 创建滚动条控制器实例
- * @param {string} containerSelector - 滚动条容器选择器
- * @param {string} barSelector - 滚动条选择器
- * @param {string} handleSelector - 滚动条手柄选择器
- */
 function createScrollbarController(containerSelector, barSelector, handleSelector) {
     let hideTimer = null;
 
@@ -87,8 +82,6 @@ const verticalScrollbar = createScrollbarController(
 export function showScrollbars() {
     horizontalScrollbar.show();
     verticalScrollbar.show();
-
-    // 统一隐藏定时器
     horizontalScrollbar.resetHideTimer();
     verticalScrollbar.resetHideTimer();
 }
@@ -120,56 +113,48 @@ export function resetVerticalScrollbarHideTimer() {
     verticalScrollbar.resetHideTimer();
 }
 
-// ==================== 水平滚动条逻辑 ====================
+// ==================== 交叉轴滚动条（CSS zoom 方案：读取 viewport 原生滚动） ====================
 
-export function updateHorizontalScroll(zoomLevel) {
-    const imageWrapper = document.querySelector('.image-wrapper');
-    if (!imageWrapper) return;
+/**
+ * 更新交叉轴滚动条的可见性、尺寸和位置。
+ * 竖向模式下交叉轴是水平方向（horizontalScrollbar），
+ * 横向模式下交叉轴是垂直方向（verticalScrollbar）。
+ */
+export function updateCrossAxisScrollbar() {
+    const viewport = document.querySelector('#viewport');
+    if (!viewport) return;
 
-    const windowWidth = window.innerWidth;
-    const contentWidth = imageWrapper.offsetWidth * zoomLevel;
-
-    if (contentWidth > windowWidth) {
-        horizontalScrollbar.setDisplay(true);
-
-        const viewport = document.querySelector('#viewport');
-        if (viewport) viewport.classList.add('has-scrollbar');
-
-        updateScrollbarDimensions(contentWidth, windowWidth);
-        updateScrollbarPosition();
-    } else {
-        hideCustomScrollbar();
-    }
-}
-
-function updateScrollbarDimensions(contentWidth, windowWidth) {
-    const { bar } = horizontalScrollbar.getElements();
-    if (!bar) return;
-
-    const ratio = windowWidth / contentWidth;
-    const scrollbarWidth = Math.max(30, windowWidth * ratio);
-    bar.style.width = `${scrollbarWidth}px`;
-}
-
-export function updateScrollbarPosition() {
-    // This updates the CROSS AXIS scrollbar
-    const crossAxisScrollbar = isHorizontalMode() ? verticalScrollbar : horizontalScrollbar;
-    const { bar, container } = crossAxisScrollbar.getElements();
-
+    const crossScrollbar = isHorizontalMode() ? verticalScrollbar : horizontalScrollbar;
+    const { bar, container } = crossScrollbar.getElements();
     if (!bar || !container) return;
 
-    const windowSize = isHorizontalMode() ? window.innerHeight : window.innerWidth;
-    const contentSize = getStandardSizeValue() * getCurrentZoom();
+    let scrollSize, clientSize, scrollPos;
+    if (isHorizontalMode()) {
+        scrollSize = viewport.scrollHeight;
+        clientSize = viewport.clientHeight;
+        scrollPos = viewport.scrollTop;
+    } else {
+        scrollSize = viewport.scrollWidth;
+        clientSize = viewport.clientWidth;
+        scrollPos = viewport.scrollLeft;
+    }
 
-    if (contentSize <= windowSize) {
-        container.style.display = 'none';
+    if (scrollSize <= clientSize) {
+        crossScrollbar.setDisplay(false);
+        if (!isHorizontalMode()) {
+            viewport.classList.remove('has-scrollbar');
+        }
         return;
     }
 
-    container.style.display = 'block';
+    crossScrollbar.setDisplay(true);
+    if (!isHorizontalMode()) {
+        viewport.classList.add('has-scrollbar');
+    }
 
-    const ratio = windowSize / contentSize;
-    const scrollbarSize = Math.max(30, windowSize * ratio);
+    // 滚动条尺寸
+    const ratio = clientSize / scrollSize;
+    const scrollbarSize = Math.max(30, clientSize * ratio);
 
     if (isHorizontalMode()) {
         bar.style.height = `${scrollbarSize}px`;
@@ -177,22 +162,11 @@ export function updateScrollbarPosition() {
         bar.style.width = `${scrollbarSize}px`;
     }
 
-    const totalScrollableSize = contentSize - windowSize;
-    const { x: currentOffset } = getCurrentOffset(); // We conceptually map cross axis offset to X uniformly in zoom.js for now
-
-    // 0 Offset is purely centered.
-    // If it's horizontal mode, we map to vertical scrollbar (top down)
-    // If it's vertical mode, we map to horizontal scrollbar (left right)
-    let scrollRatio;
-    if (isHorizontalMode()) {
-        // Vertical cross axis: currentOffset is Y shift
-        scrollRatio = 0.5 - (currentOffset / totalScrollableSize); // wait! In zoom.js, Y offset translates to translateY
-    } else {
-        scrollRatio = 0.5 - (currentOffset / totalScrollableSize);
-    }
-
+    // 滚动条位置
+    const maxScroll = scrollSize - clientSize;
+    const scrollRatio = maxScroll > 0 ? scrollPos / maxScroll : 0;
     const clampedRatio = Math.max(0, Math.min(1, scrollRatio));
-    const scrollbarMaxMove = windowSize - scrollbarSize;
+    const scrollbarMaxMove = clientSize - scrollbarSize;
 
     if (isHorizontalMode()) {
         bar.style.top = `${clampedRatio * scrollbarMaxMove}px`;
@@ -201,24 +175,21 @@ export function updateScrollbarPosition() {
     }
 }
 
-function hideCustomScrollbar() {
-    horizontalScrollbar.setDisplay(false);
-    const viewport = document.querySelector('#viewport');
-    if (viewport) viewport.classList.remove('has-scrollbar');
+// 兼容旧调用签名
+export function updateHorizontalScroll() {
+    updateCrossAxisScrollbar();
 }
 
-// ==================== 原生关联滚动条 (主轴) 逻辑 ====================
+export function updateScrollbarPosition() {
+    updateCrossAxisScrollbar();
+}
+
+// ==================== 主轴滚动条 ====================
 
 export function updateVerticalScrollbar() {
-    // This updates the MAIN AXIS scrollbar
     const viewport = document.querySelector('#viewport');
     const mainAxisScrollbar = isHorizontalMode() ? horizontalScrollbar : verticalScrollbar;
     const { bar: mainBar, container: mainContainer } = mainAxisScrollbar.getElements();
-
-    // 隐藏另一个轴的主滚动条（如果有显示的话，为了防止干扰）
-    const unusedScrollbar = isHorizontalMode() ? verticalScrollbar : horizontalScrollbar;
-    // We only hide it if it's not being used by cross-axis!
-    // But updateScrollbarPosition handles the cross axis visibility!
 
     if (!viewport || !mainBar || !mainContainer) return;
 
@@ -243,13 +214,8 @@ export function updateVerticalScrollbar() {
 
     const scrollPos = isHorizontalMode() ? Math.abs(viewport.scrollLeft) : viewport.scrollTop;
 
-    // RTL handling: the thumb is drawn left-to-right from 0. 
-    // In RTL, scrollPos 0 means it's at the far right. 
-    // We might want to invert the thumb physical location visually so the thumb is at the right edge when scrollPos=0?
-    // Let's do that for intuitive tracking:
     let scrollRatio = scrollPos / (contentSize - viewportSize);
     if (isHorizontalMode() && isHorizontalRTLMode()) {
-        // RTL starts at 0 = thumb at rightmost (1.0).
         scrollRatio = 1.0 - scrollRatio;
     }
 
@@ -295,29 +261,24 @@ function handleScrollbarDrag(e) {
 
     let scrollRatio = newScrollbarLeft / scrollbarMaxMove;
 
+    const viewport = document.querySelector('#viewport');
+    if (!viewport) { scrollbarStartX = e.clientX; return; }
+
     if (isHorizontalMode()) {
-        // Horizontal Mode: horizontal scrollbar is MAIN axis (viewport scrollLeft)
-        const viewport = document.querySelector('#viewport');
-        if (viewport) {
-            const contentWidth = viewport.scrollWidth;
-            const viewportWidth = viewport.clientWidth;
-            if (isHorizontalRTLMode()) {
-                scrollRatio = 1.0 - scrollRatio; // Invert explicitly for RTL drag
-            }
-            const targetLeft = scrollRatio * (contentWidth - viewportWidth);
-            // In RTL negative mapping native scrollLeft requires absolute map matching. Native `scrollLeft` might be negative.
-            viewport.scrollTo({ left: isHorizontalRTLMode() ? -targetLeft : targetLeft });
+        // 横向模式：水平滚动条是主轴 → viewport.scrollLeft
+        const contentWidth = viewport.scrollWidth;
+        const viewportWidth = viewport.clientWidth;
+        if (isHorizontalRTLMode()) {
+            scrollRatio = 1.0 - scrollRatio;
         }
+        const targetLeft = scrollRatio * (contentWidth - viewportWidth);
+        viewport.scrollTo({ left: isHorizontalRTLMode() ? -targetLeft : targetLeft });
     } else {
-        // Vertical Mode: horizontal scrollbar is CROSS axis (currentOffsetX zoom pan)
-        const imageWrapper = document.querySelector('.image-wrapper');
-        if (imageWrapper) {
-            const contentWidth = imageWrapper.offsetWidth * getCurrentZoom();
-            const totalScrollableWidth = Math.max(0, contentWidth - windowWidth);
-            const newOffsetX = (scrollRatio - 0.5) * totalScrollableWidth; // In UI, Left=0(Ratio 0)= -Max/2, Right=1= +Max/2
-            setCurrentOffset(newOffsetX, undefined);
-            applyContentPosition();
-        }
+        // 竖向模式：水平滚动条是交叉轴 → viewport.scrollLeft
+        const contentWidth = viewport.scrollWidth;
+        const viewportWidth = viewport.clientWidth;
+        const targetLeft = scrollRatio * (contentWidth - viewportWidth);
+        viewport.scrollLeft = targetLeft;
     }
 
     scrollbarStartX = e.clientX;
@@ -370,8 +331,15 @@ export function initVerticalScrollbar() {
 
     updateVerticalScrollbar();
 
-    viewport.addEventListener('scroll', updateVerticalScrollbar);
-    window.addEventListener('resize', updateVerticalScrollbar);
+    // 滚动事件同时更新主轴和交叉轴滚动条
+    viewport.addEventListener('scroll', () => {
+        updateVerticalScrollbar();
+        updateCrossAxisScrollbar();
+    });
+    window.addEventListener('resize', () => {
+        updateVerticalScrollbar();
+        updateCrossAxisScrollbar();
+    });
 
     verticalScrollbar.enablePointerEvents();
 
@@ -409,24 +377,15 @@ export function initVerticalScrollbar() {
         const scrollRatio = newScrollbarTop / scrollbarMaxMove;
 
         if (isHorizontalMode()) {
-            // Horizontal Mode: vertical scrollbar is CROSS axis (currentOffsetX zoom pan on Y axis)
-            const STANDARD_MANGA_HEIGHT = getStandardSizeValue();
-            const contentHeight = STANDARD_MANGA_HEIGHT * getCurrentZoom();
-            const totalScrollableHeight = Math.max(0, contentHeight - windowHeight);
-
-            // In zoom.js, Y pan offset is mapped as: (0.5 - scrollRatio) => Center is 0, Top is +Max/2, Bottom is -Max/2
-            const newOffsetY = (0.5 - scrollRatio) * totalScrollableHeight;
-            setCurrentOffset(newOffsetY, undefined); // Cross axis offset stored in currentOffsetX var
-            applyContentPosition();
+            // 横向模式：垂直滚动条是交叉轴 → viewport.scrollTop
+            const contentHeight = viewport.scrollHeight;
+            const viewportHeight = viewport.clientHeight;
+            viewport.scrollTop = scrollRatio * (contentHeight - viewportHeight);
         } else {
-            // Vertical Mode: vertical scrollbar is MAIN axis (viewport scrollTop)
-            const viewport = document.querySelector('#viewport');
-            if (viewport) {
-                const contentHeight = viewport.scrollHeight;
-                const viewportHeight = viewport.clientHeight;
-                const scrollDelta = scrollRatio * (contentHeight - viewportHeight);
-                viewport.scrollTo({ top: scrollDelta });
-            }
+            // 竖向模式：垂直滚动条是主轴 → viewport.scrollTop
+            const contentHeight = viewport.scrollHeight;
+            const viewportHeight = viewport.clientHeight;
+            viewport.scrollTo({ top: scrollRatio * (contentHeight - viewportHeight) });
         }
 
         scrollbarStartY = e.clientY;
@@ -458,6 +417,7 @@ export function setupScrollbarVisibility() {
 
             scrollEndTimer = setTimeout(() => {
                 verticalScrollbar.resetHideTimer();
+                horizontalScrollbar.resetHideTimer();
                 scrollEndTimer = null;
             }, AnimationConfig.SCROLL_END_DELAY);
         });

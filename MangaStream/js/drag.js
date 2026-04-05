@@ -1,25 +1,29 @@
-// 拖动功能模块
-import { getCurrentZoom, getCurrentOffset, setCurrentOffset, applyContentPosition } from './zoom.js';
-import { showHorizontalScrollbar, showVerticalScrollbar, updateScrollbarPosition } from './scrollbar.js';
-
-import { isHorizontalMode, getStandardSizeValue } from './modeManager.js';
+// 拖动功能模块 — CSS zoom 重构版
+// 使用绝对滚动定位（而非增量 scrollBy），避免 Chrome CSS zoom 亚像素舍入累积漂移。
+import { showHorizontalScrollbar, showVerticalScrollbar } from './scrollbar.js';
+import { isHorizontalMode } from './modeManager.js';
 
 // 拖动状态
 let isDragging = false;
+let dragStartMouseX = 0;
+let dragStartMouseY = 0;
+let dragStartScrollLeft = 0;
+let dragStartScrollTop = 0;
 let lastMouseX = 0;
 let lastMouseY = 0;
+// 逻辑滚动位置：拖拽期间不从 viewport 回读（避免 Chrome 舍入污染）
+let logicalScrollLeft = 0;
+let logicalScrollTop = 0;
 
-// 检查是否应该启用副轴拖拽（垂直模式下为水平，水平模式下为垂直）
+// 检查是否应该启用副轴拖拽（通过 viewport 真实溢出判断）
 function shouldEnableCrossAxisDrag() {
-    const imageWrapper = document.querySelector('.image-wrapper');
-    if (!imageWrapper) return false;
+    const viewport = document.querySelector('#viewport');
+    if (!viewport) return false;
 
     if (isHorizontalMode()) {
-        const containerHeight = getStandardSizeValue() * getCurrentZoom();
-        return containerHeight > window.innerHeight;
+        return viewport.scrollHeight > viewport.clientHeight;
     } else {
-        const containerWidth = getStandardSizeValue() * getCurrentZoom();
-        return containerWidth > window.innerWidth;
+        return viewport.scrollWidth > viewport.clientWidth;
     }
 }
 
@@ -57,8 +61,12 @@ export function initDragFeature() {
 
         e.preventDefault();
         isDragging = true;
-        lastMouseX = e.clientX;
-        lastMouseY = e.clientY;
+        dragStartMouseX = e.clientX;
+        dragStartMouseY = e.clientY;
+        dragStartScrollLeft = viewport.scrollLeft;
+        dragStartScrollTop = viewport.scrollTop;
+        logicalScrollLeft = viewport.scrollLeft;
+        logicalScrollTop = viewport.scrollTop;
 
         document.body.style.cursor = 'grabbing';
         container.style.cursor = 'grabbing';
@@ -69,69 +77,30 @@ export function initDragFeature() {
     document.addEventListener('mousemove', (e) => {
         if (!isDragging) return;
 
-        const dx = e.clientX - lastMouseX;
-        const dy = e.clientY - lastMouseY;
+        // 使用绝对定位而非增量 scrollBy，避免 Chrome CSS zoom 下的亚像素舍入累积漂移
+        const totalDx = e.clientX - dragStartMouseX;
+        const totalDy = e.clientY - dragStartMouseY;
 
         const crossAxisEnabled = shouldEnableCrossAxisDrag();
 
-        let hasCrossMovement = false;
-        let hasMainMovement = false;
-
         if (isHorizontalMode()) {
-            // 主轴是 X，副轴是 Y
-            if (dx !== 0) {
-                viewport.scrollBy(-dx, 0);
-                showHorizontalScrollbar();
-                hasMainMovement = true;
-            }
-            if (crossAxisEnabled && dy !== 0) {
-                hasCrossMovement = true;
-                const { x: currentOffsetY } = getCurrentOffset(); // Wait, we still use x/y offset in zoom.js? zoom.js currently uses currentOffsetX.
-                // It's still called currentOffsetX, so let's reuse it logically as CrossAxisOffset.
-                const newOffsetX = currentOffsetY + dy;
-
-                const windowHeight = window.innerHeight;
-                const contentHeight = getStandardSizeValue() * getCurrentZoom();
-                const totalScrollableHeight = contentHeight - windowHeight;
-
-                const minOffset = -totalScrollableHeight / 2;
-                const maxOffset = totalScrollableHeight / 2;
-
-                const clampedOffset = Math.max(minOffset, Math.min(maxOffset, newOffsetX));
-                setCurrentOffset(clampedOffset, undefined);
+            logicalScrollLeft = dragStartScrollLeft - totalDx;
+            viewport.scrollLeft = logicalScrollLeft;
+            showHorizontalScrollbar();
+            if (crossAxisEnabled) {
+                logicalScrollTop = dragStartScrollTop - totalDy;
+                viewport.scrollTop = logicalScrollTop;
                 showVerticalScrollbar();
             }
         } else {
-            // 主轴是 Y，副轴是 X
-            if (crossAxisEnabled && dx !== 0) {
-                hasCrossMovement = true;
-                const { x: currentOffsetX } = getCurrentOffset();
-                const newOffsetX = currentOffsetX + dx;
-
-                const windowWidth = window.innerWidth;
-                const contentWidth = getStandardSizeValue() * getCurrentZoom();
-                const totalScrollableWidth = contentWidth - windowWidth;
-
-                const minOffset = -totalScrollableWidth / 2;
-                const maxOffset = totalScrollableWidth / 2;
-
-                const clampedOffsetX = Math.max(minOffset, Math.min(maxOffset, newOffsetX));
-                setCurrentOffset(clampedOffsetX, undefined);
-
+            logicalScrollTop = dragStartScrollTop - totalDy;
+            viewport.scrollTop = logicalScrollTop;
+            showVerticalScrollbar();
+            if (crossAxisEnabled) {
+                logicalScrollLeft = dragStartScrollLeft - totalDx;
+                viewport.scrollLeft = logicalScrollLeft;
                 showHorizontalScrollbar();
             }
-
-            if (dy !== 0) {
-                hasMainMovement = true;
-                viewport.scrollBy(0, -dy);
-                showVerticalScrollbar();
-            }
-        }
-
-        applyContentPosition();
-
-        if (hasCrossMovement) {
-            updateScrollbarPosition();
         }
 
         lastMouseX = e.clientX;
@@ -147,15 +116,28 @@ export function initDragFeature() {
         document.body.style.cursor = '';
         container.style.cursor = 'default';
         document.body.classList.remove('dragging');
-
-        if (!shouldEnableCrossAxisDrag()) {
-            setCurrentOffset(0, undefined);
-            applyContentPosition();
-        }
     }
 
     document.addEventListener('mouseup', endDrag);
     document.addEventListener('mouseleave', endDrag);
+}
+
+// 拖拽中获取逻辑滚动位置（未被 Chrome 舍入的精确值）
+// 缩放时用此值代替 viewport.scrollLeft/Top 做计算，避免舍入累积
+export function getDragLogicalScroll() {
+    if (!isDragging) return null;
+    return { left: logicalScrollLeft, top: logicalScrollTop };
+}
+
+// 缩放发生时更新拖拽快照，传入缩放计算出的精确滚动值
+export function updateDragSnapshot(computedScrollLeft, computedScrollTop) {
+    if (!isDragging) return;
+    logicalScrollLeft = computedScrollLeft;
+    logicalScrollTop = computedScrollTop;
+    dragStartScrollLeft = computedScrollLeft;
+    dragStartScrollTop = computedScrollTop;
+    dragStartMouseX = lastMouseX;
+    dragStartMouseY = lastMouseY;
 }
 
 // 导出更新光标样式函数

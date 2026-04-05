@@ -1,5 +1,5 @@
 // 键盘快捷键和UI控制模块
-import { applyZoomWithMouseCenter, getCurrentZoom, setCurrentOffset } from './zoom.js';
+import { applyZoomWithMouseCenter, getCurrentZoom } from './zoom.js';
 import { showScrollbars } from './scrollbar.js';
 import { loadSelectedItems } from './imageLoader.js';
 import { exportCurrentImagesToPDF } from './pdfExport.js';

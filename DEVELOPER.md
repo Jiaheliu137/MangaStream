@@ -55,13 +55,15 @@ js/
 - DOM: DOM元素缓存对象
 ```
 
-#### 3. `zoom.js` - 缩放功能
+#### 3. `zoom.js` - 缩放功能（CSS zoom 实现）
 ```javascript
 - getCurrentZoom(): 获取当前缩放比例
-- getCurrentOffset(): 获取当前偏移量
-- applyContentPosition(): 应用内容位置和缩放
-- resetContentPosition(): 重置内容位置
-- applyZoomWithMouseCenter(): 以鼠标为中心缩放
+- applyContentPosition(): 应用 CSS zoom 缩放（布局由浏览器自动处理）
+- resetContentPosition(): 重置交叉轴滚动（模式切换时调用）
+- applyZoomWithMouseCenter(): 边缘锚定缩放（Ctrl+滚轮 / 按钮 / 键盘）
+- applyZoomAtMousePosition(): 鼠标位置锚定缩放（左键+滚轮）
+- applyZoom(): 便捷缩放入口
+- showZoomLevel(): 显示缩放级别指示器
 - initZoomFeature(): 初始化缩放功能
 ```
 
@@ -114,11 +116,13 @@ js/
 - `imageLoader.js` 的 `precalculateSizes()` 根据当前模式动态计算主轴尺寸（竖屏算高度，横屏算宽度）
 - 模式切换时通过快速路径 `reloadForModeSwitch()` 重新渲染，`captureCurrentIndexForModeSwitch()` 捕获进度，保证零闪烁瞬时响应。
 
-#### 7. `drag.js` - 拖动功能
+#### 7. `drag.js` - 拖动功能（绝对滚动定位）
 ```javascript
 - initDragFeature(): 初始化拖动功能
 - updateCursorStyle(): 更新光标样式
-- shouldEnableHorizontalDrag(): 判断是否启用水平拖动
+- shouldEnableCrossAxisDrag(): 判断是否启用交叉轴拖动（通过 viewport 溢出检测）
+- getDragLogicalScroll(): 获取逻辑滚动位置（未被 Chrome 舍入的精确值，供缩放时使用）
+- updateDragSnapshot(): 缩放发生时更新拖拽快照（防止拖拽中缩放导致位置跳变）
 ```
 
 #### 7. `ui.js` - UI控制
@@ -294,29 +298,117 @@ for (let i = 0; i < processedImages.length; i++) {
 - 自动隐藏（500ms延迟）
 ```
 
-### 5. 缩放功能
+### 5. 缩放功能（CSS zoom 实现）
 
 **特性**:
-- Ctrl + 滚轮缩放
-- 以鼠标位置为中心缩放
+- Ctrl + 滚轮：边缘锚定缩放（主轴阅读起始边不动，交叉轴居中）
+- 左键 + 滚轮：鼠标位置锚定缩放（鼠标指向的像素不动）
+- Ctrl + 0：重置缩放到 100%
 - 缩放范围: 0.2x - 5.0x
 - 缩放时同步更新滚动条
 
-**实现**:
-```javascript
-// zoom.js - applyZoomWithMouseCenter()
-const scaleRatio = newZoom / oldZoom;
-currentOffsetX = currentOffsetX * scaleRatio; // 按比例调整偏移
-currentZoom = newZoom;
+**实现原理 — 从 `transform: scale()` 到 CSS `zoom`**:
 
-// 应用变换
-container.style.transform =
-    `translateX(calc(-50% + ${currentOffsetX}px)) scale(${currentZoom})`;
+旧方案使用 `transform: scale()` + 手动 `translateX/Y` 偏移管理，需要约 40 行代码维护交叉轴边界钳制。CSS `zoom` 会真正改变布局尺寸，浏览器自动处理溢出和滚动条，大幅简化代码。
+
+```javascript
+// zoom.js — 核心只需一行
+container.style.zoom = currentZoom;
+```
+
+**缩放锚定策略**:
+
+三种模式共用一套参数化逻辑，通过主轴/交叉轴互换实现：
+
+```
+竖向模式:    主轴=Y（顶部锚定）  交叉轴=X（居中锚定）
+左右横屏:    主轴=X（左边锚定）  交叉轴=Y（居中锚定）
+右左横屏:    主轴=X（右边锚定）  交叉轴=Y（居中锚定，scrollLeft 取负）
+```
+
+边缘锚定公式（主轴）：`newScroll = oldScroll * scaleRatio`
+中心锚定公式（交叉轴）：`newScroll = (oldScroll + viewportCenter) * scaleRatio - viewportCenter`
+鼠标锚定公式（左键+滚轮主轴）：`newScroll = (oldScroll + mouseInViewport) * scaleRatio - mouseInViewport`
+
+**交叉轴无溢出 → 溢出的过渡处理**:
+
+当内容未溢出 viewport 时，CSS `margin: 0 auto` 使内容视觉居中，但 `scrollLeft=0`。此时中心锚定公式 `(0 + cx) * ratio - cx` 会算出错误偏移。解决方案：缩放前检测交叉轴溢出状态，未溢出时直接用 `(scrollWidth - clientWidth) / 2` 居中。
+
+```javascript
+if (hadCrossOverflow) {
+    // 已有溢出：标准中心锚定公式
+    newScroll = (oldScroll + center) * scaleRatio - center;
+} else {
+    // 未溢出→可能溢出：直接居中
+    newScroll = (scrollSize - clientSize) / 2;
+}
 ```
 
 ---
 
 ## Bug修复记录
+
+### CSS zoom 重构相关修复
+
+**Bug 1: Chrome CSS zoom + scrollBy 亚像素舍入累积漂移（拖拽不跟手）**
+
+**现象**: 使用 CSS `zoom` 后，拖拽图片时鼠标与内容逐渐错位，拖得越久偏移越大。
+
+**根因**: Chrome 在 CSS zoom 非整数倍下对每次 `scrollBy()` 的参数做亚像素舍入。增量式拖拽（每帧 `scrollBy(-dx, -dy)`）中，每帧的起点是上一帧被舍入过的结果，误差像滚雪球一样累积。
+
+```
+帧1: scrollBy(-3) → 期望 97，实际 96.5（误差 0.5）
+帧2: scrollBy(-3) → 期望 93.5，实际 93（累积误差 1.0）
+...
+帧50: 累积误差可达 20-30px
+```
+
+**修复**: 从增量式改为绝对定位式。`mousedown` 时拍快照（起始滚动位置 + 起始鼠标位置），`mousemove` 时每帧从快照重算：
+
+```javascript
+// mousedown: 拍快照
+dragStartScrollLeft = viewport.scrollLeft;
+dragStartMouseX = e.clientX;
+
+// mousemove: 每帧从快照计算，不依赖上一帧
+viewport.scrollLeft = dragStartScrollLeft - (e.clientX - dragStartMouseX);
+```
+
+Chrome 对赋值结果的舍入只影响当前帧显示，下一帧从原始快照重算，误差永远 < 1px，不会累积。本质是将**递推（依赖上一帧）**换成**直接计算（每帧独立）**——数值计算中经典的避免误差累积方法。
+
+**Bug 2: 拖拽过程中缩放导致画面跳变**
+
+**现象**: 按住左键拖拽的同时滚轮缩放，画面瞬间跳到错误位置。
+
+**根因**: 缩放改变了 `viewport.scrollLeft/Top`，但拖拽快照（`dragStartScrollLeft/Top`）还是缩放前的旧值，下一帧 `mousemove` 从过期快照算出错误位置。
+
+**修复**: 缩放完成后调用 `updateDragSnapshot()`，把快照刷新为缩放后的滚动位置和当前鼠标位置，相当于"重新按下鼠标"。
+
+**Bug 3: 拖拽中连续多次缩放仍累积舍入漂移**
+
+**现象**: 单纯拖拽完美跟手，但边拖拽边反复缩放后，鼠标与画面相对位置缓慢漂移。
+
+**根因**: `updateDragSnapshot()` 从 `viewport.scrollLeft` 回读快照值，而此值已被 Chrome 舍入。多次缩放 → 多次回读舍入值 → 误差再次累积。
+
+**修复**: 引入"逻辑滚动位置"（`logicalScrollLeft/Top`），整条拖拽-缩放链路中滚动值从不回读 viewport：
+
+```
+mousedown → 从 viewport 读一次初始值（唯一一次回读）
+mousemove → 从 dragStart 算出精确 logicalScroll，赋给 viewport
+wheel缩放 → zoom.js 通过 getDragLogicalScroll() 读精确值做计算
+         → 算完通过 updateDragSnapshot(精确值) 写回快照
+mousemove → 继续从精确快照计算
+```
+
+Chrome 的舍入被隔离在"显示层"，计算层始终使用未舍入的精确浮点数。
+
+**Bug 4: 缩放到内容溢出 viewport 时交叉轴不居中**
+
+**现象**: 从 100% 逐步放大，内容从不溢出到溢出 viewport 的瞬间，图片跳到一侧而非保持居中。
+
+**根因**: 内容未溢出时由 CSS `margin: 0 auto` 视觉居中，`scrollLeft=0`。中心锚定公式 `(0 + cx) * ratio - cx` 误以为"内容左边缘在 viewport 左边缘"，算出错误偏移。
+
+**修复**: 缩放前检测交叉轴溢出状态。未溢出时跳过公式，直接用 `(scrollWidth - clientWidth) / 2` 居中。
 
 ### v1.5.1
 **Bug**: 插件添加多语言支持后，鼠标悬停按钮等地方显示 `undefined`，无法正确读取国际化字符串。

@@ -4,6 +4,8 @@
 import { SUPPORTED_IMAGE_FORMATS, AnimationConfig } from './constants.js';
 import { isHorizontalMode, isHorizontalRTLMode, getStandardSizeValue, applyBodyModeClasses } from './modeManager.js';
 import { resetContentPosition, applyContentPosition, getCurrentZoom } from './zoom.js';
+// 注意：CSS zoom 方案下，applyContentPosition 仅设置 container.style.zoom，
+// 交叉轴滚动由浏览器原生处理。
 import { updateHorizontalScroll, updateVerticalScrollbar } from './scrollbar.js';
 import { throttle } from './utils.js';
 
@@ -471,8 +473,8 @@ export function jumpToPage(pageNumber) {
 
     // 提前撑开虚拟 DOM 高/宽，防止浏览器因当前 DOM 高度不足而将 scrollLeft/scrollTop 强制截断 (Clamp to 0)
     if (spacerBottomEl) {
-        // 重要修正：spacerBottomEl 在 image-container 内部，外层已经有 scale(zoom)
-        // 绝对不能再乘 zoom，否则总长度会变成 totalSize * zoom^2，在高度不够时导致 scrollTop 强制归零到第1页！
+        // spacerBottomEl 在 image-container 内部，CSS zoom 会自动放大其布局尺寸，
+        // 所以这里用未缩放的 totalSize 即可，不需要手动乘 zoom。
         const totalSize = getTotalSize();
         if (isHorizontalMode()) {
             spacerBottomEl.style.width = `${totalSize}px`;
@@ -631,10 +633,10 @@ export function reloadForModeSwitch() {
         attachScrollListener();
 
         requestAnimationFrame(() => {
-            // applyContentPosition 现已无需 image-wrapper 守卫，直接设置 transform
+            // 设置 CSS zoom，浏览器会据此更新布局尺寸
             applyContentPosition();
 
-            // 强制同步重排：让浏览器以 scale(zoom) 后的视觉尺寸更新滚动边界，
+            // 强制同步重排：让浏览器以 CSS zoom 后的布局尺寸更新滚动边界，
             // 此后设置的 scrollTop/Left 才不会被物理边界截断。
             void (isHorizontalMode() ? viewportEl.scrollWidth : viewportEl.scrollHeight);
 
@@ -659,7 +661,7 @@ export function reloadForModeSwitch() {
             renderVisibleItems();
 
             // renderVisibleItems 创建了 image-wrapper 后，滚动条才能正确计算尺寸
-            updateHorizontalScroll(getCurrentZoom());
+            updateHorizontalScroll();
 
             // 内容已就位，淡入：keyframes 动画从 0→1
             containerEl.classList.add('fading-in');
@@ -754,7 +756,7 @@ export function displaySelectedItems(items, useAnimation = true) {
     // 解决切换模式/重载后需要缩放或拖拽才应用 transform 约束的问题。
     requestAnimationFrame(() => {
         applyContentPosition();
-        updateHorizontalScroll(getCurrentZoom());
+        updateHorizontalScroll();
 
         // 第二个 rAF：布局稳定后跳转并淡入，与 reloadForModeSwitch 保持一致。
         requestAnimationFrame(() => {
