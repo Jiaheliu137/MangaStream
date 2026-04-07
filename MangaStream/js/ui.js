@@ -129,8 +129,8 @@ export function initTitlebar() {
 
     if (minimizeBtn) {
         minimizeBtn.addEventListener('click', () => {
-            if (typeof eagle !== 'undefined' && eagle.window && typeof eagle.window.hide === 'function') {
-                eagle.window.hide().catch(err => console.error('Error minimizing:', err));
+            if (typeof eagle !== 'undefined' && eagle.window && typeof eagle.window.minimize === 'function') {
+                eagle.window.minimize().catch(err => console.error('Error minimizing:', err));
             }
         });
     }
