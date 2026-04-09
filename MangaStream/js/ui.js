@@ -3,7 +3,7 @@ import { applyZoomWithMouseCenter, getCurrentZoom } from './zoom.js';
 import { showScrollbars } from './scrollbar.js';
 import { loadSelectedItems } from './imageLoader.js';
 import { exportCurrentImagesToPDF } from './pdfExport.js';
-import { ZoomConfig } from './constants.js';
+import { ZoomConfig, ScrollConfig } from './constants.js';
 
 // UI组件可见性状态
 let uiComponentsVisible = true;
@@ -308,10 +308,8 @@ export function initKeyboardShortcuts() {
         if (event.ctrlKey && event.key === 'w') {
             event.preventDefault();
 
-            if (typeof eagle !== 'undefined' && eagle.window && typeof eagle.window.hide === 'function') {
-                eagle.window.hide().catch(err => {
-                    console.error('Error hiding window:', err);
-                });
+            if (typeof eagle !== 'undefined' && eagle.window && typeof eagle.window.close === 'function') {
+                eagle.window.close();
             }
         }
 
@@ -319,10 +317,10 @@ export function initKeyboardShortcuts() {
         if (!isInputFocused && !event.ctrlKey && !event.altKey && !event.metaKey) {
             const viewportEl = document.getElementById('viewport');
             if (viewportEl) {
-                const scrollAmount = 150; // 每次方向键滚动的像素
+                const scrollAmount = ScrollConfig.ARROW_SCROLL_PX;
                 const horizontal = isHorizontalMode();
                 const rtl = isHorizontalRTLMode();
-                const pageScrollAmount = (horizontal ? viewportEl.clientWidth : viewportEl.clientHeight) * 0.8; // 空格键翻页量（80%视口大小）
+                const pageScrollAmount = (horizontal ? viewportEl.clientWidth : viewportEl.clientHeight) * ScrollConfig.PAGE_SCROLL_RATIO;
 
                 let handled = false;
 
@@ -408,6 +406,13 @@ export function showToast(message, type = 'success', duration = 3000, id = null)
     }, duration);
 }
 
+// 清除所有残留的 toast 和进度指示器
+export function clearAllToasts() {
+    document.querySelectorAll('.toast-message').forEach(el => el.remove());
+    const progress = document.getElementById('export-progress-indicator');
+    if (progress) progress.remove();
+}
+
 // 显示导出进度
 export function showExportProgress(current, total, message) {
     if (message === undefined) message = i18next.t('pdf.processing');
@@ -419,7 +424,7 @@ export function showExportProgress(current, total, message) {
         document.body.appendChild(progressIndicator);
     }
 
-    const percentage = Math.round((current / total) * 100);
+    const percentage = total > 0 ? Math.round((current / total) * 100) : 0;
     progressIndicator.innerHTML = `
         <div style="margin-bottom: 15px;">${message}</div>
         <div style="font-size: 24px; font-weight: bold;">${percentage}%</div>

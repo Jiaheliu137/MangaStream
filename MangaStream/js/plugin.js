@@ -20,10 +20,13 @@ import {
     initZoomButton,
     initHelpButton,
     updateModeButtonIcon,
-    syncEagleTheme
+    syncEagleTheme,
+    clearAllToasts
 } from './ui.js';
 import { initPDFExportButton } from './pdfExport.js';
 import { debounce } from './utils.js';
+
+let domReady = false;
 
 // 初始化插件
 function initializePlugin() {
@@ -41,7 +44,7 @@ function initializePlugin() {
 
 // Eagle插件生命周期钩子
 eagle.onPluginCreate((plugin) => {
-    console.log('eagle.onPluginCreate');
+    // Eagle plugin lifecycle
     // 同步 Eagle 主题
     syncEagleTheme();
 });
@@ -52,7 +55,6 @@ eagle.onThemeChanged(() => {
 });
 
 eagle.onPluginRun(() => {
-    console.log('eagle.onPluginRun');
     
     // 应用i18n翻译到HTML元素 (确保此阶段i18next已准备就绪)
     applyI18nTitles();
@@ -64,16 +66,17 @@ eagle.onPluginRun(() => {
 });
 
 eagle.onPluginShow(() => {
-    console.log('eagle.onPluginShow');
-    loadSelectedItems();
+    // 仅在 DOM 初始化完成后才加载，避免滚动条/拖拽等模块未就绪
+    if (domReady) {
+        loadSelectedItems();
+    }
 });
 
 eagle.onPluginHide(() => {
-    console.log('eagle.onPluginHide');
+    clearAllToasts();
 });
 
 eagle.onPluginBeforeExit((event) => {
-    console.log('eagle.onPluginBeforeExit');
 });
 
 // 应用 data-i18n-title 翻译
@@ -86,7 +89,6 @@ function applyI18nTitles() {
 
 // 文档加载完成后初始化
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('DOMContentLoaded - 初始化所有功能');
 
     // 初始化缩放功能
     initZoomFeature();
@@ -130,6 +132,8 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
         updateVerticalScrollbar();
     }, 500);
+
+    domReady = true;
 });
 
 // 窗口大小改变时更新

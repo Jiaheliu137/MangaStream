@@ -10,6 +10,10 @@ async function loadAndResizeImage(imagePath, targetWidth) {
         img.crossOrigin = 'Anonymous';
 
         img.onload = () => {
+            if (img.width === 0 || img.height === 0) {
+                reject(new Error(`图片尺寸无效: ${imagePath}`));
+                return;
+            }
             const scale = targetWidth / img.width;
             const scaledHeight = img.height * scale;
 
@@ -65,8 +69,14 @@ async function ensureJsPDFLoaded() {
         document.head.appendChild(script);
     });
 
-    // 等待库初始化
-    await new Promise(resolve => setTimeout(resolve, 200));
+    // 等待库初始化（轮询检查而非硬编码延迟）
+    for (let i = 0; i < 20; i++) {
+        if (typeof window.jspdf !== 'undefined') break;
+        await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    if (typeof window.jspdf === 'undefined') {
+        throw new Error('jsPDF 库加载超时');
+    }
 }
 
 // 导出PDF - 流式处理，逐张添加图片后释放内存 (#12)
@@ -145,7 +155,8 @@ async function exportToPDF(images) {
     } catch (err) {
         hideExportProgress();
         console.error('PDF export failed:', err);
-        showToast(i18next.t('pdf.exportFailed') + err.message, 'error');
+        const errMsg = err instanceof Error ? err.message : String(err);
+        showToast(i18next.t('pdf.exportFailed') + errMsg, 'error');
     }
 }
 

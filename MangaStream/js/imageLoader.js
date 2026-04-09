@@ -2,7 +2,7 @@
 // 核心突破：预加载器创建的 Image 对象在 decode() 完成后，
 //           直接被塞进 DOM —— 同一个JS对象，零重复解码。
 import { SUPPORTED_IMAGE_FORMATS, AnimationConfig } from './constants.js';
-import { isHorizontalMode, isHorizontalRTLMode, getStandardSizeValue, applyBodyModeClasses } from './modeManager.js';
+import { isHorizontalMode, isHorizontalRTLMode, getStandardSizeValue, applyBodyModeClasses, clearModeSwitchLock } from './modeManager.js';
 import { resetContentPosition, applyContentPosition, getCurrentZoom } from './zoom.js';
 // 注意：CSS zoom 方案下，applyContentPosition 仅设置 container.style.zoom，
 // 交叉轴滚动由浏览器原生处理。
@@ -160,14 +160,13 @@ function preloadImages(centerIndex) {
         });
     }
 
-    // 防止内存无限膨胀
+    // 防止内存无限膨胀 — 按距离当前视口中心远近淘汰
     if (decodedImageCache.size > PRELOAD_AHEAD * 3) {
         const entriesToRemove = decodedImageCache.size - PRELOAD_AHEAD * 2;
-        let removed = 0;
-        for (const [key] of decodedImageCache) {
-            if (removed >= entriesToRemove) break;
-            decodedImageCache.delete(key);
-            removed++;
+        const keys = [...decodedImageCache.keys()];
+        keys.sort((a, b) => Math.abs(b - centerIndex) - Math.abs(a - centerIndex));
+        for (let i = 0; i < entriesToRemove && i < keys.length; i++) {
+            decodedImageCache.delete(keys[i]);
         }
     }
 }
@@ -204,7 +203,7 @@ function createImageElement(item, index) {
         // 缓存未命中（首次加载或滚动太快超过预加载范围），正常创建
         img = document.createElement('img');
         img.className = 'seamless-image';
-        img.alt = item.name || '未命名';
+        img.alt = item.name || i18next.t('image.unnamed');
         img.dataset.index = index;
         img.loading = 'eager';
 
@@ -346,9 +345,7 @@ function renderVisibleItems() {
 
         updateCurrentPositionIndicator();
     } finally {
-        requestAnimationFrame(() => {
-            isRendering = false;
-        });
+        isRendering = false;
     }
 }
 
@@ -560,6 +557,7 @@ export function reloadForModeSwitch() {
         // 首次加载还没有数据或者没图片，确保基础样式应用后走正常流程
         applyBodyModeClasses();
         loadSelectedItems();
+        clearModeSwitchLock();
         return;
     }
 
@@ -668,6 +666,7 @@ export function reloadForModeSwitch() {
             setTimeout(() => {
                 containerEl.classList.remove('fading-in');
                 containerEl.classList.add('visible');
+                clearModeSwitchLock(); // 动画完成，解除模式切换锁
             }, AnimationConfig.FADE_IN_DURATION);
         });
 
@@ -795,28 +794,28 @@ function createErrorMessageWithRetry(message) {
 // 使用 getAllHierarchy 参数获取完整层级结构
 async function getAllSubFolderIds(folderId) {
     const collectedIds = [folderId];
-    
+
     // 使用 get 获取文件夹，getAllHierarchy=true 返回完整层级结构
     const folders = await eagle.folder.get({
         ids: [folderId],
         getAllHierarchy: true,
         fullDetails: true
     });
-    
+
     if (!folders || folders.length === 0) {
         return collectedIds;
     }
-    
-    const folder = folders[0];
-    console.log(`文件夹 "${folder.name}" (ID: ${folder.id}) 的子文件夹数量:`, folder.children ? folder.children.length : 0);
-    
-    if (folder.children && folder.children.length > 0) {
-        for (const child of folder.children) {
-            const childIds = await getAllSubFolderIds(child.id);
-            collectedIds.push(...childIds);
+
+    // 迭代式遍历，避免深层嵌套文件夹导致栈溢出
+    const stack = folders[0].children ? [...folders[0].children] : [];
+    while (stack.length > 0) {
+        const child = stack.pop();
+        collectedIds.push(child.id);
+        if (child.children && child.children.length > 0) {
+            stack.push(...child.children);
         }
     }
-    
+
     return collectedIds;
 }
 
@@ -829,11 +828,9 @@ async function getFolderImages() {
         }
         
         const rootFolder = folders[0];
-        console.log(`开始获取文件夹 "${rootFolder.name}" 下的所有图片...`);
         
         // 递归获取所有子文件夹ID
         const allFolderIds = await getAllSubFolderIds(rootFolder.id);
-        console.log(`找到 ${allFolderIds.length} 个文件夹`);
         
         // 并行获取所有文件夹的图片
         const promises = allFolderIds.map(folderId => 
@@ -853,7 +850,6 @@ async function getFolderImages() {
             }
         }
         
-        console.log(`在所有子文件夹中共找到 ${collectedItems.length} 张图片`);
         
         if (collectedItems.length > 0) {
             return collectedItems;
@@ -887,7 +883,6 @@ async function handleFirstLoad(container) {
         
         // 如果没有选中图片，尝试获取当前选中文件夹的图片
         if (!items || items.length === 0) {
-            console.log('没有选中图片，尝试获取当前文件夹的图片...');
             items = await getFolderImages();
         }
         
@@ -916,8 +911,7 @@ async function handleRefreshLoad(container) {
             
             // 如果没有选中图片，尝试获取当前选中文件夹的图片
             if (!items || items.length === 0) {
-                console.log('没有选中图片，尝试获取当前文件夹的图片...');
-                items = await getFolderImages();
+                    items = await getFolderImages();
             }
             
             if (!items || items.length === 0) {
@@ -942,7 +936,6 @@ async function handleRefreshLoad(container) {
 }
 
 export function loadSelectedItems() {
-    console.log('loadSelectedItems');
 
     const container = document.querySelector('#image-container');
     if (!container) return;

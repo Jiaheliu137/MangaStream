@@ -22,6 +22,12 @@ export const AnimationConfig = {
 // 支持的图片格式白名单
 export const SUPPORTED_IMAGE_FORMATS = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
 
+// 键盘滚动配置
+export const ScrollConfig = {
+    ARROW_SCROLL_PX: 150,       // 方向键每次滚动像素
+    PAGE_SCROLL_RATIO: 0.8      // 空格键翻页比例（视口百分比）
+};
+
 // 缩放限制
 export const ZoomConfig = {
     MIN_ZOOM: 0.2,

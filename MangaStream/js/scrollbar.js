@@ -187,6 +187,9 @@ export function updateScrollbarPosition() {
 // ==================== 主轴滚动条 ====================
 
 export function updateVerticalScrollbar() {
+    // 拖拽滚动条期间跳过：避免 scroll 事件反馈环路覆盖拖拽设置的位置
+    if (isDraggingVerticalScrollbarFlag || isDraggingScrollbar) return;
+
     const viewport = document.querySelector('#viewport');
     const mainAxisScrollbar = isHorizontalMode() ? horizontalScrollbar : verticalScrollbar;
     const { bar: mainBar, container: mainContainer } = mainAxisScrollbar.getElements();
@@ -238,6 +241,7 @@ export function updateVerticalScrollbar() {
 // ==================== 滚动条拖动处理 ====================
 
 let isDraggingScrollbar = false;
+let isDraggingVerticalScrollbarFlag = false; // 模块级标志，供 scroll 监听器判断
 let scrollbarStartX = 0;
 let scrollbarStartY = 0;
 
@@ -350,6 +354,7 @@ export function initVerticalScrollbar() {
         e.preventDefault();
 
         isDraggingVerticalScrollbar = true;
+        isDraggingVerticalScrollbarFlag = true;
         scrollbarStartY = e.clientY;
 
         document.body.classList.add('dragging');
@@ -395,7 +400,10 @@ export function initVerticalScrollbar() {
         if (!isDraggingVerticalScrollbar) return;
 
         isDraggingVerticalScrollbar = false;
+        isDraggingVerticalScrollbarFlag = false;
         document.body.classList.remove('dragging');
+        // 松手后用当前 viewport 状态刷新一次滚动条位置
+        updateVerticalScrollbar();
         verticalScrollbar.resetHideTimer();
     }
 
