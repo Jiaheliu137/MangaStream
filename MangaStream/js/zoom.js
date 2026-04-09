@@ -133,12 +133,11 @@ function applyZoomAtMousePosition(newZoom, oldZoom, mouseX, mouseY) {
     const mouseInViewportX = mouseX - rect.left;
     const mouseInViewportY = mouseY - rect.top;
 
-    // 缩放前：计算鼠标所在位置的逻辑坐标（使用 oldZoom）
+    // 缩放前：直接计算鼠标处的逻辑坐标（使用 oldZoom）
+    // 不能用 logicalAtTop + mouseInViewport/zoom 线性化，因为分段映射在区域边界不是线性的
     const mainAxisScroll = isHorizontalMode() ? Math.abs(oldScrollLeft) : oldScrollTop;
-    const logicalAtTop = physicalToLogical(mainAxisScroll);
-    const logicalAtMouse = isHorizontalMode()
-        ? logicalAtTop + mouseInViewportX / oldZoom
-        : logicalAtTop + mouseInViewportY / oldZoom;
+    const mousePhysicalOffset = isHorizontalMode() ? mouseInViewportX : mouseInViewportY;
+    const logicalAtMouse = physicalToLogical(mainAxisScroll + mousePhysicalOffset);
 
     currentZoom = newZoom;
     applyContentPosition();
