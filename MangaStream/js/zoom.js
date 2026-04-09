@@ -172,6 +172,19 @@ function applyZoomAtMousePosition(newZoom, oldZoom, mouseX, mouseY) {
     }
 
     forceRenderVisibleItems();
+
+    // forceRenderVisibleItems 的 adjustment 按视口顶部保持，
+    // 但本函数的锚点是鼠标位置——当两者落在分段映射的不同区域时
+    // adjustment 会把鼠标锚点拉偏。用更新后的 renderedRange 重新定位。
+    if (viewport) {
+        const correctedPhysical = logicalToPhysical(logicalAtMouse);
+        if (isHorizontalMode()) {
+            viewport.scrollLeft = correctedPhysical - mouseInViewportX;
+        } else {
+            viewport.scrollTop = correctedPhysical - mouseInViewportY;
+        }
+    }
+
     updateVerticalScrollbar();
     updateCrossAxisScrollbar();
     showZoomLevel(newZoom);
