@@ -14,6 +14,10 @@ const RENDER_BUFFER = 15;
 const PRELOAD_AHEAD = 50;
 let DIVIDER_SIZE = 1;
 
+// Chromium scrollHeight 硬上限约 33,554,432px (2^25)。
+// 设 unscaled 安全上限为 6M，即使在最大 5x zoom 下物理总量 = 30M < 33.5M。
+const MAX_SAFE_SCROLL_UNSCALED = 6_000_000;
+
 // ==================== 模块状态 ====================
 let totalFilteredItems = [];
 let isFirstLoad = true;
@@ -84,12 +88,20 @@ function precalculateSizes() {
     }
 }
 
-function getTotalSize() {
+export function getTotalSize() {
     return sizePrefixSum[totalFilteredItems.length] || 0;
 }
 
 function getOffsetForIndex(index) {
     return sizePrefixSum[index] || 0;
+}
+
+// 虚拟坐标压缩：当 totalSize 超过 Chromium scrollHeight 上限时，
+// 对 spacer 和 scrollTop 做线性压缩，避免浏览器 clamp。
+export function getCompressionRatio() {
+    const total = getTotalSize();
+    if (total <= MAX_SAFE_SCROLL_UNSCALED) return 1;
+    return MAX_SAFE_SCROLL_UNSCALED / total;
 }
 
 function findIndexByOffset(offset) {
@@ -239,13 +251,16 @@ function getVisibleRange() {
     }
 
     const zoom = getCurrentZoom();
+    const ratio = getCompressionRatio();
     // Use Math.abs for horizontal scrollLeft so RTL negative coordinate natively maps to positive distance
     const rawScrollLeft = Math.abs(viewportEl.scrollLeft);
     const scrollPos = isHorizontalMode() ? rawScrollLeft : viewportEl.scrollTop;
     const clientSize = isHorizontalMode() ? viewportEl.clientWidth : viewportEl.clientHeight;
 
-    const topOffset = scrollPos / zoom;
-    const bottomOffset = (scrollPos + clientSize) / zoom;
+    // 解压缩：scrollPos 是压缩+缩放后的物理像素，转回逻辑偏移
+    const topOffset = scrollPos / zoom / ratio;
+    // 可视范围用真实视口大小（内容未压缩，只有 spacer 压缩）
+    const bottomOffset = topOffset + clientSize / zoom;
 
     const firstVisible = findIndexByOffset(topOffset);
     let lastVisible = findIndexByOffset(bottomOffset);
@@ -328,8 +343,10 @@ function renderVisibleItems() {
 
         renderedRange = { start, end };
 
-        const topSize = getOffsetForIndex(start);
-        const bottomSize = getTotalSize() - getOffsetForIndex(end);
+        // spacer 使用压缩后的尺寸，防止超过 Chromium scrollHeight 上限
+        const ratio = getCompressionRatio();
+        const topSize = getOffsetForIndex(start) * ratio;
+        const bottomSize = (getTotalSize() - getOffsetForIndex(end)) * ratio;
 
         if (isHorizontalMode()) {
             spacerTopEl.style.width = `${Math.max(0, topSize)}px`;
@@ -357,11 +374,13 @@ function updateCurrentPositionIndicator() {
     if (!viewportEl || totalFilteredItems.length === 0 || isJumpInputFocused) return;
 
     const zoom = getCurrentZoom();
+    const ratio = getCompressionRatio();
     const scrollPos = isHorizontalMode() ? Math.abs(viewportEl.scrollLeft) : viewportEl.scrollTop;
 
     const clientSize = isHorizontalMode() ? viewportEl.clientWidth : viewportEl.clientHeight;
-    // 使用视口中心点来判断当前看到的是哪一张图
-    const unscaledCenter = (scrollPos + clientSize / 2) / zoom;
+    // 解压缩 scrollPos 到逻辑偏移，视口中心点的 clientSize/2 不需压缩（是物理像素）
+    const logicalTop = scrollPos / zoom / ratio;
+    const unscaledCenter = logicalTop + clientSize / 2 / zoom;
 
     const currentIndex = findIndexByOffset(unscaledCenter) + 1;
     updateCountIndicator(currentIndex, totalFilteredItems.length);
@@ -456,6 +475,7 @@ export function jumpToPage(pageNumber) {
     // 获取该索引在虚拟列表中的主轴偏移量
     const targetOffset = getOffsetForIndex(index);
     const zoom = getCurrentZoom();
+    const ratio = getCompressionRatio();
 
     // 计算目标图片的整体主轴范围（高度/宽度）
     const pageSize = getOffsetForIndex(Math.min(index + 1, totalFilteredItems.length)) - targetOffset;
@@ -463,23 +483,18 @@ export function jumpToPage(pageNumber) {
     // 视口的物理尺寸（屏幕大小，不受 zoom 影响）
     const clientSize = isHorizontalMode() ? viewportEl.clientWidth : viewportEl.clientHeight;
 
-    // 核心物理运算：图片在虚拟空间的中心坐标 * 放大倍率 - 屏幕的一半 = 最终需要卷动的物理像素
-    // 这样能保证指定序号的图片中心恰好落在屏幕中心
+    // 核心物理运算：逻辑中心坐标 * 压缩比 * 缩放 = 物理 scrollTop
     const unscaledCenter = targetOffset + pageSize / 2;
-    const centeredOffset = Math.max(0, unscaledCenter * zoom - clientSize / 2);
+    const centeredOffset = Math.max(0, unscaledCenter * ratio * zoom - clientSize / 2);
 
-    // 提前撑开虚拟 DOM 高/宽，防止浏览器因当前 DOM 高度不足而将 scrollLeft/scrollTop 强制截断 (Clamp to 0)
+    // 提前撑开虚拟 DOM：使用压缩后的总大小，确保 scrollHeight 足够但不超 Chromium 上限
     if (spacerBottomEl) {
-        // spacerBottomEl 在 image-container 内部，CSS zoom 会自动放大其布局尺寸，
-        // 所以这里用未缩放的 totalSize 即可，不需要手动乘 zoom。
-        const totalSize = getTotalSize();
+        const compressedTotal = getTotalSize() * ratio;
         if (isHorizontalMode()) {
-            spacerBottomEl.style.width = `${totalSize}px`;
-            // 强制触发浏览器同步重排 (Reflow)，更新底层 ScrollWidth 边界
+            spacerBottomEl.style.width = `${compressedTotal}px`;
             void viewportEl.scrollWidth;
         } else {
-            spacerBottomEl.style.height = `${totalSize}px`;
-            // 强制触发重排，更新 ScrollHeight 边界
+            spacerBottomEl.style.height = `${compressedTotal}px`;
             void viewportEl.scrollHeight;
         }
     }
@@ -491,11 +506,10 @@ export function jumpToPage(pageNumber) {
         viewportEl.scrollTop = centeredOffset;
     }
 
-    // 同步渲染确保立刻显示 DOM 切片，而不是等待节流后的 scroll 事件
+    // 同步渲染确保立刻显示 DOM 切片
     renderVisibleItems();
 
-    // 补偿：renderVisibleItems 重算了 spacerTop/spacerBottom，scrollHeight 结构变化
-    // 可能导致浏览器 clamp scrollTop，需要重新设置一次精确位置
+    // 补偿：renderVisibleItems 重算了 spacer，重新设置精确位置
     if (isHorizontalMode()) {
         const rtlMultiplier = isHorizontalRTLMode() ? -1 : 1;
         viewportEl.scrollLeft = centeredOffset * rtlMultiplier;
@@ -514,8 +528,9 @@ const throttledScrollHandler = throttle(function () {
 
     if (viewportEl && totalFilteredItems.length > 0) {
         const zoom = getCurrentZoom();
+        const ratio = getCompressionRatio();
         const scrollPos = isHorizontalMode() ? Math.abs(viewportEl.scrollLeft) : viewportEl.scrollTop;
-        const centerIndex = findIndexByOffset(scrollPos / zoom);
+        const centerIndex = findIndexByOffset(scrollPos / zoom / ratio);
         preloadImages(centerIndex);
     }
 }, 50);
@@ -625,16 +640,15 @@ export function reloadForModeSwitch() {
         spacerBottomEl = document.createElement('div');
         spacerBottomEl.id = 'virtual-spacer-bottom';
 
+        const compressedTotal = totalSize * getCompressionRatio();
         if (isHorizontalMode()) {
             spacerTopEl.style.height = `${stdSize}px`;
             spacerBottomEl.style.height = `${stdSize}px`;
-            // 预先撑开完整主轴尺寸，保证 scrollLeft 目标值不被浏览器截断
-            spacerBottomEl.style.width = `${totalSize}px`;
+            spacerBottomEl.style.width = `${compressedTotal}px`;
         } else {
             spacerTopEl.style.width = `${stdSize}px`;
             spacerBottomEl.style.width = `${stdSize}px`;
-            // 预先撑开完整主轴尺寸，保证 scrollTop 目标值不被浏览器截断
-            spacerBottomEl.style.height = `${totalSize}px`;
+            spacerBottomEl.style.height = `${compressedTotal}px`;
         }
 
         containerEl.appendChild(spacerTopEl);
@@ -658,9 +672,10 @@ export function reloadForModeSwitch() {
                 const index = targetJumpIndex - 1; // 转为 0-based
                 const targetOffset = getOffsetForIndex(index);
                 const zoom = getCurrentZoom();
+                const cRatio = getCompressionRatio();
                 const pageSize = getOffsetForIndex(Math.min(index + 1, totalFilteredItems.length)) - targetOffset;
                 const clientSize = isHorizontalMode() ? viewportEl.clientWidth : viewportEl.clientHeight;
-                const centeredOffset = Math.max(0, (targetOffset + pageSize / 2) * zoom - clientSize / 2);
+                const centeredOffset = Math.max(0, (targetOffset + pageSize / 2) * cRatio * zoom - clientSize / 2);
 
                 if (isHorizontalMode()) {
                     viewportEl.scrollLeft = centeredOffset * (isHorizontalRTLMode() ? -1 : 1);

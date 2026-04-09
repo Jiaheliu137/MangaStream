@@ -3,6 +3,8 @@
 // 滚动条只需读取 viewport 的原生滚动位置即可。
 import { AnimationConfig } from './constants.js';
 import { isHorizontalMode, isHorizontalRTLMode } from './modeManager.js';
+import { getTotalSize, getCompressionRatio } from './imageLoader.js';
+import { getCurrentZoom } from './zoom.js';
 
 // ==================== 通用滚动条控制器 ====================
 
@@ -196,18 +198,22 @@ export function updateVerticalScrollbar() {
 
     if (!viewport || !mainBar || !mainContainer) return;
 
-    const contentSize = isHorizontalMode() ? viewport.scrollWidth : viewport.scrollHeight;
+    // 使用逻辑总大小（稳定值），而非 volatile 的 viewport.scrollHeight
+    const zoom = getCurrentZoom();
+    const cRatio = getCompressionRatio();
+    const logicalTotal = getTotalSize();
     const viewportSize = isHorizontalMode() ? viewport.clientWidth : viewport.clientHeight;
+    const logicalTotalPhysical = logicalTotal * zoom; // 逻辑总大小对应的物理像素
 
-    if (contentSize <= viewportSize) {
+    if (logicalTotalPhysical <= viewportSize) {
         mainAxisScrollbar.setDisplay(false);
         return;
     }
 
     mainContainer.style.display = 'block';
 
-    const ratio = viewportSize / contentSize;
-    const scrollbarSize = Math.max(30, viewportSize * ratio);
+    const handleRatio = viewportSize / logicalTotalPhysical;
+    const scrollbarSize = Math.max(30, viewportSize * handleRatio);
 
     if (isHorizontalMode()) {
         mainBar.style.width = `${scrollbarSize}px`;
@@ -217,10 +223,15 @@ export function updateVerticalScrollbar() {
 
     const scrollPos = isHorizontalMode() ? Math.abs(viewport.scrollLeft) : viewport.scrollTop;
 
-    let scrollRatio = scrollPos / (contentSize - viewportSize);
+    // 解压缩到逻辑坐标计算比例，确保缩放不影响滚动条位置
+    const logicalPos = scrollPos / zoom / cRatio;
+    const logicalViewport = viewportSize / zoom;
+    const maxLogical = logicalTotal - logicalViewport;
+    let scrollRatio = maxLogical > 0 ? logicalPos / maxLogical : 0;
     if (isHorizontalMode() && isHorizontalRTLMode()) {
         scrollRatio = 1.0 - scrollRatio;
     }
+    scrollRatio = Math.max(0, Math.min(1, scrollRatio));
 
     const maxScrollbarOffset = viewportSize - scrollbarSize;
     const scrollbarOffset = scrollRatio * maxScrollbarOffset;
@@ -269,16 +280,19 @@ function handleScrollbarDrag(e) {
     if (!viewport) { scrollbarStartX = e.clientX; return; }
 
     if (isHorizontalMode()) {
-        // 横向模式：水平滚动条是主轴 → viewport.scrollLeft
-        const contentWidth = viewport.scrollWidth;
-        const viewportWidth = viewport.clientWidth;
+        // 横向模式：水平滚动条是主轴 → 使用逻辑坐标映射
+        const zoom = getCurrentZoom();
+        const cRatio = getCompressionRatio();
+        const logicalTotal = getTotalSize();
+        const logicalViewport = viewport.clientWidth / zoom;
         if (isHorizontalRTLMode()) {
             scrollRatio = 1.0 - scrollRatio;
         }
-        const targetLeft = scrollRatio * (contentWidth - viewportWidth);
-        viewport.scrollTo({ left: isHorizontalRTLMode() ? -targetLeft : targetLeft });
+        const logicalTarget = scrollRatio * (logicalTotal - logicalViewport);
+        const physicalTarget = logicalTarget * cRatio * zoom;
+        viewport.scrollTo({ left: isHorizontalRTLMode() ? -physicalTarget : physicalTarget });
     } else {
-        // 竖向模式：水平滚动条是交叉轴 → viewport.scrollLeft
+        // 竖向模式：水平滚动条是交叉轴 → viewport.scrollLeft（不压缩）
         const contentWidth = viewport.scrollWidth;
         const viewportWidth = viewport.clientWidth;
         const targetLeft = scrollRatio * (contentWidth - viewportWidth);
@@ -379,18 +393,22 @@ export function initVerticalScrollbar() {
         newScrollbarTop = Math.max(0, Math.min(scrollbarMaxMove, newScrollbarTop));
         bar.style.top = `${newScrollbarTop}px`;
 
-        const scrollRatio = newScrollbarTop / scrollbarMaxMove;
+        const scrollRatio = scrollbarMaxMove > 0 ? newScrollbarTop / scrollbarMaxMove : 0;
 
         if (isHorizontalMode()) {
-            // 横向模式：垂直滚动条是交叉轴 → viewport.scrollTop
+            // 横向模式：垂直滚动条是交叉轴 → viewport.scrollTop（不压缩）
             const contentHeight = viewport.scrollHeight;
             const viewportHeight = viewport.clientHeight;
             viewport.scrollTop = scrollRatio * (contentHeight - viewportHeight);
         } else {
-            // 竖向模式：垂直滚动条是主轴 → viewport.scrollTop
-            const contentHeight = viewport.scrollHeight;
-            const viewportHeight = viewport.clientHeight;
-            viewport.scrollTo({ top: scrollRatio * (contentHeight - viewportHeight) });
+            // 竖向模式：垂直滚动条是主轴 → 使用逻辑坐标映射到物理 scrollTop
+            const zoom = getCurrentZoom();
+            const cRatio = getCompressionRatio();
+            const logicalTotal = getTotalSize();
+            const logicalViewport = viewport.clientHeight / zoom;
+            const logicalTarget = scrollRatio * (logicalTotal - logicalViewport);
+            const physicalTarget = logicalTarget * cRatio * zoom;
+            viewport.scrollTo({ top: physicalTarget });
         }
 
         scrollbarStartY = e.clientY;
