@@ -140,5 +140,14 @@ export function updateDragSnapshot(computedScrollLeft, computedScrollTop) {
     dragStartMouseY = lastMouseY;
 }
 
+// 虚拟滚动 spacer 变更后调整拖拽基准值，避免下次 mousemove 撤销补偿
+export function adjustDragBaseline(deltaX, deltaY) {
+    if (!isDragging) return;
+    dragStartScrollLeft += deltaX;
+    dragStartScrollTop += deltaY;
+    logicalScrollLeft += deltaX;
+    logicalScrollTop += deltaY;
+}
+
 // 导出更新光标样式函数
 export { updateCursorStyle };

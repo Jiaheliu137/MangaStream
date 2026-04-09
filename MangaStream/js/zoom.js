@@ -5,7 +5,7 @@ import { ZoomConfig } from './constants.js';
 import { updateVerticalScrollbar, updateCrossAxisScrollbar, showScrollbars } from './scrollbar.js';
 import { isHorizontalMode, isHorizontalRTLMode } from './modeManager.js';
 import { getDragLogicalScroll, updateDragSnapshot } from './drag.js';
-import { forceRenderVisibleItems } from './imageLoader.js';
+import { forceRenderVisibleItems, physicalToLogical, logicalToPhysical, getCompressionRatio, getTotalSize } from './imageLoader.js';
 
 // 全局缩放状态
 let currentZoom = ZoomConfig.DEFAULT_ZOOM;
@@ -64,27 +64,28 @@ export function applyZoomWithMouseCenter(newZoom, oldZoom) {
     const viewport = document.querySelector('#viewport');
     const scaleRatio = newZoom / oldZoom;
 
-    // 拖拽中优先使用逻辑滚动位置（未被 Chrome 舍入），避免多次缩放的误差累积
     const dragScroll = getDragLogicalScroll();
     const oldScrollTop = dragScroll ? dragScroll.top : (viewport ? viewport.scrollTop : 0);
     const oldScrollLeft = dragScroll ? dragScroll.left : (viewport ? viewport.scrollLeft : 0);
 
-    // 缩放前检测交叉轴是否已有溢出（未溢出时 scrollLeft=0 但内容由 margin auto 居中，
-    // 公式 (0+cx)*ratio-cx 会算错，需要特殊处理）
     const hadCrossOverflowX = viewport ? viewport.scrollWidth > viewport.clientWidth : false;
     const hadCrossOverflowY = viewport ? viewport.scrollHeight > viewport.clientHeight : false;
 
-    // 设置新的 zoom（改变布局尺寸，更新滚动范围）
+    // 缩放前：用分段公式转换到逻辑坐标（使用 oldZoom）
+    const mainAxisScroll = isHorizontalMode() ? Math.abs(oldScrollLeft) : oldScrollTop;
+    const logicalMainAxis = physicalToLogical(mainAxisScroll);
+
+    // 设置新的 zoom
     currentZoom = newZoom;
     applyContentPosition();
 
-    // 主轴：阅读起始边锚定（顶部/左边/右边不动，内容向阅读方向展开）
-    // 交叉轴：中心锚定（放大后保持居中）
+    // 主轴：分段公式保持逻辑位置不变
+    // 交叉轴：中心锚定（无压缩，用线性公式）
     let newScrollLeft = 0, newScrollTop = 0;
     if (viewport) {
+        const newMainAxisPhysical = logicalToPhysical(logicalMainAxis);
         if (isHorizontalMode()) {
-            newScrollLeft = oldScrollLeft * scaleRatio;
-            // 交叉轴 Y
+            newScrollLeft = newMainAxisPhysical;
             if (hadCrossOverflowY) {
                 const cy = viewport.clientHeight / 2;
                 newScrollTop = (oldScrollTop + cy) * scaleRatio - cy;
@@ -92,8 +93,7 @@ export function applyZoomWithMouseCenter(newZoom, oldZoom) {
                 newScrollTop = (viewport.scrollHeight - viewport.clientHeight) / 2;
             }
         } else {
-            newScrollTop = oldScrollTop * scaleRatio;
-            // 交叉轴 X
+            newScrollTop = newMainAxisPhysical;
             if (hadCrossOverflowX) {
                 const cx = viewport.clientWidth / 2;
                 newScrollLeft = (oldScrollLeft + cx) * scaleRatio - cx;
@@ -105,7 +105,6 @@ export function applyZoomWithMouseCenter(newZoom, oldZoom) {
         viewport.scrollTop = newScrollTop;
     }
 
-    // 先让虚拟滚动更新 spacer（scrollHeight 才准确），再更新滚动条
     forceRenderVisibleItems();
     updateVerticalScrollbar();
     updateCrossAxisScrollbar();
@@ -127,24 +126,29 @@ function applyZoomAtMousePosition(newZoom, oldZoom, mouseX, mouseY) {
     const oldScrollTop = dragScroll ? dragScroll.top : (viewport ? viewport.scrollTop : 0);
     const oldScrollLeft = dragScroll ? dragScroll.left : (viewport ? viewport.scrollLeft : 0);
 
-    // 缩放前检测交叉轴溢出状态
     const hadCrossOverflowX = viewport ? viewport.scrollWidth > viewport.clientWidth : false;
     const hadCrossOverflowY = viewport ? viewport.scrollHeight > viewport.clientHeight : false;
 
-    // viewport 相对于页面的偏移（标题栏等）
     const rect = viewport ? viewport.getBoundingClientRect() : { left: 0, top: 0 };
     const mouseInViewportX = mouseX - rect.left;
     const mouseInViewportY = mouseY - rect.top;
 
+    // 缩放前：计算鼠标所在位置的逻辑坐标（使用 oldZoom）
+    const mainAxisScroll = isHorizontalMode() ? Math.abs(oldScrollLeft) : oldScrollTop;
+    const logicalAtTop = physicalToLogical(mainAxisScroll);
+    const logicalAtMouse = isHorizontalMode()
+        ? logicalAtTop + mouseInViewportX / oldZoom
+        : logicalAtTop + mouseInViewportY / oldZoom;
+
     currentZoom = newZoom;
     applyContentPosition();
 
+    // 缩放后：鼠标处的逻辑位置不变，反算新的 scrollTop
     let newScrollLeft = 0, newScrollTop = 0;
     if (viewport) {
+        const newPhysicalAtMouse = logicalToPhysical(logicalAtMouse);
         if (isHorizontalMode()) {
-            // 主轴 X：鼠标所在竖线锚定
-            newScrollLeft = (oldScrollLeft + mouseInViewportX) * scaleRatio - mouseInViewportX;
-            // 交叉轴 Y
+            newScrollLeft = newPhysicalAtMouse - mouseInViewportX;
             if (hadCrossOverflowY) {
                 const cy = viewport.clientHeight / 2;
                 newScrollTop = (oldScrollTop + cy) * scaleRatio - cy;
@@ -152,9 +156,7 @@ function applyZoomAtMousePosition(newZoom, oldZoom, mouseX, mouseY) {
                 newScrollTop = (viewport.scrollHeight - viewport.clientHeight) / 2;
             }
         } else {
-            // 主轴 Y：鼠标所在横线锚定
-            newScrollTop = (oldScrollTop + mouseInViewportY) * scaleRatio - mouseInViewportY;
-            // 交叉轴 X
+            newScrollTop = newPhysicalAtMouse - mouseInViewportY;
             if (hadCrossOverflowX) {
                 const cx = viewport.clientWidth / 2;
                 newScrollLeft = (oldScrollLeft + cx) * scaleRatio - cx;
@@ -166,7 +168,6 @@ function applyZoomAtMousePosition(newZoom, oldZoom, mouseX, mouseY) {
         viewport.scrollTop = newScrollTop;
     }
 
-    // 先让虚拟滚动更新 spacer（scrollHeight 才准确），再更新滚动条
     forceRenderVisibleItems();
     updateVerticalScrollbar();
     updateCrossAxisScrollbar();
@@ -224,13 +225,36 @@ export function initZoomFeature() {
             }
 
             applyZoomWithMouseCenter(newZoom, oldZoom);
-        } else if (isHorizontalMode() && !event.shiftKey) {
-            // 横向模式：将垂直滚轮转换为水平滚动
+        } else if (!event.shiftKey) {
+            // 非修饰键滚轮：主轴滚动
             const viewport = document.getElementById('viewport');
-            if (viewport && event.deltaY !== 0) {
-                const delta = isHorizontalRTLMode() ? -event.deltaY : event.deltaY;
-                viewport.scrollLeft += delta;
-                event.preventDefault();
+            if (!viewport || event.deltaY === 0) return;
+            const ratio = getCompressionRatio();
+
+            if (isHorizontalMode()) {
+                // 横向模式：垂直滚轮 → 水平滚动
+                if (ratio < 1) {
+                    event.preventDefault();
+                    const direction = event.deltaY > 0 ? 1 : -1;
+                    const rtlSign = isHorizontalRTLMode() ? -1 : 1;
+                    const currentLogical = physicalToLogical(Math.abs(viewport.scrollLeft));
+                    const targetLogical = Math.max(0, Math.min(getTotalSize(), currentLogical + direction * 300));
+                    viewport.scrollLeft = logicalToPhysical(targetLogical) * rtlSign;
+                } else {
+                    const delta = isHorizontalRTLMode() ? -event.deltaY : event.deltaY;
+                    viewport.scrollLeft += delta;
+                    event.preventDefault();
+                }
+            } else {
+                // 竖向模式：压缩激活时归一化滚动速度
+                if (ratio < 1) {
+                    event.preventDefault();
+                    const direction = event.deltaY > 0 ? 1 : -1;
+                    const currentLogical = physicalToLogical(viewport.scrollTop);
+                    const targetLogical = Math.max(0, Math.min(getTotalSize(), currentLogical + direction * 300));
+                    viewport.scrollTop = logicalToPhysical(targetLogical);
+                }
+                // ratio >= 1: 让浏览器默认处理
             }
         }
     }, { passive: false });

@@ -7,6 +7,7 @@ import { resetContentPosition, applyContentPosition, getCurrentZoom } from './zo
 // 注意：CSS zoom 方案下，applyContentPosition 仅设置 container.style.zoom，
 // 交叉轴滚动由浏览器原生处理。
 import { updateHorizontalScroll, updateVerticalScrollbar } from './scrollbar.js';
+import { adjustDragBaseline } from './drag.js';
 import { throttle } from './utils.js';
 
 // ==================== 常量 ====================
@@ -102,6 +103,60 @@ export function getCompressionRatio() {
     const total = getTotalSize();
     if (total <= MAX_SAFE_SCROLL_UNSCALED) return 1;
     return MAX_SAFE_SCROLL_UNSCALED / total;
+}
+
+// ==================== 分段坐标映射 ====================
+// 虚拟滚动的物理滚动空间由三段组成：
+//   spacerTop（压缩） | 真实内容（1:1） | spacerBottom（压缩）
+// 均匀公式 scrollPos/zoom/ratio 在内容区域是错的（内容未压缩），
+// 必须分段处理。
+
+function physicalToLogicalRaw(scrollPos, rangeStart, rangeEnd) {
+    const zoom = getCurrentZoom();
+    const ratio = getCompressionRatio();
+    if (ratio >= 1) return scrollPos / zoom;
+    if (rangeStart === -1) return scrollPos / zoom / ratio;
+
+    const contentStartLogical = getOffsetForIndex(rangeStart);
+    const contentEndLogical = getOffsetForIndex(rangeEnd);
+    const spacerTopPhysical = contentStartLogical * ratio * zoom;
+    const contentEndPhysical = spacerTopPhysical + (contentEndLogical - contentStartLogical) * zoom;
+
+    if (scrollPos <= spacerTopPhysical) {
+        return scrollPos / zoom / ratio;
+    } else if (scrollPos <= contentEndPhysical) {
+        return contentStartLogical + (scrollPos - spacerTopPhysical) / zoom;
+    } else {
+        return contentEndLogical + (scrollPos - contentEndPhysical) / zoom / ratio;
+    }
+}
+
+function logicalToPhysicalRaw(logicalOffset, rangeStart, rangeEnd) {
+    const zoom = getCurrentZoom();
+    const ratio = getCompressionRatio();
+    if (ratio >= 1) return logicalOffset * zoom;
+    if (rangeStart === -1) return logicalOffset * ratio * zoom;
+
+    const contentStartLogical = getOffsetForIndex(rangeStart);
+    const contentEndLogical = getOffsetForIndex(rangeEnd);
+
+    if (logicalOffset <= contentStartLogical) {
+        return logicalOffset * ratio * zoom;
+    } else if (logicalOffset <= contentEndLogical) {
+        return (contentStartLogical * ratio + (logicalOffset - contentStartLogical)) * zoom;
+    } else {
+        return (contentStartLogical * ratio + (contentEndLogical - contentStartLogical) + (logicalOffset - contentEndLogical) * ratio) * zoom;
+    }
+}
+
+/** 物理 scrollPos → 逻辑偏移（使用当前 renderedRange） */
+export function physicalToLogical(scrollPos) {
+    return physicalToLogicalRaw(scrollPos, renderedRange.start, renderedRange.end);
+}
+
+/** 逻辑偏移 → 物理 scrollPos（使用当前 renderedRange） */
+export function logicalToPhysical(logicalOffset) {
+    return logicalToPhysicalRaw(logicalOffset, renderedRange.start, renderedRange.end);
 }
 
 function findIndexByOffset(offset) {
@@ -250,17 +305,14 @@ function getVisibleRange() {
         return { start: 0, end: 0 };
     }
 
-    const zoom = getCurrentZoom();
-    const ratio = getCompressionRatio();
     // Use Math.abs for horizontal scrollLeft so RTL negative coordinate natively maps to positive distance
     const rawScrollLeft = Math.abs(viewportEl.scrollLeft);
     const scrollPos = isHorizontalMode() ? rawScrollLeft : viewportEl.scrollTop;
     const clientSize = isHorizontalMode() ? viewportEl.clientWidth : viewportEl.clientHeight;
 
-    // 解压缩：scrollPos 是压缩+缩放后的物理像素，转回逻辑偏移
-    const topOffset = scrollPos / zoom / ratio;
-    // 可视范围用真实视口大小（内容未压缩，只有 spacer 压缩）
-    const bottomOffset = topOffset + clientSize / zoom;
+    // 分段解压缩：根据 scrollPos 所在的区域（spacerTop/内容/spacerBottom）正确转换
+    const topOffset = physicalToLogical(scrollPos);
+    const bottomOffset = physicalToLogical(scrollPos + clientSize);
 
     const firstVisible = findIndexByOffset(topOffset);
     let lastVisible = findIndexByOffset(bottomOffset);
@@ -289,6 +341,10 @@ function renderVisibleItems() {
     try {
         const oldStart = renderedRange.start;
         const oldEnd = renderedRange.end;
+
+        // 记录调整前的逻辑位置（用旧 range 计算）
+        const scrollPos = isHorizontalMode() ? Math.abs(viewportEl.scrollLeft) : viewportEl.scrollTop;
+        const logicalBefore = physicalToLogicalRaw(scrollPos, oldStart, oldEnd);
 
         const hasOverlap = oldStart !== -1 && start < oldEnd && end > oldStart;
 
@@ -360,6 +416,24 @@ function renderVisibleItems() {
             spacerBottomEl.style.width = `${getStandardSizeValue()}px`;
         }
 
+        // 补偿 spacer 变更导致的物理位置漂移：
+        // 同一逻辑位置在新 range 下对应不同的物理 scrollPos
+        const physicalAfter = logicalToPhysicalRaw(logicalBefore, start, end);
+        const adjustment = physicalAfter - scrollPos;
+        if (Math.abs(adjustment) > 1) {
+            if (isHorizontalMode()) {
+                const sign = isHorizontalRTLMode() ? -1 : 1;
+                viewportEl.scrollLeft += adjustment * sign;
+            } else {
+                viewportEl.scrollTop += adjustment;
+            }
+            // 同步更新拖拽模块的基准值，否则下次 mousemove 会撤销本次补偿
+            adjustDragBaseline(
+                isHorizontalMode() ? adjustment * (isHorizontalRTLMode() ? -1 : 1) : 0,
+                isHorizontalMode() ? 0 : adjustment
+            );
+        }
+
         updateCurrentPositionIndicator();
     } finally {
         isRendering = false;
@@ -374,12 +448,11 @@ function updateCurrentPositionIndicator() {
     if (!viewportEl || totalFilteredItems.length === 0 || isJumpInputFocused) return;
 
     const zoom = getCurrentZoom();
-    const ratio = getCompressionRatio();
     const scrollPos = isHorizontalMode() ? Math.abs(viewportEl.scrollLeft) : viewportEl.scrollTop;
-
     const clientSize = isHorizontalMode() ? viewportEl.clientWidth : viewportEl.clientHeight;
-    // 解压缩 scrollPos 到逻辑偏移，视口中心点的 clientSize/2 不需压缩（是物理像素）
-    const logicalTop = scrollPos / zoom / ratio;
+
+    // 分段解压缩到逻辑偏移
+    const logicalTop = physicalToLogical(scrollPos);
     const unscaledCenter = logicalTop + clientSize / 2 / zoom;
 
     const currentIndex = findIndexByOffset(unscaledCenter) + 1;
@@ -469,52 +542,47 @@ function updateCountIndicator(currentIndex, totalCount) {
 export function jumpToPage(pageNumber) {
     if (pageNumber < 1 || pageNumber > totalFilteredItems.length || !viewportEl) return;
 
-    // pageNumber 是 1-based, 转换为 0-based
     const index = pageNumber - 1;
-
-    // 获取该索引在虚拟列表中的主轴偏移量
     const targetOffset = getOffsetForIndex(index);
     const zoom = getCurrentZoom();
     const ratio = getCompressionRatio();
-
-    // 计算目标图片的整体主轴范围（高度/宽度）
     const pageSize = getOffsetForIndex(Math.min(index + 1, totalFilteredItems.length)) - targetOffset;
-
-    // 视口的物理尺寸（屏幕大小，不受 zoom 影响）
     const clientSize = isHorizontalMode() ? viewportEl.clientWidth : viewportEl.clientHeight;
-
-    // 核心物理运算：逻辑中心坐标 * 压缩比 * 缩放 = 物理 scrollTop
     const unscaledCenter = targetOffset + pageSize / 2;
-    const centeredOffset = Math.max(0, unscaledCenter * ratio * zoom - clientSize / 2);
 
-    // 提前撑开虚拟 DOM：使用压缩后的总大小，确保 scrollHeight 足够但不超 Chromium 上限
-    if (spacerBottomEl) {
-        const compressedTotal = getTotalSize() * ratio;
+    // 1. 重置到全压缩状态（均匀公式有效）
+    renderedRange = { start: -1, end: -1 };
+    if (contentWrapperEl) contentWrapperEl.innerHTML = '';
+    const compressedTotal = getTotalSize() * ratio;
+    if (spacerTopEl && spacerBottomEl) {
         if (isHorizontalMode()) {
+            spacerTopEl.style.width = '0px';
             spacerBottomEl.style.width = `${compressedTotal}px`;
             void viewportEl.scrollWidth;
         } else {
+            spacerTopEl.style.height = '0px';
             spacerBottomEl.style.height = `${compressedTotal}px`;
             void viewportEl.scrollHeight;
         }
     }
 
+    // 2. 均匀公式定位（全压缩状态下正确）
+    const uniformOffset = Math.max(0, unscaledCenter * ratio * zoom - clientSize / 2);
     if (isHorizontalMode()) {
-        const rtlMultiplier = isHorizontalRTLMode() ? -1 : 1;
-        viewportEl.scrollLeft = centeredOffset * rtlMultiplier;
+        viewportEl.scrollLeft = uniformOffset * (isHorizontalRTLMode() ? -1 : 1);
     } else {
-        viewportEl.scrollTop = centeredOffset;
+        viewportEl.scrollTop = uniformOffset;
     }
 
-    // 同步渲染确保立刻显示 DOM 切片
+    // 3. 渲染（内部的 adjustment 会补偿 spacer 变化导致的偏移）
     renderVisibleItems();
 
-    // 补偿：renderVisibleItems 重算了 spacer，重新设置精确位置
+    // 4. 用分段公式设置精确位置（renderedRange 已更新）
+    const exactPhysical = Math.max(0, logicalToPhysical(unscaledCenter) - clientSize / 2);
     if (isHorizontalMode()) {
-        const rtlMultiplier = isHorizontalRTLMode() ? -1 : 1;
-        viewportEl.scrollLeft = centeredOffset * rtlMultiplier;
+        viewportEl.scrollLeft = exactPhysical * (isHorizontalRTLMode() ? -1 : 1);
     } else {
-        viewportEl.scrollTop = centeredOffset;
+        viewportEl.scrollTop = exactPhysical;
     }
 }
 
@@ -527,10 +595,8 @@ const throttledScrollHandler = throttle(function () {
     renderVisibleItems();
 
     if (viewportEl && totalFilteredItems.length > 0) {
-        const zoom = getCurrentZoom();
-        const ratio = getCompressionRatio();
         const scrollPos = isHorizontalMode() ? Math.abs(viewportEl.scrollLeft) : viewportEl.scrollTop;
-        const centerIndex = findIndexByOffset(scrollPos / zoom / ratio);
+        const centerIndex = findIndexByOffset(physicalToLogical(scrollPos));
         preloadImages(centerIndex);
     }
 }, 50);
@@ -675,6 +741,7 @@ export function reloadForModeSwitch() {
                 const cRatio = getCompressionRatio();
                 const pageSize = getOffsetForIndex(Math.min(index + 1, totalFilteredItems.length)) - targetOffset;
                 const clientSize = isHorizontalMode() ? viewportEl.clientWidth : viewportEl.clientHeight;
+                // 模式切换后 renderedRange={-1,-1}，使用均匀公式（全压缩状态）
                 const centeredOffset = Math.max(0, (targetOffset + pageSize / 2) * cRatio * zoom - clientSize / 2);
 
                 if (isHorizontalMode()) {
