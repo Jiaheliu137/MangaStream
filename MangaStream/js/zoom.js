@@ -86,7 +86,7 @@ export function applyZoomWithMouseCenter(newZoom, oldZoom) {
     if (viewport) {
         const newMainAxisPhysical = logicalToPhysical(logicalMainAxis);
         if (isHorizontalMode()) {
-            newScrollLeft = newMainAxisPhysical;
+            newScrollLeft = isHorizontalRTLMode() ? -newMainAxisPhysical : newMainAxisPhysical;
             if (hadCrossOverflowY) {
                 const cy = viewport.clientHeight / 2;
                 newScrollTop = (oldScrollTop + cy) * scaleRatio - cy;
@@ -152,7 +152,8 @@ function applyZoomAtMousePosition(newZoom, oldZoom, mouseX, mouseY) {
     if (viewport) {
         const newPhysicalAtMouse = logicalToPhysical(logicalAtMouse);
         if (isHorizontalMode()) {
-            newScrollLeft = newPhysicalAtMouse - mouseInViewportX;
+            const rawLeft = newPhysicalAtMouse - mouseInViewportX;
+            newScrollLeft = isHorizontalRTLMode() ? -rawLeft : rawLeft;
             if (hadCrossOverflowY) {
                 const cy = viewport.clientHeight / 2;
                 newScrollTop = (oldScrollTop + cy) * scaleRatio - cy;
@@ -180,7 +181,8 @@ function applyZoomAtMousePosition(newZoom, oldZoom, mouseX, mouseY) {
     if (viewport) {
         const correctedPhysical = logicalToPhysical(logicalAtMouse);
         if (isHorizontalMode()) {
-            viewport.scrollLeft = correctedPhysical - mouseInViewportX;
+            const rawLeft = correctedPhysical - mouseInViewportX;
+            viewport.scrollLeft = isHorizontalRTLMode() ? -rawLeft : rawLeft;
         } else {
             viewport.scrollTop = correctedPhysical - mouseInViewportY;
         }
