@@ -4,13 +4,14 @@
 import { ZoomConfig } from './constants.js';
 import { updateVerticalScrollbar, updateCrossAxisScrollbar, showScrollbars } from './scrollbar.js';
 import { isHorizontalMode, isHorizontalRTLMode } from './modeManager.js';
-import { getDragLogicalScroll, updateDragSnapshot } from './drag.js';
+import { getDragLogicalScroll, updateDragSnapshot, setDragSuppressed } from './drag.js';
 import { forceRenderVisibleItems, physicalToLogical, logicalToPhysical, getCompressionRatio, getTotalSize } from './imageLoader.js';
 
 // 全局缩放状态
 let currentZoom = ZoomConfig.DEFAULT_ZOOM;
 let zoomLevelTimeout = null;
 let isLeftMouseDown = false;
+let dragSuppressionTimer = null;
 
 // 获取当前缩放比例
 export function getCurrentZoom() {
@@ -226,7 +227,12 @@ export function initZoomFeature() {
 
             if (Math.abs(newZoom - oldZoom) < 0.01) return;
 
+            // 抑制拖拽：左键按下时 isDragging=true，mousemove 会覆盖缩放设的 scrollTop
+            setDragSuppressed(true);
+            clearTimeout(dragSuppressionTimer);
             applyZoomAtMousePosition(newZoom, oldZoom, event.clientX, event.clientY);
+            // 最后一次 wheel 事件后 150ms 恢复拖拽
+            dragSuppressionTimer = setTimeout(() => setDragSuppressed(false), 150);
             return;
         }
 

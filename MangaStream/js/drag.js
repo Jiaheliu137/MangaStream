@@ -5,6 +5,7 @@ import { isHorizontalMode } from './modeManager.js';
 
 // 拖动状态
 let isDragging = false;
+let dragSuppressed = false; // 缩放期间抑制拖拽，避免 mousemove 覆盖 scrollTop
 let dragStartMouseX = 0;
 let dragStartMouseY = 0;
 let dragStartScrollLeft = 0;
@@ -75,7 +76,7 @@ export function initDragFeature() {
 
     // 鼠标移动事件
     document.addEventListener('mousemove', (e) => {
-        if (!isDragging) return;
+        if (!isDragging || dragSuppressed) return;
 
         // 使用绝对定位而非增量 scrollBy，避免 Chrome CSS zoom 下的亚像素舍入累积漂移
         const totalDx = e.clientX - dragStartMouseX;
@@ -147,6 +148,23 @@ export function adjustDragBaseline(deltaX, deltaY) {
     dragStartScrollTop += deltaY;
     logicalScrollLeft += deltaX;
     logicalScrollTop += deltaY;
+}
+
+// 缩放期间抑制拖拽：防止 mousemove 覆盖缩放设置的 scrollTop
+export function setDragSuppressed(suppress) {
+    dragSuppressed = suppress;
+    // 抑制解除时，用当前 viewport 重置拖拽基准，避免恢复时跳变
+    if (!suppress && isDragging) {
+        const viewport = document.querySelector('#viewport');
+        if (viewport) {
+            logicalScrollLeft = viewport.scrollLeft;
+            logicalScrollTop = viewport.scrollTop;
+            dragStartScrollLeft = viewport.scrollLeft;
+            dragStartScrollTop = viewport.scrollTop;
+            dragStartMouseX = lastMouseX;
+            dragStartMouseY = lastMouseY;
+        }
+    }
 }
 
 // 导出更新光标样式函数
