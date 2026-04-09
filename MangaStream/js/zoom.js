@@ -110,7 +110,11 @@ export function applyZoomWithMouseCenter(newZoom, oldZoom) {
     updateCrossAxisScrollbar();
     showZoomLevel(newZoom);
     showScrollbars();
-    updateDragSnapshot(newScrollLeft, newScrollTop);
+    // 必须用 adjustment 后的实际 viewport 值，否则下次缩放读到旧基准 → 画面跳动
+    updateDragSnapshot(
+        viewport ? viewport.scrollLeft : newScrollLeft,
+        viewport ? viewport.scrollTop : newScrollTop
+    );
 }
 
 // 以鼠标位置为主轴锚点缩放（左键+滚轮触发）
@@ -172,7 +176,11 @@ function applyZoomAtMousePosition(newZoom, oldZoom, mouseX, mouseY) {
     updateCrossAxisScrollbar();
     showZoomLevel(newZoom);
     showScrollbars();
-    updateDragSnapshot(newScrollLeft, newScrollTop);
+    // 必须用 adjustment 后的实际 viewport 值，否则下次缩放读到旧基准 → 画面跳动
+    updateDragSnapshot(
+        viewport ? viewport.scrollLeft : newScrollLeft,
+        viewport ? viewport.scrollTop : newScrollTop
+    );
 }
 
 // 应用缩放（便捷入口）
