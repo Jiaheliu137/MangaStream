@@ -5,6 +5,7 @@ import { ZoomConfig } from './constants.js';
 import { updateVerticalScrollbar, updateCrossAxisScrollbar, showScrollbars } from './scrollbar.js';
 import { isHorizontalMode, isHorizontalRTLMode } from './modeManager.js';
 import { getDragLogicalScroll, updateDragSnapshot } from './drag.js';
+import { forceRenderVisibleItems } from './imageLoader.js';
 
 // 全局缩放状态
 let currentZoom = ZoomConfig.DEFAULT_ZOOM;
@@ -104,6 +105,8 @@ export function applyZoomWithMouseCenter(newZoom, oldZoom) {
         viewport.scrollTop = newScrollTop;
     }
 
+    // 先让虚拟滚动更新 spacer（scrollHeight 才准确），再更新滚动条
+    forceRenderVisibleItems();
     updateVerticalScrollbar();
     updateCrossAxisScrollbar();
     showZoomLevel(newZoom);
@@ -163,6 +166,8 @@ function applyZoomAtMousePosition(newZoom, oldZoom, mouseX, mouseY) {
         viewport.scrollTop = newScrollTop;
     }
 
+    // 先让虚拟滚动更新 spacer（scrollHeight 才准确），再更新滚动条
+    forceRenderVisibleItems();
     updateVerticalScrollbar();
     updateCrossAxisScrollbar();
     showZoomLevel(newZoom);

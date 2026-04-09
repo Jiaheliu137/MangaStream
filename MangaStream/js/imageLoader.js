@@ -493,6 +493,20 @@ export function jumpToPage(pageNumber) {
 
     // 同步渲染确保立刻显示 DOM 切片，而不是等待节流后的 scroll 事件
     renderVisibleItems();
+
+    // 补偿：renderVisibleItems 重算了 spacerTop/spacerBottom，scrollHeight 结构变化
+    // 可能导致浏览器 clamp scrollTop，需要重新设置一次精确位置
+    if (isHorizontalMode()) {
+        const rtlMultiplier = isHorizontalRTLMode() ? -1 : 1;
+        viewportEl.scrollLeft = centeredOffset * rtlMultiplier;
+    } else {
+        viewportEl.scrollTop = centeredOffset;
+    }
+}
+
+// 供外部模块（如 zoom.js）在改变布局后强制刷新虚拟滚动 spacer
+export function forceRenderVisibleItems() {
+    renderVisibleItems();
 }
 
 const throttledScrollHandler = throttle(function () {
