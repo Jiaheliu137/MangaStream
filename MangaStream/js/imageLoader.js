@@ -754,6 +754,21 @@ export function reloadForModeSwitch() {
             // 在已定位好的滚动位置上渲染，首帧即目标页
             renderVisibleItems();
 
+            // renderVisibleItems 的 adjustment 保持了视口顶部逻辑位置，
+            // 但均匀空间和分段空间的视口中心映射不同，需要用分段公式修正
+            if (targetJumpIndex !== -1) {
+                const idx = targetJumpIndex - 1;
+                const tOff = getOffsetForIndex(idx);
+                const pSz = getOffsetForIndex(Math.min(idx + 1, totalFilteredItems.length)) - tOff;
+                const cSz = isHorizontalMode() ? viewportEl.clientWidth : viewportEl.clientHeight;
+                const exact = Math.max(0, logicalToPhysical(tOff + pSz / 2) - cSz / 2);
+                if (isHorizontalMode()) {
+                    viewportEl.scrollLeft = exact * (isHorizontalRTLMode() ? -1 : 1);
+                } else {
+                    viewportEl.scrollTop = exact;
+                }
+            }
+
             // renderVisibleItems 创建了 image-wrapper 后，滚动条才能正确计算尺寸
             updateHorizontalScroll();
 
