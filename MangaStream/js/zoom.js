@@ -141,7 +141,10 @@ function applyZoomAtMousePosition(newZoom, oldZoom, mouseX, mouseY) {
     // 缩放前：直接计算鼠标处的逻辑坐标（使用 oldZoom）
     // 不能用 logicalAtTop + mouseInViewport/zoom 线性化，因为分段映射在区域边界不是线性的
     const mainAxisScroll = isHorizontalMode() ? Math.abs(oldScrollLeft) : oldScrollTop;
-    const mousePhysicalOffset = isHorizontalMode() ? mouseInViewportX : mouseInViewportY;
+    // RTL: 物理位置从右边缘量起，鼠标偏移需要从视口右边缘算
+    const mousePhysicalOffset = isHorizontalMode()
+        ? (isHorizontalRTLMode() ? viewport.clientWidth - mouseInViewportX : mouseInViewportX)
+        : mouseInViewportY;
     const logicalAtMouse = physicalToLogical(mainAxisScroll + mousePhysicalOffset);
 
     currentZoom = newZoom;
@@ -152,7 +155,11 @@ function applyZoomAtMousePosition(newZoom, oldZoom, mouseX, mouseY) {
     if (viewport) {
         const newPhysicalAtMouse = logicalToPhysical(logicalAtMouse);
         if (isHorizontalMode()) {
-            const rawLeft = newPhysicalAtMouse - mouseInViewportX;
+            // RTL: newPhysicalAtMouse 是从右边缘的距离，mousePhysicalOffset 也是从右边缘的
+            // scrollLeft = -(newPhysicalAtMouse - mousePhysicalOffset) 因为 RTL scrollLeft 为负
+            const mouseOffsetFromEdge = isHorizontalRTLMode()
+                ? viewport.clientWidth - mouseInViewportX : mouseInViewportX;
+            const rawLeft = newPhysicalAtMouse - mouseOffsetFromEdge;
             newScrollLeft = isHorizontalRTLMode() ? -rawLeft : rawLeft;
             if (hadCrossOverflowY) {
                 const cy = viewport.clientHeight / 2;
@@ -181,7 +188,9 @@ function applyZoomAtMousePosition(newZoom, oldZoom, mouseX, mouseY) {
     if (viewport) {
         const correctedPhysical = logicalToPhysical(logicalAtMouse);
         if (isHorizontalMode()) {
-            const rawLeft = correctedPhysical - mouseInViewportX;
+            const mouseOffsetFromEdge2 = isHorizontalRTLMode()
+                ? viewport.clientWidth - mouseInViewportX : mouseInViewportX;
+            const rawLeft = correctedPhysical - mouseOffsetFromEdge2;
             viewport.scrollLeft = isHorizontalRTLMode() ? -rawLeft : rawLeft;
         } else {
             viewport.scrollTop = correctedPhysical - mouseInViewportY;
