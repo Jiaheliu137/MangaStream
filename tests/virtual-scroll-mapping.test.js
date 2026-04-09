@@ -310,6 +310,60 @@ describe('Scroll position adjustment simulation', () => {
     });
 });
 
+describe('Bug: consecutive zoom with drag snapshot stale overwrite', () => {
+    // Simulates: left-click zoom → forceRenderVisibleItems adjusts scrollTop
+    // → updateDragSnapshot overwrites with pre-adjustment value
+    // → next zoom tick reads stale base → jump
+
+    it('using pre-adjustment value as next zoom base causes drift', () => {
+        const mouseInViewportY = 400; // mouse at viewport center
+        const clientSize = 800;
+
+        // --- Zoom tick 1: 1.0 → 1.1 ---
+        let zoom = 1.0;
+        let oldRange = { start: 49980, end: 50020 };
+        let scrollTop = logicalToPhysicalRaw(50000 * AVG_SIZE, zoom, TOTAL_SIZE, PREFIX_SUM, oldRange.start, oldRange.end) - clientSize / 2;
+
+        const newZoom1 = 1.1;
+        // Compute logicalAtMouse before zoom
+        const logicalAtMouse1 = physicalToLogicalRaw(scrollTop + mouseInViewportY, zoom, TOTAL_SIZE, PREFIX_SUM, oldRange.start, oldRange.end);
+        zoom = newZoom1;
+        // Compute new scrollTop (using old range + new zoom)
+        const newPhysicalAtMouse1 = logicalToPhysicalRaw(logicalAtMouse1, zoom, TOTAL_SIZE, PREFIX_SUM, oldRange.start, oldRange.end);
+        let preAdjustScrollTop = newPhysicalAtMouse1 - mouseInViewportY;
+
+        // Simulate renderVisibleItems adjustment (range shifts due to zoom)
+        const newRange1 = { start: 49982, end: 50018 };
+        const logicalBefore1 = physicalToLogicalRaw(preAdjustScrollTop, zoom, TOTAL_SIZE, PREFIX_SUM, oldRange.start, oldRange.end);
+        const physicalAfter1 = logicalToPhysicalRaw(logicalBefore1, zoom, TOTAL_SIZE, PREFIX_SUM, newRange1.start, newRange1.end);
+        const adjustment1 = physicalAfter1 - preAdjustScrollTop;
+        const actualScrollTop1 = preAdjustScrollTop + adjustment1;
+
+        // BUG SIMULATION: updateDragSnapshot uses preAdjustScrollTop (NOT actualScrollTop1)
+        const dragLogicalScrollTop_BUGGY = preAdjustScrollTop; // stale!
+        const dragLogicalScrollTop_FIXED = actualScrollTop1;   // correct
+
+        // --- Zoom tick 2: 1.1 → 1.21 ---
+        const newZoom2 = 1.21;
+
+        // With BUGGY base: logicalAtMouse is wrong
+        const logicalAtMouse2_buggy = physicalToLogicalRaw(
+            dragLogicalScrollTop_BUGGY + mouseInViewportY, zoom, TOTAL_SIZE, PREFIX_SUM, newRange1.start, newRange1.end);
+        // With FIXED base: logicalAtMouse is correct
+        const logicalAtMouse2_fixed = physicalToLogicalRaw(
+            dragLogicalScrollTop_FIXED + mouseInViewportY, zoom, TOTAL_SIZE, PREFIX_SUM, newRange1.start, newRange1.end);
+
+        // The mouse should point to the same logical position across zoom ticks
+        const drift_buggy = Math.abs(logicalAtMouse2_buggy - logicalAtMouse1);
+        const drift_fixed = Math.abs(logicalAtMouse2_fixed - logicalAtMouse1);
+
+        // Buggy version drifts significantly (this proves the bug exists)
+        assert(drift_buggy > 10, `buggy drift ${drift_buggy.toFixed(1)} should be > 10 (proves the bug)`);
+        // Fixed version has no drift
+        assert(drift_fixed < 1, `fixed drift ${drift_fixed.toFixed(1)} should be < 1`);
+    });
+});
+
 // ==================== 结果 ====================
 
 console.log(`\n${'='.repeat(50)}`);
